@@ -22,13 +22,15 @@ the first data collection, before the LLM labelling pipeline.
   exactly by `python -m cleaning.descriptive_stats labelling` /
   `... twitter` from the merged LLM labels (counts identical, shares equal up
   to rounding).
-* `bert_performance_twitter.csv`: the paper values are the reference.
-  `python -m cleaning.bert.evaluate` (saved checkpoints on their saved test
-  splits, mean over the 5 runs) reproduces accuracy, AUC and RMSE exactly for
-  obe, soc, dpp, hwm, minwage, swe, ubi. The AUC is computed from the
-  predicted labels (as in training; equals balanced accuracy); the ROC AUC
-  of the predicted probabilities is 0.86-0.98. The vac checkpoints come from
-  a later retraining (accuracy 0.794, RMSE 1.236). No checkpoints or logs
-  survive for gun / abo / clc / sxo (earlier pipeline).
+* `bert_performance_twitter.csv`: reproduced by `python -m cleaning.bert.evaluate`
+  (saved checkpoints on their saved test splits, mean over the 5 runs):
+  accuracy, AUC and RMSE exactly for obe, soc, dpp, hwm, minwage, swe, ubi.
+  The vac row is updated (2026-10-08) to the checkpoints that produced the
+  vac opinions (trained 2025-06-11, predictions 2025-06-17); the earlier
+  published row (0.7911, 0.7911, 1.2435) came from an earlier training.
+  The AUC is computed from the predicted labels (as in training; equals
+  balanced accuracy); the ROC AUC of the predicted probabilities is
+  0.86-0.98. No checkpoints or logs survive for gun / abo / clc / sxo
+  (earlier pipeline).
 * `bert_performance_weibo.csv`: the Weibo fine-tuning logs are on the PKU
   cluster; not rechecked.
