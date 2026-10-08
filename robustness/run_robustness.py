@@ -19,7 +19,7 @@ the task definitions live in plotting/figures.py (TASKS).
 Other robustness analyses in this folder:
     embedding_subspace_analysis.py   ngram-level semantic subspace diagnostics
     centroid_rank_check.py           SI rank / conditioning of the 9 topic centroids
-    missingness_sensitivity.py       effective dimensionality vs. missingness (to do)
+    missingness_sensitivity.py       PR / eRank vs. sample size, missingness, true dimensionality (simulation)
 
 Usage (from the repository root):
     python -m robustness.run_robustness              # every task above

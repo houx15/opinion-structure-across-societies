@@ -94,7 +94,8 @@ python scripts/import_legacy_data.py /path/to/opinion_correlation [--csr_root /p
    EVS without replacement, Great Britain only, LOWESS span, word2vec,
    GB vs. rest of Europe, curated / full-question survey keywords),
    `run_word2vec.sh`, `embedding_subspace_analysis`, `centroid_rank_check`,
-   `missingness_sensitivity` (to do).
+   `missingness_sensitivity` (simulation: PR / eRank under varying sample
+   size, missingness and true dimensionality).
 
 ## Outputs
 
