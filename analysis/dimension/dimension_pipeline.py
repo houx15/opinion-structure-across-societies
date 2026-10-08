@@ -96,9 +96,7 @@ from common.paths import CSR_DIR, DIMENSION_RESULTS_DIR, SURVEY_DIR, report_dir
 work_folder = DIMENSION_RESULTS_DIR
 os.makedirs(work_folder, exist_ok=True)
 
-# Survey stems; each reads data/survey/<stem>.dta. (The original pipeline
-# mapped "evs" to evs_resample2.dta, so the no-replacement robustness check
-# showed the resampled spectrum; every stem now reads its own file.)
+# Survey stems; each reads data/survey/<stem>.dta.
 SURVEY_STEMS = [
     "anes", "anes_media", "wvs", "wvs_media",
     "evs", "evs_media", "evs_resample2", "evs_media_resample2",

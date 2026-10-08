@@ -9,12 +9,10 @@ repository (see data/README.md):
     python scripts/import_legacy_data.py /path/to/opinion_correlation --csr_root /path/to/dimension/data
     python scripts/import_legacy_data.py OLD --dry_run   # list what would be copied
 
-Nothing is converted; files keep their names and formats. Not copied:
-* dimension results of the stems ``evs`` / ``evs_media``: the original
-  pipeline computed them from evs_resample2.dta / evs_media_resample2.dta
-  (identical to the *_resample2 results); rerun the survey dimension step to
-  get the no-replacement samples.
-* survey csr matrices (cheap to rebuild from data/survey/*.dta).
+Nothing is converted; files keep their names and formats. Dimension files
+are copied for the social-media sources only (their csr matrices and
+results are the expensive part); survey csr matrices and results are always
+rebuilt from data/survey/*.dta by the dimension step (seconds).
 """
 
 from __future__ import annotations
@@ -35,8 +33,8 @@ SURVEYS = [
 ]
 SOCIAL = ["twitter", "eutwitter", "entwitter", "eu_nentwitter", "weibo"]
 TWITTER_MODES = ["us", "eu", "en", "eu_nen"]
-# dimension results computed from the wrong input (see module docstring)
-SKIP_DIMENSION_STEMS = ("evs-", "evs_media-")
+# dimension stems of the social-media sources
+SOCIAL_STEMS = ["twitter-us", "twitter-eu", "twitter-en", "twitter-eu_nen", "weibo"]
 
 
 class Importer:
@@ -118,12 +116,11 @@ def main() -> None:
     imp.put(E / "topic_centroids", paths.EMBEDDING_DIR / "topic_centroids", required=False)
     imp.put(E / "word_overlap_rows.json", paths.EMBEDDING_DIR / "word_overlap_rows.json", required=False)
 
-    print("[dimension results]")
+    print("[dimension results, social media]")
     D = L / "dimension_data"
     for f in sorted(D.glob("*.json")) + sorted(D.glob("*-loadings-summary.txt")):
-        if f.name.startswith(SKIP_DIMENSION_STEMS) or f.name.startswith("twitter-none"):
-            continue
-        imp.put(f, paths.DIMENSION_RESULTS_DIR / f.name)
+        if any(f.name.startswith(stem + "-") for stem in SOCIAL_STEMS):
+            imp.put(f, paths.DIMENSION_RESULTS_DIR / f.name)
 
     print("[social-media csr matrices]")
     C = (args.csr_root or L / "dimension" / "data").resolve()
