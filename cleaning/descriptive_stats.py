@@ -292,12 +292,12 @@ def _write(sections: Dict[str, pd.DataFrame], notes: List[str], tag: str = "") -
     name = "descriptive_stats" + (f"_{tag}" if tag else "")
     out = report_dir(name)
     lines = [f"Descriptive statistics ({date_prefix()}{', ' + tag if tag else ''})", ""] + notes
-    for name, df in sections.items():
+    for section, df in sections.items():
         if df is None or df.empty:
-            lines += ["", f"== {name}: no input found"]
+            lines += ["", f"== {section}: no input found"]
             continue
-        df.to_csv(out / f"{name}.csv", index=False)
-        lines += ["", f"== {name}  ({display(out / (name + '.csv'))})", _table(df)]
+        df.to_csv(out / f"{section}.csv", index=False)
+        lines += ["", f"== {section}  ({display(out / (section + '.csv'))})", _table(df)]
     STATS_DIR.mkdir(parents=True, exist_ok=True)
     path = STATS_DIR / f"{date_prefix()}_{name}.txt"
     path.write_text("\n".join(lines) + "\n")

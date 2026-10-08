@@ -15,3 +15,19 @@ merged LLM labels and the BERT logs.
 `topic_id` is the code used in the data (Weibo topic id, Twitter topic code).
 Twitter abo / clc / gun / sxo are not in the LLM table: they were labelled in
 the first data collection, before the LLM labelling pipeline.
+
+## Checked against the recomputed statistics (2026-10-08)
+
+* `llm_consistency_weibo.csv`, `llm_consistency_twitter.csv`: reproduced
+  exactly by `python -m cleaning.descriptive_stats labelling` /
+  `... twitter` from the merged LLM labels (counts identical, shares equal up
+  to rounding).
+* `bert_performance_twitter.csv`: accuracy and RMSE are the means over the 5
+  fine-tuning runs in the BERT logs and reproduce for obe, soc, dpp, hwm,
+  minwage, swe, ubi. vac does not (logs: accuracy 0.794, RMSE 1.236): the vac
+  models were retrained afterwards (parameter search), which overwrote the
+  logs. The logs contain accuracy, precision and recall but no AUC; note that
+  the AUC of vac and obe (0.7911) equals the accuracy of vac. No logs survive
+  for gun / abo / clc / sxo (earlier pipeline).
+* `bert_performance_weibo.csv`: the Weibo fine-tuning logs are on the PKU
+  cluster; not rechecked.
