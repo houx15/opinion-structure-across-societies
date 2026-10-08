@@ -1,7 +1,7 @@
 """Copy precomputed inputs from the original working repository into data/.
 
 The original project kept its inputs in ``data/``, ``tf_idf/``,
-``embedding/``, ``dimension_data/`` and ``dimension/data/`` of one working
+``embedding/`` and ``dimension/data/`` of one working
 folder. This script copies them, unchanged, into the layout of this
 repository (see data/README.md):
 
@@ -9,10 +9,12 @@ repository (see data/README.md):
     python scripts/import_legacy_data.py /path/to/opinion_correlation --csr_root /path/to/dimension/data
     python scripts/import_legacy_data.py OLD --dry_run   # list what would be copied
 
-Nothing is converted; files keep their names and formats. Dimension files
-are copied for the social-media sources only (their csr matrices and
-results are the expensive part); survey csr matrices and results are always
-rebuilt from data/survey/*.dta by the dimension step (seconds).
+Nothing is converted; files keep their names and formats. For the
+dimension analysis only the social-media csr matrices are copied (building
+them needs the raw opinions); every csr-derived result (PR / eRank, loadings,
+bootstrap) and the survey matrices are recomputed by the dimension step.
+scripts/compare_dimension_results.py compares the recomputed values with an
+earlier results folder.
 """
 
 from __future__ import annotations
@@ -33,8 +35,6 @@ SURVEYS = [
 ]
 SOCIAL = ["twitter", "eutwitter", "entwitter", "eu_nentwitter", "weibo"]
 TWITTER_MODES = ["us", "eu", "en", "eu_nen"]
-# dimension stems of the social-media sources
-SOCIAL_STEMS = ["twitter-us", "twitter-eu", "twitter-en", "twitter-eu_nen", "weibo"]
 
 
 class Importer:
@@ -115,12 +115,6 @@ def main() -> None:
     imp.put(E / "backup_full_question", paths.EMBEDDING_DIR / "backup_full_question")
     imp.put(E / "topic_centroids", paths.EMBEDDING_DIR / "topic_centroids", required=False)
     imp.put(E / "word_overlap_rows.json", paths.EMBEDDING_DIR / "word_overlap_rows.json", required=False)
-
-    print("[dimension results, social media]")
-    D = L / "dimension_data"
-    for f in sorted(D.glob("*.json")) + sorted(D.glob("*-loadings-summary.txt")):
-        if any(f.name.startswith(stem + "-") for stem in SOCIAL_STEMS):
-            imp.put(f, paths.DIMENSION_RESULTS_DIR / f.name)
 
     print("[social-media csr matrices]")
     C = (args.csr_root or L / "dimension" / "data").resolve()
