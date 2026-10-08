@@ -23,10 +23,12 @@ the first data collection, before the LLM labelling pipeline.
   `... twitter` from the merged LLM labels (counts identical, shares equal up
   to rounding).
 * `bert_performance_twitter.csv`: the paper values are the reference.
-  Accuracy and RMSE equal the means over the 5 fine-tuning runs in the BERT
-  logs for obe, soc, dpp, hwm, minwage, swe, ubi. The vac logs come from a
-  later retraining and differ slightly (accuracy 0.794, RMSE 1.236). The logs
-  do not record AUC. No logs survive for gun / abo / clc / sxo (earlier
-  pipeline).
+  `python -m cleaning.bert.evaluate` (saved checkpoints on their saved test
+  splits, mean over the 5 runs) reproduces accuracy, AUC and RMSE exactly for
+  obe, soc, dpp, hwm, minwage, swe, ubi. The AUC is computed from the
+  predicted labels (as in training; equals balanced accuracy); the ROC AUC
+  of the predicted probabilities is 0.86-0.98. The vac checkpoints come from
+  a later retraining (accuracy 0.794, RMSE 1.236). No checkpoints or logs
+  survive for gun / abo / clc / sxo (earlier pipeline).
 * `bert_performance_weibo.csv`: the Weibo fine-tuning logs are on the PKU
   cluster; not rechecked.
