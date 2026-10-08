@@ -304,7 +304,7 @@ class BatchQwen:
         output_file_path = os.path.join(self.topic_working_dir, f"{batch_file}-output.jsonl")
         self.load_processed_ids(output_file_path)
 
-        with open("templog.txt", "a") as f:
+        with open(os.path.join(WEIBO_WORK_DIR, "templog.txt"), "a") as f:
             f.write(f"{self.topic_working_dir}, batch_file: {batch_file}, processed_ids: {len(self.processed_ids)}\n")
 
         line_count = 0
@@ -658,7 +658,7 @@ class TopicBatch(BatchQwen):
 
 class PopularTopic(BatchQwen):
     def __init__(self, topic_id):
-        super().__init__(topic_id, "popular_batch")
+        super().__init__(topic_id, os.path.join(WEIBO_WORK_DIR, "popular_batch"))
         self.load_statement_and_opinion(topic_id)
 
     def load_statement_and_opinion(self, topic_id):
@@ -746,7 +746,7 @@ class PopularTopic(BatchQwen):
 
 class LLMTopicLabelling(BatchQwen):
     def __init__(self, topic_id, task_name="deepseek", force_analysis=False):
-        super().__init__(topic_id, f"labelling_batch_{task_name}", task_name, force_analysis=force_analysis)
+        super().__init__(topic_id, os.path.join(WEIBO_WORK_DIR, f"labelling_batch_{task_name}"), task_name, force_analysis=force_analysis)
         self.load_statement_and_opinion(topic_id)
 
     def load_statement_and_opinion(self, topic_id):
@@ -879,12 +879,12 @@ class LLMTopicLabelling(BatchQwen):
         original_df.to_parquet(os.path.join(self.topic_working_dir, f"{self.topic_id}_llm_result.parquet"), engine="fastparquet")
 
         opinion_list = list(result_map.values())
-        with open("result.txt", "a") as f:
+        with open(os.path.join(WEIBO_WORK_DIR, "llm_consistency.csv"), "a") as f:
             f.write(f"{self.topic_id},50000,{len(result_map)},{len(processed_list)},{len(relevance_list)},{opinion_list.count(-2)},{opinion_list.count(-1)},{opinion_list.count(0)},{opinion_list.count(1)},{opinion_list.count(2)}\n")
 
 class LLMKeywordLabelling(BatchQwen):
     def __init__(self, topic_id, task_name="deepseek", force_analysis=False):
-        super().__init__(topic_id, f"keyword_batch_{task_name}", task_name, force_analysis=force_analysis)
+        super().__init__(topic_id, os.path.join(WEIBO_WORK_DIR, f"keyword_batch_{task_name}"), task_name, force_analysis=force_analysis)
         self.load_statement_and_opinion(topic_id)
 
     def load_statement_and_opinion(self, topic_id):
@@ -1016,7 +1016,7 @@ class LLMKeywordLabelling(BatchQwen):
         original_df.to_parquet(os.path.join(self.topic_working_dir, f"{self.topic_id}_llm_result.parquet"), engine="fastparquet")
 
         opinion_list = list(result_map.values())
-        with open("result.txt", "a") as f:
+        with open(os.path.join(WEIBO_WORK_DIR, "llm_consistency.csv"), "a") as f:
             f.write(f"{self.topic_id},50000,{len(result_map)},{len(processed_list)},{len(relevance_list)},{opinion_list.count(-2)},{opinion_list.count(-1)},{opinion_list.count(0)},{opinion_list.count(1)},{opinion_list.count(2)}\n")
 
 
@@ -1080,7 +1080,7 @@ def merge_llm_labelling(topic_id, models=["doubao", "deepseek"]):
     for value in [-2, -1, 0, 1, 2, -99]:
         stat_content.append(merged_labelling[merged_labelling["agreement_value"] == value].shape[0])
 
-    with open("result.txt", "a") as f:
+    with open(os.path.join(WEIBO_WORK_DIR, "llm_consistency.csv"), "a") as f:
         f.write(",".join([str(content) for content in stat_content]))
         f.write("\n")
     

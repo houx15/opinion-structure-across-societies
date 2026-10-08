@@ -49,6 +49,7 @@ TWITTER_PROFILE_DIR = "/path/to/data-twitter-profile"  # user profile dumps (loc
 ORIGINAL_TWEETS_DIR = "/path/to/more_tweets"        # raw keyword-crawled tweet archives; labeling_sample/, training_data/
 TWITTER_OPINION_DIR = "/path/to/opinion-correlation/twitter"  # merged-<topic>.parquet per region (twitter/<mode>/)
 TWITTER_WORD_COUNT_DIR = "/path/to/opinion-correlation/noun_counter"  # per-topic/year noun+verb counts
+TWITTER_WORK_DIR = "/path/to/twitter_work"          # LLM batch folders keyword_batch_<model>/, llm_consistency.csv
 LOCATION_DIR = "/path/to/bot-detection"             # location classification outputs, <mode>_user_ids.json
 
 # Weibo (PKU cluster in the original runs)

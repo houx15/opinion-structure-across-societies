@@ -31,6 +31,8 @@ TWITTER_DIR = cfg.TWITTER_DIR
 ORIGINAL_TWEETS_DIR = cfg.ORIGINAL_TWEETS_DIR
 OPINION_DIR = cfg.TWITTER_OPINION_DIR
 WORD_COUNT_DIR = cfg.TWITTER_WORD_COUNT_DIR
+# LLM batch folders (keyword_batch_<model>/), llm_consistency.csv
+TWITTER_WORK_DIR = cfg.TWITTER_WORK_DIR
 
 # Topic code -> folder of its tweets under TWITTER_DIR ("<folder>-opinion"
 # after BERT prediction). The paper uses abo, gun, clc, sxo, vac, soc, dpp,

@@ -10,8 +10,10 @@ Sections
   users per social-media source and year (data/dimension/results/*-loadings.json,
   plus per-topic coverage when the csr matrices are present), and the number of
   respondents/users behind each topic pair (data/correlation/network_analysis_*).
-* labelling: per topic, the LLM-labelled sample (10,000 posts per topic): share
-  of posts the models agree on (agreement_count of 3, 2, <2), share relevant,
+* labelling: LLM consistency per topic on the labelled sample (10,000 posts per
+  topic; same columns as llm_consistency.csv written by the merge step):
+  valid labels per model, share of posts with >= 2 and with all models
+  agreeing, share relevant,
   label distribution of the BERT training set (agreement_count >= 2) and
   pairwise agreement / Cohen's kappa between models.
   Input: <topic>_merged.parquet files (columns <model>_opinion, agreement_count,
@@ -140,8 +142,9 @@ def labelling_table(merged_dir: str, platform: str = "weibo") -> pd.DataFrame:
         row = {
             "platform": platform, "topic": topic, "labelled": len(df),
             "models": "+".join(m[: -len("_opinion")] for m in models),
-            "agree_all": float((agree == len(models)).mean()),
+            **{f"n_{m[: -len('_opinion')]}": int(df[m].notna().sum()) for m in models},
             "agree_2plus": float((agree >= 2).mean()),
+            "agree_all": float((agree == len(models)).mean()),
             "training_rows": len(train),
             "relevant_share": float((train["agreement_value"] != -99).mean()) if len(train) else np.nan,
         }

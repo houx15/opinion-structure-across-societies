@@ -3,6 +3,9 @@
 Inputs (LOCATION_DIR): eu_user_ids.json (eu_user_analysis.py user) and
 en_user_ids.json (eu_country_user_analysis.py gb). Output: eu_nen_user_ids.json.
 
+The original file was made with a one-off command that was not saved; this
+script reproduces it exactly (same 272,725 ids = 539,070 EU - 266,345 GB).
+
     python -m cleaning.twitter.location.make_eu_nen_user_ids
 """
 

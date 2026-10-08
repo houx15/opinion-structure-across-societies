@@ -106,6 +106,10 @@ paper, with its source files and calculation), `outputs/reports/<YYYYMMDD>_<anal
 
 ## Data availability
 
-Survey microdata are available from ANES, EVS and WVS under their terms of
-use. Raw tweets and Weibo posts cannot be redistributed; `data/reference/`
-holds the topic definitions, keywords and the survey codebook used here.
+* Survey microdata: from ANES, EVS and WVS under their terms of use.
+* Posts: raw tweets and Weibo posts (people's own words) are not shared.
+* Available from the authors on request: the regional user id lists (Twitter
+  users located in the US / Europe / Great Britain) and the user x topic
+  opinion matrices (cleaned opinions, csr matrices).
+* In this repository: `data/reference/` (topic definitions, opinion scales,
+  keywords, survey codebook) and the code for every step.

@@ -205,7 +205,7 @@ class BatchQwen:
         )
         self.load_processed_ids(output_file_path)
 
-        with open("templog.txt", "a") as f:
+        with open(os.path.join(TWITTER_WORK_DIR, "templog.txt"), "a") as f:
             f.write(
                 f"{self.topic_working_dir}, batch_file: {batch_file}, processed_ids: {len(self.processed_ids)}\n"
             )
@@ -395,7 +395,7 @@ class LLMKeywordLabelling(BatchQwen):
     def __init__(self, topic_id, task_name="deepseek", force_analysis=False):
         super().__init__(
             topic_id,
-            f"keyword_batch_{task_name}",
+            os.path.join(TWITTER_WORK_DIR, f"keyword_batch_{task_name}"),
             task_name,
             force_analysis=force_analysis,
         )
@@ -521,17 +521,20 @@ Make sure your answer is from the list above. Provide ONLY the answer directly, 
         )
 
         opinion_list = list(result_map.values())
-        with open("result.txt", "a") as f:
+        with open(os.path.join(TWITTER_WORK_DIR, "llm_consistency.csv"), "a") as f:
             f.write(
                 f"{self.topic_id},{self.task_name},{original_length},{len(result_map)},{len(processed_list)},{len(relevance_list)},{opinion_list.count(-2)},{opinion_list.count(-1)},{opinion_list.count(0)},{opinion_list.count(1)},{opinion_list.count(2)}\n"
             )
 
 
-def merge_llm_labelling(topic_id, models=["doubao", "deepseek"]):
+def merge_llm_labelling(topic_id, models=["openai", "qwen", "deepseek"]):
+    """Merge the models' labels; majority label and agreement count per tweet.
+
+    Appends one row per topic to <TWITTER_WORK_DIR>/llm_consistency.csv:
+    topic, labelled, valid labels per model, share with >= 2 models agreeing,
+    share with all 3 agreeing, counts of the agreed label -2, -1, 0, 1, 2, -99.
     """
-    合并doubao和deepseek的标注结果
-    """
-    keyword_file_prefix = "keyword_batch"
+    keyword_file_prefix = os.path.join(TWITTER_WORK_DIR, "keyword_batch")
 
     all_model_labellings = []
 
@@ -605,7 +608,7 @@ def merge_llm_labelling(topic_id, models=["doubao", "deepseek"]):
             merged_labelling[merged_labelling["agreement_value"] == value].shape[0]
         )
 
-    with open("result.txt", "a") as f:
+    with open(os.path.join(TWITTER_WORK_DIR, "llm_consistency.csv"), "a") as f:
         f.write(",".join([str(content) for content in stat_content]))
         f.write("\n")
 

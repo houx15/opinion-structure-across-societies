@@ -52,6 +52,7 @@ python -m cleaning.twitter.location.llm_location_eu_country
 python -m cleaning.twitter.location.eu_country_user_analysis merge
 python -m cleaning.twitter.location.eu_country_user_analysis gb      # -> en_user_ids.json
 python -m cleaning.twitter.location.make_eu_nen_user_ids             # Europe minus GB -> eu_nen_user_ids.json
+#   (originally a one-off command; this script gives the identical id set)
 ```
 
 **2. Opinions** (`twitter/opinion/`, `bert/`).
@@ -62,7 +63,8 @@ python -m cleaning.twitter.opinion.original_tweet_handler all_clean
 python -m cleaning.twitter.opinion.original_tweet_handler sample
 # LLM labels on the sample (OpenAI-compatible batch APIs; qwen = qwq-plus reasoning model)
 python -m cleaning.twitter.opinion.llm_labelling label --model openai     # also: qwen, deepseek
-python -m cleaning.twitter.opinion.llm_labelling merge                    # majority label; agreement_count
+python -m cleaning.twitter.opinion.llm_labelling merge                    # majority label; agreement_count;
+#   appends the LLM consistency table <TWITTER_WORK_DIR>/llm_consistency.csv
 #   -> <ORIGINAL_TWEETS_DIR>/training_data/<topic>_merged.parquet (rows with agreement_count >= 2 train BERT)
 # BERT: relevance (binary) and opinion (regression), then predict every tweet
 python -m cleaning.bert.main --src_type tweet --topic vac --task_type binary --base_model bert-base-cased
@@ -87,6 +89,7 @@ python -m cleaning.weibo.keyword_text_process 2020 sample                 # 10,0
 # LLM labels (openai = gpt-4o-mini, qwen, deepseek) and their majority label
 python -m cleaning.weibo.llm_labelling label 10 --model deepseek
 python -m cleaning.weibo.llm_labelling merge                              # -> BERT_DATASET_DIR/<topic>_merged.parquet
+#   (+ the LLM consistency table <WEIBO_WORK_DIR>/llm_consistency.csv)
 # BERT (chinese-roberta-wwm-ext-large): relevance and opinion, then predict every post
 python -m cleaning.bert.main --src_type weibo --topic 10 --task_type binary
 python -m cleaning.bert.main --src_type weibo --topic 10 --task_type regression
@@ -106,7 +109,8 @@ python -m cleaning.descriptive_stats all --weibo_merged_dir PATH --twitter_merge
 ```
 
 Respondents per survey and topic, users per social-media source and year,
-sample sizes behind each topic pair, LLM labelling agreement (share of posts
-with 3/3 and >= 2/3 models agreeing, Cohen's kappa per model pair, label
-distribution of the BERT training data) and BERT evaluation metrics.
+sample sizes behind each topic pair, the LLM consistency table (labelled posts,
+valid labels per model, share with >= 2 and with all 3 models agreeing, agreed
+label counts; recomputed from the merged files, plus agreement and Cohen's
+kappa per model pair) and BERT evaluation metrics.
 Sections whose inputs are missing are skipped.
