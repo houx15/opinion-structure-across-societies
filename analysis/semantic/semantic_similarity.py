@@ -5,6 +5,7 @@ import pickle
 import numpy as np
 import pandas as pd
 
+from collections import Counter
 from itertools import combinations
 from tqdm import tqdm
 
@@ -276,26 +277,59 @@ def survey_topic_keyword_counts(region, keywords="selected"):
     return out
 
 
-def _keyword_embedding(dse, word):
+# Function words skipped when a phrase vector is composed from its words.
+PHRASE_STOP_WORDS = {"a", "an", "the", "of", "to", "for", "in", "on", "and", "or",
+                     "towards", "toward", "with", "by", "at", "from"}
+
+
+def _keyword_embedding_source(dse, word):
+    """(vector, source) of one survey keyword; source is word / phrase / composed / None.
+
+    OpenAI embeddings cover any text. For word2vec, a multi-word keyword uses
+    the model's phrase token (death_penalty) when it exists, otherwise the
+    mean vector of its content words, so the keyword set is the same for both
+    embedding models; it still counts as one keyword.
+    """
     emb = dse.get_embedding(word)
-    if emb is None and " " in word and isinstance(dse, DynamicDictionaryEmbedding):
-        emb = dse.get_embedding(word.replace(" ", "_"))     # word2vec phrase tokens
-    return emb
+    if emb is not None:
+        return emb, "word"
+    if " " not in word or not isinstance(dse, DynamicDictionaryEmbedding):
+        return None, None
+    emb = dse.get_embedding(word.replace(" ", "_"))       # word2vec phrase token
+    if emb is not None:
+        return emb, "phrase"
+    parts = [t for t in word.split() if t.lower() not in PHRASE_STOP_WORDS]
+    vecs = [v for v in (dse.get_embedding(t) for t in parts) if v is not None]
+    if not vecs:
+        return None, None
+    return np.mean(np.asarray(vecs, dtype=float), axis=0), "composed"
+
+
+def _keyword_embedding(dse, word):
+    return _keyword_embedding_source(dse, word)[0]
 
 
 def survey_topic_centroids(region, dse, keywords="selected"):
-    """Equal-weight keyword centroid per survey topic."""
+    """Equal-weight keyword centroid per survey topic (prints keyword coverage)."""
     centroids = {}
+    sources = Counter()
+    missing = []
     for topic, kw in survey_topic_keyword_counts(region, keywords).items():
         embeddings, weights = [], []
         for word, count in zip(kw["word"], kw["count"]):
-            emb = _keyword_embedding(dse, word)
+            emb, source = _keyword_embedding_source(dse, word)
+            sources[source] += 1
             if emb is None:
+                missing.append(f"{topic}:{word}")
                 continue
             embeddings.append(emb)
             weights.append(count)
         if embeddings:
             centroids[topic] = get_weighted_keywords_centroid(embeddings, weights)
+    total = sum(sources.values())
+    print(f"[{region}/{keywords}] keyword vectors: {total - sources[None]}/{total} "
+          f"(word {sources['word']}, phrase token {sources['phrase']}, "
+          f"composed {sources['composed']}); missing: {missing or 'none'}")
     return centroids
 
 
