@@ -1,0 +1,18 @@
+# Cleaning stage (clusters). BERT fine-tuning / prediction has its own pinned
+# GPU environment: cleaning/bert/requirements.txt
+pandas
+numpy
+pyarrow
+fastparquet
+fire
+tqdm
+openai            # LLM labelling + location classification (OpenAI-compatible batch API)
+jsonlines
+scikit-learn      # labelling evaluation
+matplotlib
+seaborn
+geotext           # location strings -> countries / cities
+pyahocorasick     # Weibo keyword matching
+py7zr             # zipped daily Weibo dumps
+jieba             # Weibo POS tagging (TF-IDF)
+spacy             # Twitter POS tagging (TF-IDF); python -m spacy download en_core_web_sm

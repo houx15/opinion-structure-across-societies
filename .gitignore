@@ -1,0 +1,25 @@
+# --- secrets / local config -------------------------------------------------
+config/config.py
+.env
+
+# --- data and generated outputs (see data/README.md, outputs/README.md) ------
+data/**
+!data/README.md
+!data/reference/
+!data/reference/**
+outputs/**
+!outputs/README.md
+
+# --- python ------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+*.egg-info/
+.ipynb_checkpoints/
+
+# --- cluster logs ------------------------------------------------------------
+slurm-*.out
+logs/
+
+.DS_Store
