@@ -567,6 +567,9 @@ def transform_data(surveys=True, social=False) -> None:
                 )
             )
             input_file = original_data_map[survey_data_name]
+            if not os.path.exists(input_file):
+                print(f"[SKIP] {survey_data_name}: {input_file} not found")
+                continue
             output_dir = csr_folder(survey_data_name)
             os.makedirs(output_dir, exist_ok=True)
             convert_and_save_survey_data(input_file, output_dir, restricted_topics)
