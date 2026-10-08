@@ -5,7 +5,7 @@
 #
 # Needs the two word2vec files (config: WORD2VEC_ENGLISH / WORD2VEC_CHINESE)
 # and gensim:  uv sync --extra word2vec
-# Run from the repository root.
+# Run from the repository root (on a cluster: sbatch robustness/run_word2vec.slurm).
 set -euo pipefail
 
 # social media: top-10 TF-IDF words per topic (same as the main analysis)
