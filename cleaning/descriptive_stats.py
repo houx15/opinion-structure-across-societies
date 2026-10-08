@@ -19,10 +19,20 @@ Sections
   Input: <topic>_merged.parquet files (columns <model>_opinion, agreement_count,
   agreement_value; -99 = irrelevant).
 * bert: evaluation metrics parsed from the fine-tuning logs
-  (<log_dir>/<topic>/run-<i><task>/log.txt, lines "metric: value").
+  (<log_dir>/<topic>/run-<i><task>/log.txt, lines "metric: value"), per run
+  and as mean / sd over the repeated runs.
+* location (Twitter): rule-based classification of profile location strings,
+  LLM verdicts on the strings the rules left undecided, size of each regional
+  user id list, users per European country (LOCATION_DIR).
+* twitter_users: users with an opinion and their relevant tweets per topic and
+  region, overall and per year (TWITTER_OPINION_DIR/merged-<topic>.parquet
+  filtered by the regional user id lists).
 
-Writes outputs/stats/<date>_descriptive_stats.txt and the tables to
-outputs/reports/<date>_descriptive_stats/.
+Run where the inputs are: Twitter sections on the Twitter cluster, Weibo
+labelling where the Weibo merged files are; ``--tag`` keeps the reports apart.
+
+Writes outputs/stats/<date>_descriptive_stats[_<tag>].txt and the tables to
+outputs/reports/<date>_descriptive_stats[_<tag>]/.
 """
 
 from __future__ import annotations
@@ -150,6 +160,7 @@ def labelling_table(merged_dir: str, platform: str = "weibo") -> pd.DataFrame:
         }
         for v in (-2, -1, 0, 1, 2):
             row[f"label_{v}"] = int((train["agreement_value"] == v).sum())
+        row["irrelevant"] = int((train["agreement_value"] == -99).sum())
         for i, a in enumerate(models):
             for b in models[i + 1:]:
                 pa, pb = df[a].fillna(-99), df[b].fillna(-99)
@@ -187,12 +198,100 @@ def bert_table(log_dir: str) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def bert_summary_table(runs: pd.DataFrame) -> pd.DataFrame:
+    """Mean and sd of each metric over the repeated runs of a topic / task."""
+    if runs.empty:
+        return runs
+    metrics = [c for c in runs.columns if c not in ("topic", "run", "task")]
+    g = runs.groupby(["topic", "task"])
+    out = g.size().rename("runs").to_frame()
+    for m in metrics:
+        out[f"{m}_mean"] = g[m].mean()
+        out[f"{m}_sd"] = g[m].std()
+    return out.reset_index().dropna(axis=1, how="all")
+
+
+# -- Twitter location and users -----------------------------------------------------------
+
+REGION_ID_FILES = {"us": "us_user_ids.json", "eu": "eu_user_ids.json",
+                   "en": "en_user_ids.json", "eu_nen": "eu_nen_user_ids.json"}
+TWITTER_TOPICS = ["abo", "gun", "clc", "sxo", "vac", "soc", "dpp", "minwage", "ubi", "swe"]
+
+
+def _load_ids(location_dir: Path, mode: str) -> set:
+    with open(location_dir / REGION_ID_FILES[mode]) as f:
+        return set(int(x) for x in json.load(f))
+
+
+def location_tables(location_dir: Optional[str] = None,
+                    llm_dirs: Optional[Dict[str, str]] = None) -> Dict[str, pd.DataFrame]:
+    """Location-filtering counts; llm_dirs maps step (us / eu / eu_country) to its LLM batch folder."""
+    d = Path(location_dir or cfg.LOCATION_DIR)
+    llm_dirs = llm_dirs or {step: str(d / f"llm_location_{step}") for step in ("us", "eu", "eu_country")}
+    rows = []
+    for step, f in (("us", "non_us_user_analysis.json"), ("eu", "eu_location_classified.json")):
+        if (d / f).exists():
+            for label, strings in json.load(open(d / f)).items():
+                rows.append({"step": step, "class": label, "location_strings": len(strings)})
+    classes = pd.DataFrame(rows)
+
+    rows = []
+    for step, folder in llm_dirs.items():
+        path = Path(folder) / "llm_result.parquet"
+        if not path.exists():
+            continue
+        r = pd.read_parquet(path)["result"].astype(str).str.replace(r"\.0$", "", regex=True)
+        meaning = {"0": "cannot tell", "1": "inside", "2": "outside"} if step != "eu_country" else {}
+        for value, n in r.value_counts().items():
+            rows.append({"step": step, "verdict": meaning.get(value, value), "location_strings": int(n),
+                         "share": n / len(r)})
+    llm = pd.DataFrame(rows)
+
+    users = pd.DataFrame([
+        {"region": mode, "file": f, "users": len(json.load(open(d / f)))}
+        for mode, f in REGION_ID_FILES.items() if (d / f).exists()
+    ])
+    country_csv = d / "eu_country_user_count_in_dataset.csv"
+    countries = pd.read_csv(country_csv) if country_csv.exists() else pd.DataFrame()
+    return {"location_string_classes": classes, "location_llm_verdicts": llm,
+            "location_user_lists": users, "location_users_by_country": countries}
+
+
+def twitter_user_tables(opinion_dir: Optional[str] = None,
+                        location_dir: Optional[str] = None) -> Dict[str, pd.DataFrame]:
+    """Users with an opinion and relevant tweets per topic x region (x year)."""
+    opinion_dir = Path(opinion_dir or cfg.TWITTER_OPINION_DIR)
+    location_dir = Path(location_dir or cfg.LOCATION_DIR)
+    ids = {m: _load_ids(location_dir, m) for m in REGION_ID_FILES if (location_dir / REGION_ID_FILES[m]).exists()}
+    total, yearly = [], []
+    for topic in TWITTER_TOPICS:
+        path = opinion_dir / f"merged-{topic}.parquet"
+        if not path.exists():
+            continue
+        df = pd.read_parquet(path)
+        df.index = pd.to_numeric(df.index, errors="coerce")
+        years = sorted(c for c in df.columns if c.isdigit())
+        for mode, keep in ids.items():
+            sub_df = df[df.index.isin(keep)]
+            tweets = sub_df[[f"{y}_count" for y in years]].sum().sum() if years else np.nan
+            total.append({"topic": topic, "region": mode,
+                          "users": int(sub_df["average"].notna().sum()),
+                          "relevant_tweets": int(tweets), "years": f"{years[0]}-{years[-1]}" if years else ""})
+            for y in years:
+                yearly.append({"topic": topic, "region": mode, "year": int(y),
+                               "users": int(sub_df[y].notna().sum()),
+                               "relevant_tweets": int(sub_df[f"{y}_count"].sum())})
+    return {"twitter_users_by_topic": pd.DataFrame(total),
+            "twitter_users_by_topic_year": pd.DataFrame(yearly)}
+
+
 # -- driver ---------------------------------------------------------------------------
 
 
-def _write(sections: Dict[str, pd.DataFrame], notes: List[str]) -> Path:
-    out = report_dir("descriptive_stats")
-    lines = [f"Descriptive statistics ({date_prefix()})", ""] + notes
+def _write(sections: Dict[str, pd.DataFrame], notes: List[str], tag: str = "") -> Path:
+    name = "descriptive_stats" + (f"_{tag}" if tag else "")
+    out = report_dir(name)
+    lines = [f"Descriptive statistics ({date_prefix()}{', ' + tag if tag else ''})", ""] + notes
     for name, df in sections.items():
         if df is None or df.empty:
             lines += ["", f"== {name}: no input found"]
@@ -200,7 +299,7 @@ def _write(sections: Dict[str, pd.DataFrame], notes: List[str]) -> Path:
         df.to_csv(out / f"{name}.csv", index=False)
         lines += ["", f"== {name}  ({display(out / (name + '.csv'))})", _table(df)]
     STATS_DIR.mkdir(parents=True, exist_ok=True)
-    path = STATS_DIR / f"{date_prefix()}_descriptive_stats.txt"
+    path = STATS_DIR / f"{date_prefix()}_{name}.txt"
     path.write_text("\n".join(lines) + "\n")
     print("\n".join(lines))
     print(f"\nwrote {path}")
@@ -221,16 +320,38 @@ def datasets() -> Path:
     }, [f"Main sources: {', '.join(MAIN_SOURCES)}."])
 
 
-def labelling(merged_dir: str, platform: str = "weibo") -> Path:
-    return _write({f"llm_labelling_{platform}": labelling_table(merged_dir, platform)}, [])
+def labelling(merged_dir: str, platform: str = "weibo", tag: str = "") -> Path:
+    return _write({f"llm_labelling_{platform}": labelling_table(merged_dir, platform)}, [], tag or platform)
 
 
-def bert(log_dir: Optional[str] = None) -> Path:
-    return _write({"bert_evaluation": bert_table(log_dir or cfg.BERT_LOG_DIR)}, [])
+def bert(log_dir: Optional[str] = None, tag: str = "") -> Path:
+    runs = bert_table(log_dir or cfg.BERT_LOG_DIR)
+    return _write({"bert_evaluation": runs, "bert_evaluation_summary": bert_summary_table(runs)}, [], tag)
+
+
+def twitter(location_dir: Optional[str] = None, opinion_dir: Optional[str] = None,
+            merged_dir: Optional[str] = None, bert_log_dir: Optional[str] = None,
+            llm_us: Optional[str] = None, llm_eu: Optional[str] = None,
+            llm_eu_country: Optional[str] = None, tag: str = "twitter") -> Path:
+    """Twitter cleaning statistics: location filtering, users, LLM labelling, BERT."""
+    llm_dirs = None
+    if llm_us or llm_eu or llm_eu_country:
+        llm_dirs = {k: v for k, v in (("us", llm_us), ("eu", llm_eu), ("eu_country", llm_eu_country)) if v}
+    sections = dict(location_tables(location_dir, llm_dirs))
+    sections.update(twitter_user_tables(opinion_dir, location_dir))
+    merged_dir = merged_dir or cfg.BERT_DATASET_DIR
+    if merged_dir and Path(merged_dir).is_dir():
+        sections["llm_labelling_twitter"] = labelling_table(merged_dir, "twitter")
+    log_dir = bert_log_dir or cfg.BERT_LOG_DIR
+    if log_dir and Path(log_dir).is_dir():
+        runs = bert_table(log_dir)
+        sections["bert_evaluation"] = runs
+        sections["bert_evaluation_summary"] = bert_summary_table(runs)
+    return _write(sections, [], tag)
 
 
 def all(weibo_merged_dir: Optional[str] = None, twitter_merged_dir: Optional[str] = None,
-        bert_log_dir: Optional[str] = None) -> Path:
+        bert_log_dir: Optional[str] = None, tag: str = "") -> Path:
     """Every section whose input exists (directories default to config)."""
     surveys = survey_table()
     sections = {
@@ -249,9 +370,12 @@ def all(weibo_merged_dir: Optional[str] = None, twitter_merged_dir: Optional[str
             sections[f"llm_labelling_{platform}"] = labelling_table(d, platform)
     log_dir = bert_log_dir or cfg.BERT_LOG_DIR
     if log_dir and Path(log_dir).is_dir():
-        sections["bert_evaluation"] = bert_table(log_dir)
-    return _write(sections, [f"Main sources: {', '.join(MAIN_SOURCES)}."])
+        runs = bert_table(log_dir)
+        sections["bert_evaluation"] = runs
+        sections["bert_evaluation_summary"] = bert_summary_table(runs)
+    return _write(sections, [f"Main sources: {', '.join(MAIN_SOURCES)}."], tag)
 
 
 if __name__ == "__main__":
-    fire.Fire({"all": all, "datasets": datasets, "labelling": labelling, "bert": bert})
+    fire.Fire({"all": all, "datasets": datasets, "labelling": labelling, "bert": bert,
+               "twitter": twitter})

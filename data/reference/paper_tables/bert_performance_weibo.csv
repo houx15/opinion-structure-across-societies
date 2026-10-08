@@ -1,0 +1,16 @@
+topic_id,topic,relevance_accuracy,relevance_auc,opinion_rmse
+0,United States,0.8645,0.8657,0.4768
+1,Japan,0.8369,0.8357,0.4848
+2,Russia,0.8304,0.8220,0.5035
+4,Medical Professionals,0.8972,0.8194,0.6348
+5,Traditional Chinese Medicine,0.8758,0.8700,0.7392
+6,Healthcare System,0.8438,0.8440,0.5801
+7,Corruption,0.9082,0.8683,0.4502
+9,Gender Equality,0.8481,0.8470,0.4949
+10,LGBT,0.8626,0.8626,1.0355
+11,Marriage,0.9008,0.8277,1.0662
+12,Fertility,0.8955,0.8520,0.9367
+13,Environment,0.9023,0.8792,0.5048
+14,Employment,0.9282,0.8547,0.5170
+15,Economy,0.8856,0.8502,0.4748
+16,COVID Policies,0.8707,0.8684,0.6137
