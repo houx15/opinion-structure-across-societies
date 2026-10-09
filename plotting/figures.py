@@ -2423,8 +2423,8 @@ TASKS: List[Dict] = [
         "figures": [2, 3],
     },
     {
-        # Supplement: main data with LOWESS curves instead of the main
-        # figure's linear fits, showing the offline CN/EU curvature.
+        # Supplement / robustness: main data with LOWESS curves (span 0.4)
+        # instead of the main figure's linear fits (nonlinear alternative).
         "name": "supp_lowess",
         "us_survey": "anes", "cn_survey": "wvs", "eu_survey": "evs_resample2",
         "eutwitter_src": "eutwitter", "embedding_type": "gpt",
@@ -2448,18 +2448,6 @@ TASKS: List[Dict] = [
         "us_survey": "anes", "cn_survey": "wvs", "eu_survey": "en_evs",
         "eutwitter_src": "entwitter", "embedding_type": "gpt",
         "figures": [2, 3],
-    },
-    {
-        "name": "robust_4_loess_0.3",
-        "us_survey": "anes", "cn_survey": "wvs", "eu_survey": "evs_resample2",
-        "eutwitter_src": "eutwitter", "embedding_type": "gpt",
-        "figures": [2], "loess_frac": 0.3, "trend": "lowess",
-    },
-    {
-        "name": "robust_4_loess_0.5",
-        "us_survey": "anes", "cn_survey": "wvs", "eu_survey": "evs_resample2",
-        "eutwitter_src": "eutwitter", "embedding_type": "gpt",
-        "figures": [2], "loess_frac": 0.5, "trend": "lowess",
     },
     {
         "name": "robust_5_word2vec",

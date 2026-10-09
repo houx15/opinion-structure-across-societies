@@ -965,8 +965,8 @@ def test_make_fig3_dash_plot_legend_has_no_medium_handles(tmp_figure_folder):
 # -- orchestration -----------------------------------------------------------
 
 
-def test_task_list_covers_main_plus_seven_robustness_variants():
-    """v4 sweep: main + media + noputback + england + 2*loess + word2vec + 4-region eu_nen."""
+def test_task_list_covers_main_plus_robustness_variants():
+    """main + LOWESS supplement + media + noputback + england + word2vec + 4-region eu_nen."""
     import plotting.figures as v4
 
     names = [t["name"] for t in v4.TASKS]
@@ -974,18 +974,17 @@ def test_task_list_covers_main_plus_seven_robustness_variants():
     assert "robust_1_media" in names
     assert "robust_2_noputback" in names
     assert "robust_3_england" in names
-    assert "robust_4_loess_0.3" in names
-    assert "robust_4_loess_0.5" in names
+    assert "supp_lowess" in names
     assert "robust_5_word2vec" in names
     assert "robust_6_eu_nen" in names
 
 
 def test_run_task_loess_variant_only_produces_fig2(tmp_figure_folder):
-    """The LOESS-frac robustness check should regenerate Fig 2 only."""
+    """The LOWESS (nonlinear) alternative should regenerate Fig 2 only."""
     import plotting.figures as v4
 
     paths = v4.run_task(
-        "robust_4_loess_0.3",
+        "supp_lowess",
         figure_folder=str(tmp_figure_folder),
         date_prefix="20260513",
         n_bootstrap=20,
@@ -993,7 +992,7 @@ def test_run_task_loess_variant_only_produces_fig2(tmp_figure_folder):
     assert list(paths) == [2]
     p = Path(paths[2])
     assert p.exists()
-    assert p.name == "20260513_robust_4_loess_0.3_results_fig2.pdf"
+    assert p.name == "20260513_supp_lowess_results_fig2.pdf"
 
 
 # -- v4 N-region (4-region eu_nen variant) ----------------------------------

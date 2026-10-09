@@ -10,7 +10,6 @@ the task definitions live in plotting/figures.py (TASKS).
 | robust_1_media             | survey respondents who use social media                | anes_media, wvs_media, evs_media_resample2       |
 | robust_2_noputback         | EVS resampled without replacement                      | evs (instead of evs_resample2)                   |
 | robust_3_england           | Great Britain only (EVS + Twitter users located in GB) | en_evs, entwitter                                |
-| robust_4_loess_0.3 / 0.5   | LOWESS span                                            | main inputs                                      |
 | robust_5_word2vec          | word2vec instead of OpenAI embeddings                  | dictionary similarities (run_word2vec.sh)        |
 | robust_6_eu_nen            | Europe split into GB and the rest of Europe            | en_evs + entwitter, eu_nen_evs + eu_nentwitter   |
 | robust_7_survey_curated    | hand-curated survey keywords                           | similarity_curated column                        |
