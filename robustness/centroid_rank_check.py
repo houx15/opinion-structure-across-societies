@@ -213,8 +213,8 @@ def plot(spec: pd.DataFrame, sweep: pd.DataFrame, pdf: Path) -> None:
     ax.set_title("Per-topic gap from the other eight", fontsize=12)
 
     for ax, letter in zip(axes, "abc"):
-        ax.text(-0.14, 1.06, f"({letter})", transform=ax.transAxes,
-                fontsize=13, fontweight="bold", va="bottom", ha="left")
+        ax.text(-0.14, 1.06, letter.upper(), transform=ax.transAxes,
+                fontsize=14, fontweight="bold", fontstyle="italic", va="bottom", ha="left")
         ax.spines[["top", "right"]].set_visible(False)
         ax.grid(axis="y", color="#e6e6e6", linewidth=0.8)
         ax.set_axisbelow(True)

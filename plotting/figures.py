@@ -1198,19 +1198,21 @@ class Plotter:
     _MEDIA_DASH_PATTERN = (0, (4, 2))
 
     def _label_panel(self, ax, letter: str, *, x: float = -0.12, y: float = 1.06) -> None:
-        """Drop a bold lowercase '(a)' style panel label at the top-left.
+        """Drop an uppercase italic panel label ('A') at the top-left.
 
-        PNAS convention. Position is in axes coordinates so it survives
-        bbox_inches='tight' on save. 3D axes need ``text2D`` because their
-        ``text`` signature requires a z-coordinate.
+        PNAS submission style (callers pass lowercase letters). Position is
+        in axes coordinates so it survives bbox_inches='tight' on save. 3D
+        axes need ``text2D`` because their ``text`` signature requires a
+        z-coordinate.
         """
         text_kwargs = dict(
-            fontsize=13, fontweight="bold", va="bottom", ha="left",
+            fontsize=14, fontweight="bold", fontstyle="italic", va="bottom", ha="left",
         )
+        label = letter.upper()
         if getattr(ax, "name", "") == "3d":
-            ax.text2D(x, y, f"({letter})", transform=ax.transAxes, **text_kwargs)
+            ax.text2D(x, y, label, transform=ax.transAxes, **text_kwargs)
         else:
-            ax.text(x, y, f"({letter})", transform=ax.transAxes, **text_kwargs)
+            ax.text(x, y, label, transform=ax.transAxes, **text_kwargs)
 
     def _decimals_for(self, src: str) -> int:
         """Decimal places for |r| labels — 3 across offline and online for
@@ -2330,7 +2332,8 @@ class Plotter:
     )
 
     def _spectral_dash_panels(self, pr_ax, erank_ax) -> None:
-        """Normalized PR and eRank by society and medium (Fig 3 b, c).
+        """PR and eRank (effective number of dimensions, out of K topics) by
+        society and medium (Fig 3 B, C).
 
         Each panel has its own y-range, fitted to that metric's values and
         intervals: eRank >= PR by construction (exponentials of the order-1
@@ -2339,7 +2342,7 @@ class Plotter:
         """
         k = len(RESTRICTED_TOPICS[self.regions[0].survey])
         means = {
-            metric: self._spectral_means(metric, normalize=True)
+            metric: self._spectral_means(metric, normalize=False)
             for metric in ("PR", "eRank")
         }
         # Bootstrap intervals from spectral_bootstrap.py, where available.
@@ -2349,7 +2352,7 @@ class Plotter:
         }
         intervals = {
             metric: {
-                src: (b[f"{metric}_lo"] / k, b[f"{metric}_hi"] / k)
+                src: (b[f"{metric}_lo"], b[f"{metric}_hi"])
                 for src, b in boots.items() if b is not None
             }
             for metric in means
@@ -2360,16 +2363,16 @@ class Plotter:
             ]
             lo, hi = min(values), max(values)
             pad = 0.08 * (hi - lo)
-            return (np.floor((lo - pad) / 0.05) * 0.05, np.ceil((hi + pad) / 0.05) * 0.05)
+            return (np.floor((lo - pad) / 0.5) * 0.5, np.ceil((hi + pad) / 0.5) * 0.5)
 
         for ax, metric, y_label, title in (
-            (pr_ax, "PR", f"PR / K   (K = {k} topics)", "Normalized participation ratio"),
-            (erank_ax, "eRank", f"eRank / K   (K = {k} topics)", "Normalized exponential rank"),
+            (pr_ax, "PR", f"Effective dimensions (of K = {k})", "Participation ratio"),
+            (erank_ax, "eRank", f"Effective dimensions (of K = {k})", "Exponential rank"),
         ):
             self._aligned_dash_plot(
                 ax, means[metric],
                 y_label=y_label, title=title, ylim=metric_ylim(metric),
-                decimals_fn=lambda src: 3, invert_y=True,
+                decimals_fn=lambda src: 2, invert_y=True,
                 connect=True, range_span=True,
                 direction_notes=self._SPECTRAL_DIRECTION_NOTES,
                 intervals=intervals[metric],
@@ -2417,13 +2420,13 @@ class Plotter:
             lam = np.maximum(pca_loadings(self._sample_toy_cloud(eigs, seed=seed))["eigenvalues"], 0.0)
             ax.text2D(
                 0.5, -0.04,
-                f"PR / K = {participation_ratio(lam) / len(lam):.2f}   (K = {len(lam)} opinions)",
+                f"PR = {participation_ratio(lam):.2f}   (K = {len(lam)} opinions)",
                 transform=ax.transAxes, ha="center", va="top", fontsize=11,
             )
             if j == 0:
                 self._label_panel(ax, "a", x=-0.05, y=1.04)
 
-        # (b, c) real normalized PR and eRank.
+        # (B, C) PR and eRank of the real data.
         dash_gs = gs[1].subgridspec(1, 2, wspace=0.38)
         pr_ax = fig.add_subplot(dash_gs[0, 0])
         erank_ax = fig.add_subplot(dash_gs[0, 1])
