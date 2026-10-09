@@ -1,10 +1,5 @@
 topic_id,topic,labelled,agree_2plus_pct,label_-2,label_-1,label_0,label_1,label_2,irrelevant
 0,United States,9994,92.94,23,95,2239,1559,496,4876
-1,Japan,10023,91.72,56,787,2148,1181,568,4453
-2,Russia,9975,87.92,170,424,3570,701,88,3817
-4,Doctors,9936,92.92,279,355,163,520,322,7594
-5,Traditional Chinese Medicine,9958,93.28,246,276,285,2336,425,5721
-6,Healthcare System,10064,90.61,1027,898,972,1201,300,4721
 7,Corruption,9952,90.12,4642,1655,341,74,7,2250
 9,Gender Equality,9976,87.51,2628,893,232,72,25,4880
 10,LGBT,9972,88.85,1215,58,974,1024,462,5127
@@ -13,4 +8,3 @@ topic_id,topic,labelled,agree_2plus_pct,label_-2,label_-1,label_0,label_1,label_
 13,Environment,9973,93.06,467,742,1181,68,19,6804
 14,Employment,9981,96.70,327,731,226,96,3,8269
 15,Economy,10000,93.81,195,1305,630,340,132,6779
-16,COVID Policies,10033,85.85,289,662,1543,1609,623,3887

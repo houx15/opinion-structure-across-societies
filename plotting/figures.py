@@ -36,31 +36,20 @@ from matplotlib.lines import Line2D
 from scipy.stats import pearsonr
 from statsmodels.nonparametric.smoothers_lowess import lowess
 
+from common.topics import (
+    CN_SURVEY_TOPICS,
+    EU_SURVEY_TOPICS,
+    EUTWITTER_TOPICS,
+    TWITTER_TOPICS,
+    US_SURVEY_TOPICS,
+    WEIBO_TOPICS,
+)
+
 
 # -- Topic sets (mirrors plot_prod_v3) ---------------------------------------
 
-US_SURVEY_TOPICS: List[str] = [
-    "Abortion", "Gun", "Climate", "LGBT", "VACC",
-    "DeathPenalty", "Media", "MinimumWage", "UBI",
-]
-CN_SURVEY_TOPICS: List[str] = [
-    "Corrup", "GenderEqual", "Marriage", "Childbearing", "LGBT",
-    "Environment", "Econ", "Work", "Foreign",
-]
-EU_SURVEY_TOPICS: List[str] = [
-    "LGBT", "Abortion", "DeathPenalty", "SocialMedia", "Egalitarian",
-    "Environment", "Prostitution", "HealthCare", "UnemplyAid",
-]
-TWITTER_TOPICS: List[str] = [
-    "abo", "gun", "clc", "sxo", "vac", "dpp", "soc", "minwage", "ubi",
-]
-# All EU-twitter variants (eutwitter / entwitter / eu_nentwitter) substitute
-# "swe" (sexual work legalization) for "gun" because the EVS survey measures
-# Prostitution, not gun control.
-EUTWITTER_TOPICS: List[str] = [
-    "abo", "swe", "clc", "sxo", "vac", "dpp", "soc", "minwage", "ubi",
-]
-WEIBO_TOPICS: List[int] = [7, 9, 11, 12, 10, 13, 15, 14, 0]
+# The nine analysed topics per source are defined in common/topics.py:
+# US/CN/EU_SURVEY_TOPICS, TWITTER_TOPICS, EUTWITTER_TOPICS, WEIBO_TOPICS.
 
 
 RESTRICTED_TOPICS: Dict[str, Sequence[Union[str, int]]] = {

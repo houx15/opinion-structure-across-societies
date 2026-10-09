@@ -28,6 +28,12 @@ Sections
   region, overall and per year (TWITTER_OPINION_DIR/merged-<topic>.parquet
   filtered by the regional user id lists).
 
+Topics: the pipelines labelled more topics than the paper analyses. LLM
+labelling and BERT sections keep only the analysed topics (common/topics.py:
+10 Twitter codes, 9 Weibo ids); pass --all_topics to keep every topic.
+``restrict REPORT_DIR`` re-applies the filter to an existing report folder
+(e.g. one computed on a cluster) without recomputing it.
+
 Run where the inputs are: Twitter sections on the Twitter cluster, Weibo
 labelling where the Weibo merged files are; ``--tag`` keeps the reports apart.
 
@@ -56,6 +62,7 @@ from common.paths import (
     display,
     report_dir,
 )
+from common.topics import ANALYSED_SOCIAL_TOPICS, is_analysed
 from config import cfg
 
 SURVEYS = [
@@ -215,7 +222,7 @@ def bert_summary_table(runs: pd.DataFrame) -> pd.DataFrame:
 
 REGION_ID_FILES = {"us": "us_user_ids.json", "eu": "eu_user_ids.json",
                    "en": "en_user_ids.json", "eu_nen": "eu_nen_user_ids.json"}
-TWITTER_TOPICS = ["abo", "gun", "clc", "sxo", "vac", "soc", "dpp", "minwage", "ubi", "swe"]
+TWITTER_TOPICS = ANALYSED_SOCIAL_TOPICS["twitter"]
 
 
 def _load_ids(location_dir: Path, mode: str) -> set:
@@ -287,8 +294,38 @@ def twitter_user_tables(opinion_dir: Optional[str] = None,
 
 # -- driver ---------------------------------------------------------------------------
 
+TOPIC_NOTE = ("LLM labelling and BERT sections: analysed topics only "
+              f"(Twitter {', '.join(ANALYSED_SOCIAL_TOPICS['twitter'])}; "
+              f"Weibo {', '.join(ANALYSED_SOCIAL_TOPICS['weibo'])}).")
 
-def _write(sections: Dict[str, pd.DataFrame], notes: List[str], tag: str = "") -> Path:
+
+def _platform_of(section: str, df: pd.DataFrame) -> Optional[str]:
+    """Platform whose topic list filters this section, or None for sections not filtered."""
+    if "platform" in df.columns and df["platform"].nunique() == 1:
+        return str(df["platform"].iloc[0])
+    if section.startswith("bert_evaluation") and "topic" in df.columns:
+        keys = df["topic"].astype(str).str.replace("topic-", "", regex=False)
+        return "weibo" if keys.str.isdigit().all() else "twitter"
+    return None
+
+
+def _analysed_only(sections: Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
+    out = {}
+    for name, df in sections.items():
+        platform = None if df is None or df.empty else _platform_of(name, df)
+        if platform in ANALYSED_SOCIAL_TOPICS and (
+                name.startswith("llm_labelling") or name.startswith("bert_evaluation")):
+            df = df[df["topic"].map(lambda t: is_analysed(t, platform))].reset_index(drop=True)
+        out[name] = df
+    return out
+
+
+def _write(sections: Dict[str, pd.DataFrame], notes: List[str], tag: str = "",
+           all_topics: bool = False) -> Path:
+    if not all_topics:
+        sections = _analysed_only(sections)
+        if any(k.startswith(("llm_labelling", "bert_evaluation")) for k in sections):
+            notes = notes + [TOPIC_NOTE]
     name = "descriptive_stats" + (f"_{tag}" if tag else "")
     out = report_dir(name)
     lines = [f"Descriptive statistics ({date_prefix()}{', ' + tag if tag else ''})", ""] + notes
@@ -320,19 +357,31 @@ def datasets() -> Path:
     }, [f"Main sources: {', '.join(MAIN_SOURCES)}."])
 
 
-def labelling(merged_dir: str, platform: str = "weibo", tag: str = "") -> Path:
-    return _write({f"llm_labelling_{platform}": labelling_table(merged_dir, platform)}, [], tag or platform)
+def labelling(merged_dir: str, platform: str = "weibo", tag: str = "", all_topics: bool = False) -> Path:
+    return _write({f"llm_labelling_{platform}": labelling_table(merged_dir, platform)}, [], tag or platform,
+                  all_topics)
 
 
-def bert(log_dir: Optional[str] = None, tag: str = "") -> Path:
+def bert(log_dir: Optional[str] = None, tag: str = "", all_topics: bool = False) -> Path:
     runs = bert_table(log_dir or cfg.BERT_LOG_DIR)
-    return _write({"bert_evaluation": runs, "bert_evaluation_summary": bert_summary_table(runs)}, [], tag)
+    return _write({"bert_evaluation": runs, "bert_evaluation_summary": bert_summary_table(runs)}, [], tag,
+                  all_topics)
+
+
+def restrict(report_dir: str, tag: Optional[str] = None) -> Path:
+    """Rewrite an existing report folder (its <section>.csv tables) with analysed topics only."""
+    src = Path(report_dir)
+    sections = {f.stem: pd.read_csv(f) for f in sorted(src.glob("*.csv"))}
+    if tag is None:
+        name = src.name.split("_", 1)[1] if src.name[:8].isdigit() else src.name
+        tag = name[len("descriptive_stats_"):] if name.startswith("descriptive_stats_") else ""
+    return _write(sections, [f"Re-filtered from {display(src)}."], tag)
 
 
 def twitter(location_dir: Optional[str] = None, opinion_dir: Optional[str] = None,
             merged_dir: Optional[str] = None, bert_log_dir: Optional[str] = None,
             llm_us: Optional[str] = None, llm_eu: Optional[str] = None,
-            llm_eu_country: Optional[str] = None, tag: str = "twitter") -> Path:
+            llm_eu_country: Optional[str] = None, tag: str = "twitter", all_topics: bool = False) -> Path:
     """Twitter cleaning statistics: location filtering, users, LLM labelling, BERT."""
     llm_dirs = None
     if llm_us or llm_eu or llm_eu_country:
@@ -347,11 +396,11 @@ def twitter(location_dir: Optional[str] = None, opinion_dir: Optional[str] = Non
         runs = bert_table(log_dir)
         sections["bert_evaluation"] = runs
         sections["bert_evaluation_summary"] = bert_summary_table(runs)
-    return _write(sections, [], tag)
+    return _write(sections, [], tag, all_topics)
 
 
 def all(weibo_merged_dir: Optional[str] = None, twitter_merged_dir: Optional[str] = None,
-        bert_log_dir: Optional[str] = None, tag: str = "") -> Path:
+        bert_log_dir: Optional[str] = None, tag: str = "", all_topics: bool = False) -> Path:
     """Every section whose input exists (directories default to config)."""
     surveys = survey_table()
     sections = {
@@ -373,9 +422,9 @@ def all(weibo_merged_dir: Optional[str] = None, twitter_merged_dir: Optional[str
         runs = bert_table(log_dir)
         sections["bert_evaluation"] = runs
         sections["bert_evaluation_summary"] = bert_summary_table(runs)
-    return _write(sections, [f"Main sources: {', '.join(MAIN_SOURCES)}."], tag)
+    return _write(sections, [f"Main sources: {', '.join(MAIN_SOURCES)}."], tag, all_topics)
 
 
 if __name__ == "__main__":
     fire.Fire({"all": all, "datasets": datasets, "labelling": labelling, "bert": bert,
-               "twitter": twitter})
+               "twitter": twitter, "restrict": restrict})

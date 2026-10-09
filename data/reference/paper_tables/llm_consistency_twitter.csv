@@ -1,9 +1,7 @@
 topic_id,topic,labelled,agree_2plus_pct,label_-2,label_-1,label_0,label_1,label_2,irrelevant
 vac,Vaccine Mandate,10002,90.20,100,733,88,204,3135,4762
-obe,Obesity,10003,93.79,2,740,856,99,303,7382
 soc,Social Media,9998,91.13,1,1541,949,599,175,5846
 dpp,Death Penalty,10005,96.93,22,622,30,234,1156,7634
-hwm,Homework,10001,95.29,16,54,122,692,1194,7452
 minwage,Minimum Wage,9998,94.36,2,415,36,782,3020,5179
 swe,Sex Work Legalization,10001,95.83,1,1756,26,129,593,7079
 ubi,Universal Basic Income,10001,97.77,0,166,37,277,671,8627

@@ -13,6 +13,12 @@ merged LLM labels and the BERT logs.
 | `bert_performance_twitter.csv` | tab:twitter-bert-performance | same for Twitter; AUC not reported for gun / abo / clc / sxo (first-wave topics, earlier labelling pipeline) |
 
 `topic_id` is the code used in the data (Weibo topic id, Twitter topic code).
+
+Only the topics analysed in the paper are kept (common/topics.py: 10 Twitter
+codes, 9 Weibo ids). Rows for topics that were labelled but not analysed were
+removed on 2026-10-09: Twitter obesity and homework; Weibo Japan, Russia,
+doctors, traditional Chinese medicine, healthcare system and COVID policies
+(the full tables are in the git history).
 Twitter abo / clc / gun / sxo are not in the LLM table: they were labelled in
 the first data collection, before the LLM labelling pipeline.
 
