@@ -92,9 +92,8 @@ def _gap_closed(xu, yu, xo, yo, ref) -> Tuple[float, float]:
     return remaining, 1.0 - remaining / raw
 
 
-def _spectral_path(src: str, matrix: str = "cov") -> Path:
-    stem = v4._SPECTRAL_STEM_OVERRIDE.get(src, src)
-    return v4.dimension_results_dir(matrix) / f"{stem}-none-summary.json"
+def _spectral_path(src: str, matrix: str = "cov", year: Optional[str] = None) -> Path:
+    return v4.spectral_summary_path(src, matrix, year)
 
 
 def _sample_size(src: str) -> Optional[Tuple[int, str]]:
@@ -321,18 +320,19 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
     for medium, attr in MEDIA:
         for r in regions:
             src = getattr(r, attr)
-            path = _spectral_path(src, plotter.spectral_matrix)
+            year = plotter.spectral_year(src)
+            path = _spectral_path(src, plotter.spectral_matrix, year)
             if not path.exists():
                 rows.append([r.code, medium, src, "missing", "", "", "", "", "", ""])
                 continue
-            summ = v4.load_spectral_summary(src, plotter.spectral_matrix)
+            summ = v4.load_spectral_summary(src, plotter.spectral_matrix, year)
             pr, er = float(np.mean(summ["PR"])), float(np.mean(summ["eRank"]))
             sources.append(display(path))
-            boot = v4.load_spectral_bootstrap(src, plotter.spectral_matrix)
+            boot = v4.load_spectral_bootstrap(src, plotter.spectral_matrix, year)
             if boot is None:
                 pr_ci = norm_ci = er_ci = "no bootstrap"
             else:
-                sources.append(display(path.with_name(path.name.replace("-summary", "-bootstrap"))))
+                sources.append(f"bootstrap of {src}" + (f" ({year})" if year else ""))
                 pr_ci = f"[{boot['PR_lo']:.3f}, {boot['PR_hi']:.3f}]"
                 norm_ci = f"[{boot['PR_lo'] / N_TOPICS:.3f}, {boot['PR_hi'] / N_TOPICS:.3f}]"
                 er_ci = f"[{boot['eRank_lo']:.3f}, {boot['eRank_hi']:.3f}]"
@@ -345,7 +345,10 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
             "Values computed upstream (dimensions.py) from the eigenvalues of the 9-topic pairwise-available",
             ("correlation matrix (covariance rescaled to unit variances)" if plotter.spectral_matrix == "corr"
              else "covariance matrix") + ": PR = (sum lambda)^2 / sum lambda^2; eRank = exp(entropy of lambda / sum lambda).",
-            "Where a source has several yearly entries (Weibo), the mean is taken, as in Fig 3.",
+            ("Where a source has several yearly entries (Weibo), the mean is taken, as in Fig 3."
+             if plotter.social_year == "average" else
+             f"Social media: the {plotter.social_year} matrix only (<stem>-{plotter.social_year}.csr-none.json; "
+             f"bootstrap <stem>-none-{plotter.social_year}-bootstrap.json, or the main file if it covers only that year)."),
             f"Normalized PR = PR / {N_TOPICS} (number of topics).",
             "95% CI: percentile bootstrap from spectral_bootstrap.py (rows = respondents / users",
             "resampled with replacement within each file; PR and eRank recomputed in each resample;",

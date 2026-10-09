@@ -1183,3 +1183,36 @@ def test_run_task_sets_pedagogical_only_for_main(tmp_figure_folder, monkeypatch)
                 date_prefix="20260513", n_bootstrap=10)
     assert captured["pedagogical"] is False
 
+
+
+def test_annual_task_uses_2021_spectra_for_social_media():
+    """robust_10_annual: Weibo spectral value is its 2021 matrix, surveys unchanged."""
+    import json
+
+    import plotting.figures as v4
+    from common.paths import dimension_results_dir
+
+    plotter = v4.Plotter(**v4.task_plotter_kwargs("robust_10_annual"))
+    assert plotter.spectral_year("weibo") == "2021"
+    assert plotter.spectral_year("anes") is None
+    means = plotter._spectral_means("PR")
+    with open(dimension_results_dir("cov") / "weibo-2021.csr-none.json") as f:
+        assert np.isclose(means["weibo"], json.load(f)["PR"])
+    main = v4.Plotter(**v4.task_plotter_kwargs("main"))._spectral_means("PR")
+    assert np.isclose(means["anes"], main["anes"])
+    assert np.isclose(means["twitter"], main["twitter"])  # Twitter/X is 2021 already
+
+
+def test_weibo_user_tables(tmp_path):
+    from cleaning.descriptive_stats import weibo_user_tables
+
+    d = tmp_path / "7"
+    d.mkdir()
+    pd.DataFrame({"2020": [0.5, np.nan, -1.0], "2020_count": [2, np.nan, 1],
+                  "2021": [np.nan, 1.0, 0.0], "2021_count": [np.nan, 3, 4],
+                  "average": [0.5, 1.0, -0.2]}).to_parquet(d / "avg_opinion.parquet")
+    out = weibo_user_tables(str(tmp_path))
+    tot = out["weibo_users_by_topic"].set_index("topic").loc["7"]
+    assert tot["users"] == 3 and tot["relevant_posts"] == 10
+    yr = out["weibo_users_by_topic_year"].set_index("year")
+    assert yr.loc[2020, "users"] == 2 and yr.loc[2021, "relevant_posts"] == 7

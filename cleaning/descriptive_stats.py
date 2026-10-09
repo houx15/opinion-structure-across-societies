@@ -27,6 +27,9 @@ Sections
 * twitter_users: users with an opinion and their relevant tweets per topic and
   region, overall and per year (TWITTER_OPINION_DIR/merged-<topic>.parquet
   filtered by the regional user id lists).
+* weibo_users: the same for Weibo, overall and per year
+  (WEIBO_OPINION_DIR/<topic_id>/avg_opinion.parquet; run on the Weibo server:
+  python -m cleaning.descriptive_stats weibo).
 
 Topics: the pipelines labelled more topics than the paper analyses. LLM
 labelling and BERT sections keep only the analysed topics (common/topics.py:
@@ -292,6 +295,33 @@ def twitter_user_tables(opinion_dir: Optional[str] = None,
             "twitter_users_by_topic_year": pd.DataFrame(yearly)}
 
 
+def weibo_user_tables(opinion_dir: Optional[str] = None) -> Dict[str, pd.DataFrame]:
+    """Users with an opinion and relevant posts per analysed Weibo topic (x year).
+
+    Reads <opinion_dir>/<topic_id>/avg_opinion.parquet (one row per user;
+    columns <year> = mean stance, <year>_count = relevant posts, average).
+    """
+    opinion_dir = Path(opinion_dir or cfg.WEIBO_OPINION_DIR)
+    total, yearly = [], []
+    for topic in ANALYSED_SOCIAL_TOPICS["weibo"]:
+        path = opinion_dir / str(topic) / "avg_opinion.parquet"
+        if not path.exists():
+            print(f"[weibo {topic}] {path} not found; skipped")
+            continue
+        df = pd.read_parquet(path)
+        years = sorted(c for c in df.columns if c.isdigit())
+        posts = df[[f"{y}_count" for y in years]].sum().sum() if years else np.nan
+        users = int(df["average"].notna().sum()) if "average" in df.columns else int(df[years].notna().any(axis=1).sum())
+        total.append({"topic": str(topic), "users": users, "relevant_posts": int(posts),
+                      "years": f"{years[0]}-{years[-1]}" if years else ""})
+        for y in years:
+            yearly.append({"topic": str(topic), "year": int(y),
+                           "users": int(df[y].notna().sum()),
+                           "relevant_posts": int(df[f"{y}_count"].fillna(0).sum())})
+    return {"weibo_users_by_topic": pd.DataFrame(total),
+            "weibo_users_by_topic_year": pd.DataFrame(yearly)}
+
+
 # -- driver ---------------------------------------------------------------------------
 
 TOPIC_NOTE = ("LLM labelling and BERT sections: analysed topics only "
@@ -399,6 +429,11 @@ def twitter(location_dir: Optional[str] = None, opinion_dir: Optional[str] = Non
     return _write(sections, [], tag, all_topics)
 
 
+def weibo(opinion_dir: Optional[str] = None, tag: str = "weibo_users") -> Path:
+    """Weibo users and relevant posts per analysed topic, overall and per year."""
+    return _write(weibo_user_tables(opinion_dir), [], tag)
+
+
 def all(weibo_merged_dir: Optional[str] = None, twitter_merged_dir: Optional[str] = None,
         bert_log_dir: Optional[str] = None, tag: str = "", all_topics: bool = False) -> Path:
     """Every section whose input exists (directories default to config)."""
@@ -427,4 +462,4 @@ def all(weibo_merged_dir: Optional[str] = None, twitter_merged_dir: Optional[str
 
 if __name__ == "__main__":
     fire.Fire({"all": all, "datasets": datasets, "labelling": labelling, "bert": bert,
-               "twitter": twitter, "restrict": restrict})
+               "twitter": twitter, "weibo": weibo, "restrict": restrict})

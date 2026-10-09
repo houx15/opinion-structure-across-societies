@@ -51,3 +51,21 @@ def test_run_writes_interval_containing_point(tmp_path):
         assert out[f"{metric}_lo"] < out[metric] < out[f"{metric}_hi"]
         assert len(out[f"{metric}_reps"]) == 200
     assert out["PR"] <= out["eRank"]
+
+
+
+def test_run_single_year_uses_only_that_matrix(tmp_path):
+    npz_dir, only_dir = tmp_path / "npz", tmp_path / "only2021"
+    npz_dir.mkdir()
+    only_dir.mkdir()
+    for year, seed in ((2020, 4), (2021, 5)):
+        sparse.save_npz(npz_dir / f"{year}.csr.npz", _sparse_opinions(seed=seed))
+    sparse.save_npz(only_dir / "2021.csr.npz", _sparse_opinions(seed=5))
+    path = sb.run("toy", npz_dir=str(npz_dir), out_dir=str(tmp_path), n_boot=50, seed=0, year=2021)
+    assert path.name == "toy-none-2021-bootstrap.json"
+    out = json.loads(path.read_text())
+    assert out["files"] == ["2021.csr.npz"]
+    ref = json.loads(sb.run("ref", npz_dir=str(only_dir), out_dir=str(tmp_path), n_boot=50, seed=0).read_text())
+    for metric in ("PR", "eRank"):
+        assert np.isclose(out[metric], ref[metric])
+        assert np.isclose(out[f"{metric}_lo"], ref[f"{metric}_lo"])

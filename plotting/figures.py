@@ -361,31 +361,51 @@ def load_semantic_similarity(src: str, embedding_type: str = "gpt") -> pd.DataFr
     return df[["tid1", "tid2", "topic_combination", "similarity"]].reset_index(drop=True)
 
 
-def load_spectral_summary(src: str, matrix: str = "cov") -> Dict[str, List[float]]:
+def spectral_summary_path(src: str, matrix: str = "cov", year: Optional[str] = None) -> Path:
+    """<stem>-none-summary.json (all yearly matrices) or, with ``year``, that
+    year's <stem>-<year>.csr-none.json."""
+    stem = _SPECTRAL_STEM_OVERRIDE.get(src, src)
+    if year is None:
+        return dimension_results_dir(matrix) / f"{stem}-none-summary.json"
+    return dimension_results_dir(matrix) / f"{stem}-{year}.csr-none.json"
+
+
+def load_spectral_summary(src: str, matrix: str = "cov", year: Optional[str] = None) -> Dict[str, List[float]]:
     """Load PR / eRank / srank arrays for one source from data/dimension/results.
 
     Returns a dict ``{"PR": [...], "eRank": [...], "srank": [...]}`` with
     floats (so callers can compute means or plot directly). ``matrix`` picks
-    data/dimension/results/cov (main) or results/corr (robustness check).
+    data/dimension/results/cov (main) or results/corr (robustness check);
+    ``year`` keeps only that year's matrix (annual robustness check).
     """
-    stem = _SPECTRAL_STEM_OVERRIDE.get(src, src)
-    path = dimension_results_dir(matrix) / f"{stem}-none-summary.json"
-    with open(path) as f:
+    with open(spectral_summary_path(src, matrix, year)) as f:
         raw = json.load(f)
-    return {key: [float(v) for v in values] for key, values in raw.items()}
+    keys = ("PR", "eRank", "srank")
+    return {key: [float(v) for v in np.atleast_1d(raw[key])] for key in keys if key in raw}
 
 
-def load_spectral_bootstrap(src: str, matrix: str = "cov") -> Optional[Dict[str, float]]:
+def load_spectral_bootstrap(src: str, matrix: str = "cov", year: Optional[str] = None) -> Optional[Dict[str, float]]:
     """Load spectral_bootstrap.py's interval file for one source, or None.
 
     Keys used here: ``PR``, ``PR_lo``, ``PR_hi`` and the same for ``eRank``.
+    With ``year``: <stem>-none-<year>-bootstrap.json, or the main file when
+    that already covers exactly this one year (Twitter/X: 2021 only).
     """
     stem = _SPECTRAL_STEM_OVERRIDE.get(src, src)
-    path = dimension_results_dir(matrix) / f"{stem}-none-bootstrap.json"
+    folder = dimension_results_dir(matrix)
+    if year is not None:
+        path = folder / f"{stem}-none-{year}-bootstrap.json"
+        if path.exists():
+            with open(path) as f:
+                return json.load(f)
+    path = folder / f"{stem}-none-bootstrap.json"
     if not path.exists():
         return None
     with open(path) as f:
-        return json.load(f)
+        boot = json.load(f)
+    if year is not None and boot.get("files") != [f"{year}.csr.npz"]:
+        return None
+    return boot
 
 
 def load_individual_opinion(src: str) -> pd.DataFrame:
@@ -1090,9 +1110,10 @@ class Plotter:
         # same matrix rescaled to correlations ("corr", robustness check).
         dimension_results_dir(spectral_matrix)  # validates the name
         self.spectral_matrix = spectral_matrix
-        # Social-media pairwise correlations: "average" (each user's opinion
-        # pooled over all years, main) or one year, e.g. "2021" (robustness).
-        # Surveys are single cross-sections and always use "average".
+        # Social-media opinions: "average" (main; pairwise correlations pool
+        # each user's posts over all years, Fig 3 uses every yearly matrix)
+        # or one year, e.g. "2021" (annual robustness: correlations and
+        # spectra from that year only). Surveys are single cross-sections.
         self.social_year = str(social_year)
         self.loess_frac = loess_frac
         # Fig 2 |r|-vs-similarity trend: "linear" (OLS line, first-order only,
@@ -2155,6 +2176,12 @@ class Plotter:
         """Year of the pairwise correlations used for ``src`` (see social_year)."""
         return self.social_year if src in SOCIAL_SOURCES else "average"
 
+    def spectral_year(self, src: str) -> Optional[str]:
+        """Year of the spectral matrix used for ``src`` (None = all years)."""
+        if src in SOCIAL_SOURCES and self.social_year != "average":
+            return self.social_year
+        return None
+
     def pair_correlations(self, src: str) -> pd.DataFrame:
         """load_pairwise_correlation for ``src`` at this plotter's year."""
         return load_pairwise_correlation(src, year=self.correlation_year(src))
@@ -2171,7 +2198,7 @@ class Plotter:
         out: Dict[str, float] = {}
         for r in self.regions:
             for src in (r.survey, r.social):
-                entries = load_spectral_summary(src, self.spectral_matrix)[metric]
+                entries = load_spectral_summary(src, self.spectral_matrix, self.spectral_year(src))[metric]
                 scale = len(RESTRICTED_TOPICS[src]) if normalize else 1
                 out[src] = float(np.mean(entries)) / scale
         return out
@@ -2315,7 +2342,7 @@ class Plotter:
         }
         # Bootstrap intervals from spectral_bootstrap.py, where available.
         boots = {
-            src: load_spectral_bootstrap(src, self.spectral_matrix)
+            src: load_spectral_bootstrap(src, self.spectral_matrix, self.spectral_year(src))
             for r in self.regions for src in (r.survey, r.social)
         }
         intervals = {
@@ -2502,14 +2529,15 @@ TASKS: List[Dict] = [
         "figures": [3], "spectral_matrix": "corr",
     },
     {
-        # Fig 2 from social-media opinions of a single year instead of each
-        # user's opinion pooled over all years. 2021 is the only year in which
-        # all nine Twitter/X topics are observed (Weibo covers it too); Fig 3
-        # already uses yearly scores.
+        # Social-media opinions of a single year instead of pooled over
+        # years. 2021 is the only year in which all nine Twitter/X topics are
+        # observed (Weibo covers it too). Fig 2: correlations of 2021; Fig 3:
+        # Weibo's 2021 matrix instead of the mean of 2016-2023 (Twitter/X is
+        # 2021 in the main analysis already).
         "name": "robust_10_annual",
         "us_survey": "anes", "cn_survey": "wvs", "eu_survey": "evs_resample2",
         "eutwitter_src": "eutwitter", "embedding_type": "gpt",
-        "figures": [2], "social_year": "2021",
+        "figures": [2, 3], "social_year": "2021",
     },
 ]
 

@@ -105,15 +105,21 @@ def run(
     seed: int = 20261008,
     alpha: float = 0.05,
     matrix: str = "cov",
+    year: Optional[str] = None,
 ) -> Path:
     """Bootstrap one source and write ``<out_dir>/<stem>-none-bootstrap.json``.
 
-    ``out_dir`` defaults to data/dimension/results/<matrix>/.
+    ``out_dir`` defaults to data/dimension/results/<matrix>/. ``year`` (e.g.
+    2021) bootstraps only that year's matrix and writes
+    ``<stem>-none-<year>-bootstrap.json`` (annual robustness check; for a
+    source with one yearly matrix this equals the main file).
     """
     out_dir = out_dir or str(dimension_results_dir(matrix))
-    tag = "none"
+    tag = "none" if year is None else f"none-{year}"
     folder = Path(npz_dir) if npz_dir else npz_folder_for(stem)
     files = sorted(folder.glob("*.npz"))
+    if year is not None:
+        files = [f for f in files if f.name == f"{year}.csr.npz"]
     if not files:
         raise FileNotFoundError(f"no .npz files in {folder}")
     print(f"[{stem}] {len(files)} matrix file(s) from {folder}, n_boot={n_boot}, matrix={matrix}")
@@ -134,12 +140,13 @@ def run(
         print(f"  {metric} = {out[metric]:.3f}  95% CI [{out[f'{metric}_lo']:.3f}, {out[f'{metric}_hi']:.3f}]")
 
     # The point estimate must reproduce the pipeline's summary when present.
-    summary = Path(out_dir) / f"{stem}-{tag}-summary.json"
+    summary = (Path(out_dir) / f"{stem}-{tag}-summary.json" if year is None
+               else Path(out_dir) / f"{stem}-{year}.csr-none.json")
     if summary.exists():
         with open(summary) as f:
             ref = json.load(f)
         for metric in ("PR", "eRank"):
-            expected = float(np.mean(ref[metric]))
+            expected = float(np.mean(np.atleast_1d(ref[metric])))
             if not np.isclose(out[metric], expected, rtol=1e-6):
                 print(f"  [WARN] {metric} {out[metric]:.6f} != summary {expected:.6f}")
 
