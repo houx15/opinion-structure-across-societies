@@ -94,7 +94,7 @@ def _gap_closed(xu, yu, xo, yo, ref) -> Tuple[float, float]:
 
 def _spectral_path(src: str, matrix: str = "cov") -> Path:
     stem = v4._SPECTRAL_STEM_OVERRIDE.get(src, src)
-    return v4.DIMENSION_DIR / f"{stem}-{v4.spectral_file_tag(matrix)}-summary.json"
+    return v4.dimension_results_dir(matrix) / f"{stem}-none-summary.json"
 
 
 def _sample_size(src: str) -> Optional[Tuple[int, str]]:
@@ -104,14 +104,14 @@ def _sample_size(src: str) -> Optional[Tuple[int, str]]:
             return None
         return len(v4.load_individual_opinion(src)), f"rows of {display(path)}"
     stem = v4._SPECTRAL_STEM_OVERRIDE.get(src, src)
-    files = sorted(v4.DIMENSION_DIR.glob(f"{stem}-*.csr-loadings.json"))
+    files = sorted(v4.dimension_results_dir("cov").glob(f"{stem}-*.csr-loadings.json"))
     if not files:
         return None
     ns = [json.load(open(f))["N"] for f in files]
     if len(ns) == 1:
         return ns[0], f'"N" in {display(files[0])}'
     return sum(ns), (
-        f'sum of "N" over {len(ns)} yearly files {display(v4.DIMENSION_DIR)}/{stem}-<year>.csr-loadings.json '
+        f'sum of "N" over {len(ns)} yearly files {display(v4.dimension_results_dir("cov"))}/{stem}-<year>.csr-loadings.json '
         f"({', '.join(f'{n:,}' for n in ns)}); NOT unique users - "
         "users active in several years are counted more than once"
     )

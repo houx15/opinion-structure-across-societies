@@ -7,7 +7,7 @@
 
 Sections
 * datasets: respondents per survey and topic (data/opinions/individual_opinion_*),
-  users per social-media source and year (data/dimension/results/*-loadings.json,
+  users per social-media source and year (data/dimension/results/cov/*-loadings.json,
   plus per-topic coverage when the csr matrices are present), and the number of
   respondents/users behind each topic pair (data/correlation/network_analysis_*).
 * labelling: LLM consistency per topic on the labelled sample (10,000 posts per
@@ -55,7 +55,7 @@ import pandas as pd
 from common.paths import (
     CORRELATION_DIR,
     CSR_DIR,
-    DIMENSION_RESULTS_DIR,
+    dimension_results_dir,
     OPINION_DIR,
     STATS_DIR,
     date_prefix,
@@ -105,7 +105,7 @@ def survey_table() -> pd.DataFrame:
 def social_year_table() -> pd.DataFrame:
     rows = []
     for src, stem in SOCIAL_STEMS.items():
-        for f in sorted(DIMENSION_RESULTS_DIR.glob(f"{stem}-*.csr-loadings.json")):
+        for f in sorted(dimension_results_dir("cov").glob(f"{stem}-*.csr-loadings.json")):
             year = f.name[len(stem) + 1:].split(".")[0]
             rows.append({"source": src, "year": year, "users": json.load(open(f))["N"]})
     return pd.DataFrame(rows)

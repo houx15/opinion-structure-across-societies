@@ -6,7 +6,7 @@ figure. Inputs (see data/README.md):
     data/correlation/network_analysis_<src>.csv        pairwise topic correlations
     data/embedding/<survey>_topic_distance.csv          survey topic similarities
     data/embedding/dynamic_embedding_<social>_<gpt|dictionary>.csv
-    data/dimension/results/<stem>-none-summary.json     PR / eRank (+ -bootstrap.json)
+    data/dimension/results/cov/<stem>-none-summary.json PR / eRank (+ -bootstrap.json; corr/ for the robustness check)
     data/opinions/individual_opinion_<survey>.parquet
     data/opinions/user_opinion_<social>_lgbt_env.parquet
     data/tf_idf/tf_idf_twitter/, data/embedding/word_overlap_rows.json  (Fig 2 word panel)
@@ -76,7 +76,7 @@ RESTRICTED_TOPICS: Dict[str, Sequence[Union[str, int]]] = {
 
 from common.paths import (
     CORRELATION_DIR,
-    DIMENSION_RESULTS_DIR as DIMENSION_DIR,
+    dimension_results_dir,
     EMBEDDING_DIR,
     FIGURE_DIR,
     OPINION_DIR,
@@ -361,22 +361,15 @@ def load_semantic_similarity(src: str, embedding_type: str = "gpt") -> pd.DataFr
     return df[["tid1", "tid2", "topic_combination", "similarity"]].reset_index(drop=True)
 
 
-def spectral_file_tag(matrix: str = "cov") -> str:
-    """Filename tag of the dimension results: "none" (covariance) or "none-corr"."""
-    if matrix not in ("cov", "corr"):
-        raise ValueError(f"matrix must be 'cov' or 'corr', got {matrix!r}")
-    return "none-corr" if matrix == "corr" else "none"
-
-
 def load_spectral_summary(src: str, matrix: str = "cov") -> Dict[str, List[float]]:
     """Load PR / eRank / srank arrays for one source from data/dimension/results.
 
     Returns a dict ``{"PR": [...], "eRank": [...], "srank": [...]}`` with
-    floats (so callers can compute means or plot directly). ``matrix="corr"``
-    reads the correlation-matrix variant (<stem>-none-corr-summary.json).
+    floats (so callers can compute means or plot directly). ``matrix`` picks
+    data/dimension/results/cov (main) or results/corr (robustness check).
     """
     stem = _SPECTRAL_STEM_OVERRIDE.get(src, src)
-    path = DIMENSION_DIR / f"{stem}-{spectral_file_tag(matrix)}-summary.json"
+    path = dimension_results_dir(matrix) / f"{stem}-none-summary.json"
     with open(path) as f:
         raw = json.load(f)
     return {key: [float(v) for v in values] for key, values in raw.items()}
@@ -388,7 +381,7 @@ def load_spectral_bootstrap(src: str, matrix: str = "cov") -> Optional[Dict[str,
     Keys used here: ``PR``, ``PR_lo``, ``PR_hi`` and the same for ``eRank``.
     """
     stem = _SPECTRAL_STEM_OVERRIDE.get(src, src)
-    path = DIMENSION_DIR / f"{stem}-{spectral_file_tag(matrix)}-bootstrap.json"
+    path = dimension_results_dir(matrix) / f"{stem}-none-bootstrap.json"
     if not path.exists():
         return None
     with open(path) as f:
@@ -1094,7 +1087,7 @@ class Plotter:
         self.embedding_type = embedding_type
         # Fig 3 spectrum: pairwise-available covariance ("cov", main) or the
         # same matrix rescaled to correlations ("corr", robustness check).
-        spectral_file_tag(spectral_matrix)
+        dimension_results_dir(spectral_matrix)  # validates the name
         self.spectral_matrix = spectral_matrix
         self.loess_frac = loess_frac
         # Fig 2 |r|-vs-similarity trend: "linear" (OLS line, first-order only,
@@ -2568,6 +2561,18 @@ def run_task(
         name, figure_folder=figure_folder, date_prefix=date_prefix,
         n_bootstrap=n_bootstrap,
     ))
+    # Variant spectra (results/corr) are computed on the clusters; skip the
+    # task with a message instead of failing a full run before they exist.
+    if plotter.spectral_matrix != "cov":
+        folder = dimension_results_dir(plotter.spectral_matrix)
+        missing = [
+            src for r in plotter.regions for src in (r.survey, r.social)
+            if not (folder / f"{_SPECTRAL_STEM_OVERRIDE.get(src, src)}-none-summary.json").exists()
+        ]
+        if missing:
+            print(f"[figures] skipped {name}: no {plotter.spectral_matrix} results in {folder} for {missing} "
+                  f"(run dimension_pipeline calculate_all / spectral_bootstrap all --matrix {plotter.spectral_matrix})")
+            return {}
     paths: Dict[int, Path] = {}
     for fig_num in task["figures"]:
         method = getattr(plotter, f"make_fig{fig_num}")

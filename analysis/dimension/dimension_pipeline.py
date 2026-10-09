@@ -3,7 +3,7 @@
 1. transform: opinions -> data/dimension/csr/<stem>/<year>.csr.npz
    (rows = respondents/users, columns = the source's 9 topics, missing = absent)
 2. calculate: dimensions.estimate() per csr file ->
-   data/dimension/results/<stem>-<year>.csr-none.json, -loadings.json and the
+   data/dimension/results/<matrix>/<stem>-<year>.csr-none.json, -loadings.json and the
    <stem>-none-summary.json that the figures read.
 
 Stems: survey file names (anes, evs_resample2, ...), twitter-<us|eu|en|eu_nen>, weibo.
@@ -89,12 +89,10 @@ eu_survey_using_topics = [
 DISTANCE_SPACES = ("spectral", "raw", "bagged")
 
 from config import cfg
-from common.paths import CSR_DIR, DIMENSION_RESULTS_DIR, SURVEY_DIR, report_dir
+from common.paths import CSR_DIR, SURVEY_DIR, dimension_results_dir, report_dir
 
 # Per-year results (<stem>-<year>.csr-none.json, -loadings.json), the
 # <stem>-none-summary.json read by the figures, and run logs.
-work_folder = DIMENSION_RESULTS_DIR
-os.makedirs(work_folder, exist_ok=True)
 
 # Survey stems; each reads data/survey/<stem>.dta.
 SURVEY_STEMS = [
@@ -594,21 +592,20 @@ def calculate(
         distance_space: Distance space for analysis (spectral, raw, bagged, none). Default is "none".
         plot: If True, also save per-year PDF visualizations (loadings heatmap + scree).
         matrix: "cov" (pairwise-available covariance, the main analysis) or
-            "corr" (the same matrix rescaled to correlations). "corr" outputs
-            carry "-corr" after the distance-space tag, e.g.
-            <stem>-none-corr-summary.json, so they never overwrite "cov".
+            "corr" (the same matrix rescaled to correlations). Results go to
+            data/dimension/results/<matrix>/ with the same file names, so the
+            two never overwrite each other.
 
     Returns:
         Dictionary with keys: PR, eRank, srank, each containing a list of results.
     """
     from analysis.dimension.dimensions import estimate
 
-    if matrix not in ("cov", "corr"):
-        raise ValueError(f"matrix must be 'cov' or 'corr', got {matrix!r}")
+    work_folder = dimension_results_dir(matrix)
+    work_folder.mkdir(parents=True, exist_ok=True)
     standardize = matrix == "corr"
-    # File tag: "none" (or the distance space), plus "-corr" for the correlation variant.
-    tag = (distance_space or "none") + ("-corr" if standardize else "")
-    loadings_tag = "corr-loadings" if standardize else "loadings"
+    tag = distance_space or "none"
+    loadings_tag = "loadings"
 
     npz_folder = csr_folder(dataset_type, mode)
     if not npz_folder.exists():
@@ -795,7 +792,7 @@ def calculate_all(surveys_only: bool = False, plot: bool = False, matrix: str = 
     """Run calculate() for every Fig 3 source whose csr folder exists.
 
     ``--matrix corr`` runs the correlation-matrix variant (robustness check;
-    writes <stem>-none-corr-* files next to the main covariance results).
+    writes to data/dimension/results/corr/ instead of results/cov/).
     """
     for dataset_type, mode in FIG3_SOURCES:
         if surveys_only and dataset_type in ("twitter", "weibo"):

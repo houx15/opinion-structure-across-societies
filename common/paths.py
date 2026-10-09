@@ -46,6 +46,17 @@ EMBEDDING_DIR = DATA_ROOT / "embedding"
 DIMENSION_DIR = DATA_ROOT / "dimension"
 CSR_DIR = DIMENSION_DIR / "csr"
 DIMENSION_RESULTS_DIR = DIMENSION_DIR / "results"
+# Spectral results per matrix: results/cov (pairwise-available covariance,
+# main analysis) and results/corr (the same matrix rescaled to correlations,
+# robustness check). File names are identical inside both folders.
+SPECTRAL_MATRICES = ("cov", "corr")
+
+
+def dimension_results_dir(matrix: str = "cov") -> Path:
+    """data/dimension/results/<matrix> for matrix in SPECTRAL_MATRICES."""
+    if matrix not in SPECTRAL_MATRICES:
+        raise ValueError(f"matrix must be one of {SPECTRAL_MATRICES}, got {matrix!r}")
+    return DIMENSION_RESULTS_DIR / matrix
 REFERENCE_DIR = DATA_ROOT / "reference"
 
 FIGURE_DIR = OUTPUT_ROOT / "figures"

@@ -1,7 +1,7 @@
 """Compare recomputed PR / eRank / srank with an earlier results folder.
 
     python scripts/compare_dimension_results.py /path/to/old/dimension_data
-    python scripts/compare_dimension_results.py OLD --new data/dimension/results --tol 1e-9
+    python scripts/compare_dimension_results.py OLD --new data/dimension/results/cov --tol 1e-9
 
 For every <stem>-none-summary.json present in both folders, prints the
 largest absolute difference per metric. Stems only in one folder are listed.
@@ -16,7 +16,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from common.paths import DIMENSION_RESULTS_DIR  # noqa: E402
+from common.paths import dimension_results_dir  # noqa: E402
 
 SUFFIX = "-none-summary.json"
 
@@ -24,7 +24,7 @@ SUFFIX = "-none-summary.json"
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("old", type=Path, help="earlier results folder")
-    ap.add_argument("--new", type=Path, default=DIMENSION_RESULTS_DIR)
+    ap.add_argument("--new", type=Path, default=dimension_results_dir("cov"))
     # Results computed before the ridge (dimensions.RIDGE = 1e-6) was enabled
     # differ from current ones by ~1e-6; use e.g. --tol 1e-4 for those.
     ap.add_argument("--tol", type=float, default=1e-9)

@@ -11,14 +11,14 @@ year independently and averaged across years per replicate, matching the
 point estimate ``mean(summary[metric])`` used by plotting.figures.
 
 Reads data/dimension/csr/<stem>/*.csr.npz and writes
-data/dimension/results/<stem>-none-bootstrap.json:
+data/dimension/results/<matrix>/<stem>-none-bootstrap.json (matrix = cov by default):
 
     python -m analysis.dimension.spectral_bootstrap all            # every Fig 3 source found
     python -m analysis.dimension.spectral_bootstrap run anes       # one source
     python -m analysis.dimension.spectral_bootstrap run twitter-us --npz_dir PATH
 
 ``--matrix corr`` uses the pairwise-available correlation matrix instead
-(robustness check) and writes <stem>-none-corr-bootstrap.json.
+(robustness check) and writes to data/dimension/results/corr/.
 """
 
 import json
@@ -29,10 +29,9 @@ import numpy as np
 from scipy import sparse
 
 from analysis.dimension.dimensions import cov_to_corr, regularize, spectral_effective_ranks_from_lam
-from common.paths import CSR_DIR, DIMENSION_RESULTS_DIR
+from common.paths import CSR_DIR, dimension_results_dir
 
 NPZ_ROOT = CSR_DIR
-OUT_DIR = DIMENSION_RESULTS_DIR
 # Same resample count as paper_stats.DEFAULT_N_BOOT (kept local so this
 # script runs on the clusters without matplotlib).
 N_BOOT = 2000
@@ -101,16 +100,18 @@ def bootstrap_matrices(
 def run(
     stem: str,
     npz_dir: Optional[str] = None,
-    out_dir: str = str(OUT_DIR),
+    out_dir: Optional[str] = None,
     n_boot: int = N_BOOT,
     seed: int = 20261008,
     alpha: float = 0.05,
     matrix: str = "cov",
 ) -> Path:
-    """Bootstrap one source and write ``<out_dir>/<stem>-none[-corr]-bootstrap.json``."""
-    if matrix not in ("cov", "corr"):
-        raise ValueError(f"matrix must be 'cov' or 'corr', got {matrix!r}")
-    tag = "none-corr" if matrix == "corr" else "none"
+    """Bootstrap one source and write ``<out_dir>/<stem>-none-bootstrap.json``.
+
+    ``out_dir`` defaults to data/dimension/results/<matrix>/.
+    """
+    out_dir = out_dir or str(dimension_results_dir(matrix))
+    tag = "none"
     folder = Path(npz_dir) if npz_dir else npz_folder_for(stem)
     files = sorted(folder.glob("*.npz"))
     if not files:
