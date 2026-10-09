@@ -1563,9 +1563,8 @@ class Plotter:
         segment (two observations of one society, not a trajectory); offline
         labels then sit left of their dash so the segment stays clear.
         ``range_span`` shades the cross-country range within each medium.
-        ``direction_notes`` = (top, bottom) writes small arrowed cues at the
-        two ends of the y-axis, outside the tick labels, so an inverted axis
-        reads without the caption.
+        ``direction_notes`` = (top, bottom) writes small cues just right of the
+        y-axis at its two ends, so an inverted axis reads without the caption.
         ``intervals`` maps a source to its (lo, hi) bootstrap interval, drawn
         as a vertical bar through the dash centre; sources without one are
         drawn as plain dashes.
@@ -1685,10 +1684,10 @@ class Plotter:
         ax.spines["right"].set_visible(False)
         if direction_notes:
             top_note, bottom_note = direction_notes
-            for y, text, va in ((1.0, f"{top_note} →", "top"), (0.0, f"← {bottom_note}", "bottom")):
+            for y, text, va in ((0.99, top_note, "top"), (0.01, bottom_note, "bottom")):
                 ax.text(
-                    -0.20, y, text, transform=ax.transAxes, rotation=90,
-                    ha="center", va=va, fontsize=9, style="italic", color="0.35",
+                    0.015, y, text, transform=ax.transAxes,
+                    ha="left", va=va, fontsize=7.5, color="0.4", linespacing=1.1,
                 )
 
         # Legend shows only country colors — the x-axis tick labels already
@@ -2279,7 +2278,7 @@ class Plotter:
     _TOY_BUNDLING_TITLES = ("Unbundled", "Partly bundled", "Strongly bundled")
     # (top, bottom) cues on the inverted PR / eRank axes of Fig 3 (b, c).
     _SPECTRAL_DIRECTION_NOTES = (
-        "lower rank, more collapsed", "higher rank, less collapsed",
+        "lower rank\nmore collapsed", "higher rank\nless collapsed",
     )
 
     def _spectral_dash_panels(self, pr_ax, erank_ax) -> None:
