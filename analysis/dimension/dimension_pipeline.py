@@ -156,7 +156,7 @@ def _topics_for(dataset_type: str, mode: str = "us") -> List[str]:
     return [str(t) for t in names]
 
 
-def _loading_report(csr_path: Path, topic_names: List[str]) -> Dict[str, Any]:
+def _loading_report(csr_path: Path, topic_names: List[str], standardize: bool = False) -> Dict[str, Any]:
     """Build a JSON-serializable PCA loading report for one CSR file.
 
     Re-runs pairwise covariance eigendecomp (cheap for L<=20) and returns
@@ -169,7 +169,7 @@ def _loading_report(csr_path: Path, topic_names: List[str]) -> Dict[str, Any]:
     )  # local import to avoid heavy import at module load
 
     csr = sparse.load_npz(csr_path)
-    lam, V = pairwise_cov_eigendecomp(csr)
+    lam, V = pairwise_cov_eigendecomp(csr, standardize=standardize)
 
     order = np.argsort(lam)[::-1]
     lam = lam[order]
@@ -584,6 +584,7 @@ def calculate(
     mode: str = "us",
     distance_space: str = "none",
     plot: bool = False,
+    matrix: str = "cov",
 ) -> Dict[str, Any]:
     """
     Run dimensions.estimate() on survey data files.
@@ -592,11 +593,22 @@ def calculate(
         dataset_type: Which dataset type to analyze (folder_map的key)
         distance_space: Distance space for analysis (spectral, raw, bagged, none). Default is "none".
         plot: If True, also save per-year PDF visualizations (loadings heatmap + scree).
+        matrix: "cov" (pairwise-available covariance, the main analysis) or
+            "corr" (the same matrix rescaled to correlations). "corr" outputs
+            carry "-corr" after the distance-space tag, e.g.
+            <stem>-none-corr-summary.json, so they never overwrite "cov".
 
     Returns:
         Dictionary with keys: PR, eRank, srank, each containing a list of results.
     """
     from analysis.dimension.dimensions import estimate
+
+    if matrix not in ("cov", "corr"):
+        raise ValueError(f"matrix must be 'cov' or 'corr', got {matrix!r}")
+    standardize = matrix == "corr"
+    # File tag: "none" (or the distance space), plus "-corr" for the correlation variant.
+    tag = (distance_space or "none") + ("-corr" if standardize else "")
+    loadings_tag = "corr-loadings" if standardize else "loadings"
 
     npz_folder = csr_folder(dataset_type, mode)
     if not npz_folder.exists():
@@ -614,7 +626,7 @@ def calculate(
     print(f"[INFO] Dataset type: {dataset_type}")
     if dataset_type == "twitter":
         print(f"[INFO] Mode: {mode}")
-    print(f"[INFO] Distance space: {distance_space_value}")
+    print(f"[INFO] Distance space: {distance_space_value}; matrix: {matrix}")
     print(f"[INFO] Found {len(npz_files)} files to process")
 
     # 初始化结果字典
@@ -629,9 +641,9 @@ def calculate(
     year_reports: List[Tuple[str, Dict[str, Any], Dict[str, Any]]] = []
 
     # 简单的 logging 设置
-    log_file = work_folder / f"{dataset_type}-{distance_space or 'none'}.log"
+    log_file = work_folder / f"{dataset_type}-{tag}.log"
     if dataset_type == "twitter":
-        log_file = work_folder / f"{dataset_type}-{mode}-{distance_space or 'none'}.log"
+        log_file = work_folder / f"{dataset_type}-{mode}-{tag}.log"
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s - %(levelname)s - %(message)s",
@@ -648,17 +660,17 @@ def calculate(
             print(f"[{i}/{len(npz_files)}] Processing: {input_file.name}")
 
             # 调用 estimate
-            estimated = estimate(input_file, distance_space=distance_space_value)
+            estimated = estimate(input_file, distance_space=distance_space_value, standardize=standardize)
 
             # 保存单个文件的 json 结果
             json_file = (
                 work_folder
-                / f"{dataset_type}-{input_file.stem}-{distance_space or 'none'}.json"
+                / f"{dataset_type}-{input_file.stem}-{tag}.json"
             )
             if dataset_type == "twitter":
                 json_file = (
                     work_folder
-                    / f"{dataset_type}-{mode}-{input_file.stem}-{distance_space or 'none'}.json"
+                    / f"{dataset_type}-{mode}-{input_file.stem}-{tag}.json"
                 )
             with open(json_file, "w") as f:
                 json.dump(estimated, f, indent=2)
@@ -670,14 +682,14 @@ def calculate(
 
             # NEW: compute and save per-year PCA loading report
             try:
-                report = _loading_report(input_file, topic_names)
+                report = _loading_report(input_file, topic_names, standardize=standardize)
                 loadings_file = (
-                    work_folder / f"{dataset_type}-{input_file.stem}-loadings.json"
+                    work_folder / f"{dataset_type}-{input_file.stem}-{loadings_tag}.json"
                 )
                 if dataset_type == "twitter":
                     loadings_file = (
                         work_folder
-                        / f"{dataset_type}-{mode}-{input_file.stem}-loadings.json"
+                        / f"{dataset_type}-{mode}-{input_file.stem}-{loadings_tag}.json"
                     )
                 with open(loadings_file, "w") as f:
                     json.dump(report, f, indent=2)
@@ -730,12 +742,12 @@ def calculate(
 
     # 保存汇总结果
     summary_file = (
-        work_folder / f"{dataset_type}-{distance_space or 'none'}-summary.json"
+        work_folder / f"{dataset_type}-{tag}-summary.json"
     )
     if dataset_type == "twitter":
         summary_file = (
             work_folder
-            / f"{dataset_type}-{mode}-{distance_space or 'none'}-summary.json"
+            / f"{dataset_type}-{mode}-{tag}-summary.json"
         )
     with open(summary_file, "w") as f:
         json.dump(all_results, f, indent=2)
@@ -754,16 +766,16 @@ def calculate(
 
         year_reports_sorted = sorted(year_reports, key=_stem_key)
         loading_summary_text = _format_loading_summary(
-            dataset_type, mode, distance_space or "none", year_reports_sorted
+            dataset_type, mode, tag, year_reports_sorted
         )
         loading_summary_file = (
             work_folder
-            / f"{dataset_type}-{distance_space or 'none'}-loadings-summary.txt"
+            / f"{dataset_type}-{tag}-loadings-summary.txt"
         )
         if dataset_type == "twitter":
             loading_summary_file = (
                 work_folder
-                / f"{dataset_type}-{mode}-{distance_space or 'none'}-loadings-summary.txt"
+                / f"{dataset_type}-{mode}-{tag}-loadings-summary.txt"
             )
         with open(loading_summary_file, "w") as f:
             f.write(loading_summary_text)
@@ -779,15 +791,19 @@ FIG3_SOURCES = [(stem, "us") for stem in SURVEY_STEMS] + [
 ] + [("weibo", "us")]
 
 
-def calculate_all(surveys_only: bool = False, plot: bool = False) -> None:
-    """Run calculate() for every Fig 3 source whose csr folder exists."""
+def calculate_all(surveys_only: bool = False, plot: bool = False, matrix: str = "cov") -> None:
+    """Run calculate() for every Fig 3 source whose csr folder exists.
+
+    ``--matrix corr`` runs the correlation-matrix variant (robustness check;
+    writes <stem>-none-corr-* files next to the main covariance results).
+    """
     for dataset_type, mode in FIG3_SOURCES:
         if surveys_only and dataset_type in ("twitter", "weibo"):
             continue
         if not csr_folder(dataset_type, mode).exists():
             print(f"[SKIP] no csr folder for {dataset_type}/{mode}")
             continue
-        calculate(dataset_type, mode=mode, plot=plot)
+        calculate(dataset_type, mode=mode, plot=plot, matrix=matrix)
 
 
 if __name__ == "__main__":

@@ -92,9 +92,9 @@ def _gap_closed(xu, yu, xo, yo, ref) -> Tuple[float, float]:
     return remaining, 1.0 - remaining / raw
 
 
-def _spectral_path(src: str) -> Path:
+def _spectral_path(src: str, matrix: str = "cov") -> Path:
     stem = v4._SPECTRAL_STEM_OVERRIDE.get(src, src)
-    return v4.DIMENSION_DIR / f"{stem}-none-summary.json"
+    return v4.DIMENSION_DIR / f"{stem}-{v4.spectral_file_tag(matrix)}-summary.json"
 
 
 def _sample_size(src: str) -> Optional[Tuple[int, str]]:
@@ -318,14 +318,14 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
     for medium, attr in MEDIA:
         for r in regions:
             src = getattr(r, attr)
-            path = _spectral_path(src)
+            path = _spectral_path(src, plotter.spectral_matrix)
             if not path.exists():
                 rows.append([r.code, medium, src, "missing", "", "", "", "", "", ""])
                 continue
-            summ = v4.load_spectral_summary(src)
+            summ = v4.load_spectral_summary(src, plotter.spectral_matrix)
             pr, er = float(np.mean(summ["PR"])), float(np.mean(summ["eRank"]))
             sources.append(display(path))
-            boot = v4.load_spectral_bootstrap(src)
+            boot = v4.load_spectral_bootstrap(src, plotter.spectral_matrix)
             if boot is None:
                 pr_ci = norm_ci = er_ci = "no bootstrap"
             else:
@@ -339,8 +339,9 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
         "PART 6. Dimensionality: participation ratio and exponential rank (Fig 3)",
         sources + ["Keys \"PR\" and \"eRank\" (one entry per year in the source)."],
         [
-            "Values computed upstream (dimensions.py) from the eigenvalues of the 9-topic",
-            "covariance matrix: PR = (sum lambda)^2 / sum lambda^2; eRank = exp(entropy of lambda / sum lambda).",
+            "Values computed upstream (dimensions.py) from the eigenvalues of the 9-topic pairwise-available",
+            ("correlation matrix (covariance rescaled to unit variances)" if plotter.spectral_matrix == "corr"
+             else "covariance matrix") + ": PR = (sum lambda)^2 / sum lambda^2; eRank = exp(entropy of lambda / sum lambda).",
             "Where a source has several yearly entries (Weibo), the mean is taken, as in Fig 3.",
             f"Normalized PR = PR / {N_TOPICS} (number of topics).",
             "95% CI: percentile bootstrap from spectral_bootstrap.py (rows = respondents / users",

@@ -361,26 +361,34 @@ def load_semantic_similarity(src: str, embedding_type: str = "gpt") -> pd.DataFr
     return df[["tid1", "tid2", "topic_combination", "similarity"]].reset_index(drop=True)
 
 
-def load_spectral_summary(src: str) -> Dict[str, List[float]]:
+def spectral_file_tag(matrix: str = "cov") -> str:
+    """Filename tag of the dimension results: "none" (covariance) or "none-corr"."""
+    if matrix not in ("cov", "corr"):
+        raise ValueError(f"matrix must be 'cov' or 'corr', got {matrix!r}")
+    return "none-corr" if matrix == "corr" else "none"
+
+
+def load_spectral_summary(src: str, matrix: str = "cov") -> Dict[str, List[float]]:
     """Load PR / eRank / srank arrays for one source from data/dimension/results.
 
     Returns a dict ``{"PR": [...], "eRank": [...], "srank": [...]}`` with
-    floats (so callers can compute means or plot directly).
+    floats (so callers can compute means or plot directly). ``matrix="corr"``
+    reads the correlation-matrix variant (<stem>-none-corr-summary.json).
     """
     stem = _SPECTRAL_STEM_OVERRIDE.get(src, src)
-    path = DIMENSION_DIR / f"{stem}-none-summary.json"
+    path = DIMENSION_DIR / f"{stem}-{spectral_file_tag(matrix)}-summary.json"
     with open(path) as f:
         raw = json.load(f)
     return {key: [float(v) for v in values] for key, values in raw.items()}
 
 
-def load_spectral_bootstrap(src: str) -> Optional[Dict[str, float]]:
+def load_spectral_bootstrap(src: str, matrix: str = "cov") -> Optional[Dict[str, float]]:
     """Load spectral_bootstrap.py's interval file for one source, or None.
 
     Keys used here: ``PR``, ``PR_lo``, ``PR_hi`` and the same for ``eRank``.
     """
     stem = _SPECTRAL_STEM_OVERRIDE.get(src, src)
-    path = DIMENSION_DIR / f"{stem}-none-bootstrap.json"
+    path = DIMENSION_DIR / f"{stem}-{spectral_file_tag(matrix)}-bootstrap.json"
     if not path.exists():
         return None
     with open(path) as f:
@@ -1081,8 +1089,13 @@ class Plotter:
         regions: Optional[Sequence[RegionSpec]] = None,
         pedagogical: bool = True,
         trend: str = "linear",
+        spectral_matrix: str = "cov",
     ):
         self.embedding_type = embedding_type
+        # Fig 3 spectrum: pairwise-available covariance ("cov", main) or the
+        # same matrix rescaled to correlations ("corr", robustness check).
+        spectral_file_tag(spectral_matrix)
+        self.spectral_matrix = spectral_matrix
         self.loess_frac = loess_frac
         # Fig 2 |r|-vs-similarity trend: "linear" (OLS line, first-order only,
         # easier for a general audience) or "lowess" (bootstrapped LOWESS).
@@ -2152,7 +2165,7 @@ class Plotter:
         out: Dict[str, float] = {}
         for r in self.regions:
             for src in (r.survey, r.social):
-                entries = load_spectral_summary(src)[metric]
+                entries = load_spectral_summary(src, self.spectral_matrix)[metric]
                 scale = len(RESTRICTED_TOPICS[src]) if normalize else 1
                 out[src] = float(np.mean(entries)) / scale
         return out
@@ -2296,7 +2309,7 @@ class Plotter:
         }
         # Bootstrap intervals from spectral_bootstrap.py, where available.
         boots = {
-            src: load_spectral_bootstrap(src)
+            src: load_spectral_bootstrap(src, self.spectral_matrix)
             for r in self.regions for src in (r.survey, r.social)
         }
         intervals = {
@@ -2486,6 +2499,14 @@ TASKS: List[Dict] = [
         "embedding_type": "gpt",
         "figures": [2, 3],
     },
+    {
+        # Fig 3 from the pairwise-available correlation matrix: every topic
+        # weighted equally, whatever its variance.
+        "name": "robust_9_correlation",
+        "us_survey": "anes", "cn_survey": "wvs", "eu_survey": "evs_resample2",
+        "eutwitter_src": "eutwitter", "embedding_type": "gpt",
+        "figures": [3], "spectral_matrix": "corr",
+    },
 ]
 
 
@@ -2514,6 +2535,7 @@ def task_plotter_kwargs(
         # only belong in the main figure; robustness checks omit them.
         pedagogical=task.get("pedagogical", name == "main"),
         trend=task.get("trend", "linear"),
+        spectral_matrix=task.get("spectral_matrix", "cov"),
     )
     if "regions" in task:
         plotter_kwargs["regions"] = task["regions"]

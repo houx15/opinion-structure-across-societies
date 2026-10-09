@@ -16,6 +16,9 @@ data/dimension/results/<stem>-none-bootstrap.json:
     python -m analysis.dimension.spectral_bootstrap all            # every Fig 3 source found
     python -m analysis.dimension.spectral_bootstrap run anes       # one source
     python -m analysis.dimension.spectral_bootstrap run twitter-us --npz_dir PATH
+
+``--matrix corr`` uses the pairwise-available correlation matrix instead
+(robustness check) and writes <stem>-none-corr-bootstrap.json.
 """
 
 import json
@@ -25,7 +28,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 import numpy as np
 from scipy import sparse
 
-from analysis.dimension.dimensions import spectral_effective_ranks_from_lam
+from analysis.dimension.dimensions import cov_to_corr, spectral_effective_ranks_from_lam
 from common.paths import CSR_DIR, DIMENSION_RESULTS_DIR
 
 NPZ_ROOT = CSR_DIR
@@ -68,14 +71,15 @@ def weighted_pairwise_cov(X: sparse.csr_matrix, B: sparse.csr_matrix, w: np.ndar
     return 0.5 * (cov + cov.T)
 
 
-def spectral_metrics(X, B, w) -> Tuple[float, float]:
-    lam = np.linalg.eigvalsh(weighted_pairwise_cov(X, B, w))
+def spectral_metrics(X, B, w, standardize: bool = False) -> Tuple[float, float]:
+    cov = weighted_pairwise_cov(X, B, w)
+    lam = np.linalg.eigvalsh(cov_to_corr(cov) if standardize else cov)
     pr, erank, _ = spectral_effective_ranks_from_lam(lam)
     return pr, erank
 
 
 def bootstrap_matrices(
-    matrices: Sequence[sparse.csr_matrix], n_boot: int, seed: int,
+    matrices: Sequence[sparse.csr_matrix], n_boot: int, seed: int, standardize: bool = False,
 ) -> Dict[str, np.ndarray]:
     """Point estimates and replicates, averaged across the yearly matrices."""
     rng = np.random.default_rng(seed)
@@ -86,10 +90,10 @@ def bootstrap_matrices(
         B = X.copy()
         B.data = np.ones_like(B.data)
         n = X.shape[0]
-        point += spectral_metrics(X, B, np.ones(n))
+        point += spectral_metrics(X, B, np.ones(n), standardize)
         for b in range(n_boot):
             w = np.bincount(rng.integers(0, n, size=n), minlength=n).astype(float)
-            reps[b] += spectral_metrics(X, B, w)
+            reps[b] += spectral_metrics(X, B, w, standardize)
     k = len(matrices)
     return {"point": point / k, "reps": reps / k}
 
@@ -101,17 +105,21 @@ def run(
     n_boot: int = N_BOOT,
     seed: int = 20261008,
     alpha: float = 0.05,
+    matrix: str = "cov",
 ) -> Path:
-    """Bootstrap one source and write ``<out_dir>/<stem>-none-bootstrap.json``."""
+    """Bootstrap one source and write ``<out_dir>/<stem>-none[-corr]-bootstrap.json``."""
+    if matrix not in ("cov", "corr"):
+        raise ValueError(f"matrix must be 'cov' or 'corr', got {matrix!r}")
+    tag = "none-corr" if matrix == "corr" else "none"
     folder = Path(npz_dir) if npz_dir else npz_folder_for(stem)
     files = sorted(folder.glob("*.npz"))
     if not files:
         raise FileNotFoundError(f"no .npz files in {folder}")
-    print(f"[{stem}] {len(files)} matrix file(s) from {folder}, n_boot={n_boot}")
-    res = bootstrap_matrices([sparse.load_npz(f) for f in files], n_boot, seed)
+    print(f"[{stem}] {len(files)} matrix file(s) from {folder}, n_boot={n_boot}, matrix={matrix}")
+    res = bootstrap_matrices([sparse.load_npz(f) for f in files], n_boot, seed, standardize=matrix == "corr")
 
     out: Dict[str, object] = {
-        "stem": stem, "files": [f.name for f in files], "n_boot": n_boot,
+        "stem": stem, "matrix": matrix, "files": [f.name for f in files], "n_boot": n_boot,
         "seed": seed, "alpha": alpha,
         "unit": "rows (respondents / users) resampled with replacement within each file",
     }
@@ -125,7 +133,7 @@ def run(
         print(f"  {metric} = {out[metric]:.3f}  95% CI [{out[f'{metric}_lo']:.3f}, {out[f'{metric}_hi']:.3f}]")
 
     # The point estimate must reproduce the pipeline's summary when present.
-    summary = Path(out_dir) / f"{stem}-none-summary.json"
+    summary = Path(out_dir) / f"{stem}-{tag}-summary.json"
     if summary.exists():
         with open(summary) as f:
             ref = json.load(f)
@@ -134,7 +142,7 @@ def run(
             if not np.isclose(out[metric], expected, rtol=1e-6):
                 print(f"  [WARN] {metric} {out[metric]:.6f} != summary {expected:.6f}")
 
-    path = Path(out_dir) / f"{stem}-none-bootstrap.json"
+    path = Path(out_dir) / f"{stem}-{tag}-bootstrap.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w") as f:
         json.dump(out, f, indent=2)

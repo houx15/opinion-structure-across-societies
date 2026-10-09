@@ -312,10 +312,22 @@ def twonn_intrinsic_dim(
 # ===== New: pairwise covariance eigendecomposition & spectral-distance pipeline =====
 
 
-def pairwise_cov_eigendecomp(X):
+def cov_to_corr(cov):
+    """Rescale a (pairwise-available) covariance matrix to unit diagonal."""
+    sd = np.sqrt(np.clip(np.diag(cov), 0.0, None))
+    with np.errstate(divide="ignore", invalid="ignore"):
+        corr = cov / np.outer(sd, sd)
+    corr[~np.isfinite(corr)] = 0.0
+    return corr
+
+
+def pairwise_cov_eigendecomp(X, standardize=False):
     """
     Return eigenvalues/eigenvectors of pairwise-available covariance.
     cov_ij = (X^T X)_ij - C_ij * mu_i * mu_j  all divided by (C_ij - 1) when C_ij > 1.
+    With ``standardize`` the matrix is first rescaled to a correlation matrix
+    (each topic's variance set to 1), so topics with larger variance do not
+    weigh more in the spectrum.
     """
     B = X.copy()
     B.data = np.ones_like(B.data, dtype=float)
@@ -331,6 +343,8 @@ def pairwise_cov_eigendecomp(X):
     denom = np.maximum(counts - 1.0, 1.0)
     cov[mask] = (cross[mask] - counts[mask] * outer_mu[mask]) / denom[mask]
     cov = 0.5 * (cov + cov.T)
+    if standardize:
+        cov = cov_to_corr(cov)
 
     # Add regularization to ensure numerical stability
     # ridge = 1e-6
@@ -492,9 +506,13 @@ def estimate(
     max_points_mle: int = 300,
     max_points_twonn: int = 500,
     random_seed: int = 42,
+    standardize: bool = False,
 ):
     """
     Estimate intrinsic dimension of data with missing entries.
+
+    ``standardize``: spectral metrics from the pairwise-available correlation
+    matrix instead of the covariance matrix.
 
     Parameters
     ----------
@@ -623,7 +641,8 @@ def estimate(
     # ---- Spectral metrics ----
     # Pairwise covariance eigendecomp + metrics (always compute for reporting)
     print(f"Computing spectral metrics...")
-    lam, V = pairwise_cov_eigendecomp(X_sparse)
+    lam, V = pairwise_cov_eigendecomp(X_sparse, standardize=standardize)
+    estimated["matrix"] = "corr" if standardize else "cov"
     estimated["PR"], estimated["eRank"], estimated["srank"] = (
         spectral_effective_ranks_from_lam(lam)
     )
