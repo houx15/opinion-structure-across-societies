@@ -50,9 +50,9 @@ RULE = "=" * 78
 # -- data -----------------------------------------------------------------------
 
 
-def _pair_table(src: str):
+def _pair_table(src: str, year: str = "average"):
     """One row per topic pair: topic_combination, pearson, |r|, intersection."""
-    return v4.load_pairwise_correlation(src).drop_duplicates(subset=["topic_combination"])
+    return v4.load_pairwise_correlation(src, year=year).drop_duplicates(subset=["topic_combination"])
 
 
 def _fisher(r: np.ndarray) -> np.ndarray:
@@ -67,9 +67,9 @@ def _eta_sq(groups: Sequence[np.ndarray]) -> Tuple[float, float, float]:
     return ss_between, ss_total, ss_between / ss_total if ss_total > 0 else float("nan")
 
 
-def _similarity_pairs(src: str, embedding_type: str) -> Tuple[np.ndarray, np.ndarray]:
+def _similarity_pairs(src: str, embedding_type: str, year: str = "average") -> Tuple[np.ndarray, np.ndarray]:
     """(semantic similarity, |r|) per topic pair, merged exactly as Fig 2g, h."""
-    corr = v4.load_pairwise_correlation(src)
+    corr = v4.load_pairwise_correlation(src, year=year)
     sem = v4.load_semantic_similarity(src, embedding_type=embedding_type)
     merged = (
         corr.merge(sem[["topic_combination", "similarity"]], on="topic_combination", how="left")
@@ -150,7 +150,9 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
         f"{csv(getattr(r, attr))}  ({r.code} {medium.lower()})"
         for medium, attr in MEDIA for r in regions
     ] + [
-        'Rows with year == "average" (pooled years); only the 9 topics of each source',
+        ('Rows with year == "average" (each user pooled over all years)' if plotter.social_year == "average"
+         else f'Social media: rows with year == "{plotter.social_year}" (opinions of that year only); surveys: "average"')
+        + "; only the 9 topics of each source",
         "(figures.RESTRICTED_TOPICS) -> 36 topic pairs. |r| = abs(\"Correlation (Pearson)\").",
         "Loaded with figures.load_pairwise_correlation (same as Fig 2).",
     ]
@@ -166,7 +168,7 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
     for r in regions:
         for medium, attr in MEDIA:
             key = (r.code, medium)
-            df = _pair_table(getattr(r, attr))
+            df = _pair_table(getattr(r, attr), plotter.correlation_year(getattr(r, attr)))
             tables[key] = df
             a = df["correlation"].to_numpy(float)
             absr[key] = a
@@ -391,11 +393,13 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
         rng9 = np.random.default_rng(SEED)
         for medium, attr in MEDIA:
             us_region = next(r for r in regions if r.code == "US")
-            xu, yu = _similarity_pairs(getattr(us_region, attr), plotter.embedding_type)
+            xu, yu = _similarity_pairs(getattr(us_region, attr), plotter.embedding_type,
+                                       plotter.correlation_year(getattr(us_region, attr)))
             for r in regions:
                 if r.code == "US":
                     continue
-                xo, yo = _similarity_pairs(getattr(r, attr), plotter.embedding_type)
+                xo, yo = _similarity_pairs(getattr(r, attr), plotter.embedding_type,
+                                           plotter.correlation_year(getattr(r, attr)))
                 raw = yu.mean() - yo.mean()
                 bo, ao = np.polyfit(xo, yo, 1)
                 remaining, share = _gap_closed(xu, yu, xo, yo, xu)

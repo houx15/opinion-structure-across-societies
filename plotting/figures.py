@@ -1083,12 +1083,17 @@ class Plotter:
         pedagogical: bool = True,
         trend: str = "linear",
         spectral_matrix: str = "cov",
+        social_year: str = "average",
     ):
         self.embedding_type = embedding_type
         # Fig 3 spectrum: pairwise-available covariance ("cov", main) or the
         # same matrix rescaled to correlations ("corr", robustness check).
         dimension_results_dir(spectral_matrix)  # validates the name
         self.spectral_matrix = spectral_matrix
+        # Social-media pairwise correlations: "average" (each user's opinion
+        # pooled over all years, main) or one year, e.g. "2021" (robustness).
+        # Surveys are single cross-sections and always use "average".
+        self.social_year = str(social_year)
         self.loess_frac = loess_frac
         # Fig 2 |r|-vs-similarity trend: "linear" (OLS line, first-order only,
         # easier for a general audience) or "lowess" (bootstrapped LOWESS).
@@ -1726,7 +1731,7 @@ class Plotter:
             country = self.source_country[src]
             color = self.country_color[country]
             x_center = positions[country]
-            values = load_pairwise_correlation(src)["correlation"].to_numpy()
+            values = self.pair_correlations(src)["correlation"].to_numpy()
             values = values[np.isfinite(values)]
             if len(values) < 3:
                 continue
@@ -1957,7 +1962,7 @@ class Plotter:
         rng = np.random.default_rng(7)
         for src in sources:
             color = self.country_color[self.source_country[src]]
-            corr = load_pairwise_correlation(src)
+            corr = self.pair_correlations(src)
             sem = load_semantic_similarity(src, embedding_type=self.embedding_type)
             merged = (
                 corr.merge(
@@ -2145,6 +2150,14 @@ class Plotter:
         return path
 
     # -- Figure 3 ------------------------------------------------------------
+
+    def correlation_year(self, src: str) -> str:
+        """Year of the pairwise correlations used for ``src`` (see social_year)."""
+        return self.social_year if src in SOCIAL_SOURCES else "average"
+
+    def pair_correlations(self, src: str) -> pd.DataFrame:
+        """load_pairwise_correlation for ``src`` at this plotter's year."""
+        return load_pairwise_correlation(src, year=self.correlation_year(src))
 
     def _spectral_means(self, metric: str, normalize: bool = False) -> Dict[str, float]:
         """Return {src: mean(metric)} across both offline and online sources.
@@ -2500,6 +2513,16 @@ TASKS: List[Dict] = [
         "eutwitter_src": "eutwitter", "embedding_type": "gpt",
         "figures": [3], "spectral_matrix": "corr",
     },
+    {
+        # Fig 2 from social-media opinions of a single year instead of each
+        # user's opinion pooled over all years. 2021 is the only year in which
+        # all nine Twitter/X topics are observed (Weibo covers it too); Fig 3
+        # already uses yearly scores.
+        "name": "robust_10_annual",
+        "us_survey": "anes", "cn_survey": "wvs", "eu_survey": "evs_resample2",
+        "eutwitter_src": "eutwitter", "embedding_type": "gpt",
+        "figures": [2], "social_year": "2021",
+    },
 ]
 
 
@@ -2529,6 +2552,7 @@ def task_plotter_kwargs(
         pedagogical=task.get("pedagogical", name == "main"),
         trend=task.get("trend", "linear"),
         spectral_matrix=task.get("spectral_matrix", "cov"),
+        social_year=task.get("social_year", "average"),
     )
     if "regions" in task:
         plotter_kwargs["regions"] = task["regions"]
