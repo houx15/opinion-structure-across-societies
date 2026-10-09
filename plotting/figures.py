@@ -2284,9 +2284,10 @@ class Plotter:
     def _spectral_dash_panels(self, pr_ax, erank_ax) -> None:
         """Normalized PR and eRank by society and medium (Fig 3 b, c).
 
-        Both panels share one y-range so the two metrics read on a common
-        0-1 scale (eRank >= PR always, so eRank sits lower on the inverted
-        axis).
+        Each panel has its own y-range, fitted to that metric's values and
+        intervals: eRank >= PR by construction (exponentials of the order-1
+        and order-2 Renyi entropies of the spectrum), so the two are compared
+        in pattern, not level, and a shared axis would invite the latter.
         """
         k = len(RESTRICTED_TOPICS[self.regions[0].survey])
         means = {
@@ -2305,19 +2306,21 @@ class Plotter:
             }
             for metric in means
         }
-        all_values = [v for m in means.values() for v in m.values()] + [
-            v for m in intervals.values() for pair in m.values() for v in pair
-        ]
-        lo, hi = min(all_values), max(all_values)
-        pad = 0.08 * (hi - lo)
-        ylim = (np.floor((lo - pad) / 0.05) * 0.05, np.ceil((hi + pad) / 0.05) * 0.05)
+        def metric_ylim(metric: str) -> Tuple[float, float]:
+            values = list(means[metric].values()) + [
+                v for pair in intervals[metric].values() for v in pair
+            ]
+            lo, hi = min(values), max(values)
+            pad = 0.08 * (hi - lo)
+            return (np.floor((lo - pad) / 0.05) * 0.05, np.ceil((hi + pad) / 0.05) * 0.05)
+
         for ax, metric, y_label, title in (
             (pr_ax, "PR", f"PR / K   (K = {k} topics)", "Normalized participation ratio"),
             (erank_ax, "eRank", f"eRank / K   (K = {k} topics)", "Normalized exponential rank"),
         ):
             self._aligned_dash_plot(
                 ax, means[metric],
-                y_label=y_label, title=title, ylim=ylim,
+                y_label=y_label, title=title, ylim=metric_ylim(metric),
                 decimals_fn=lambda src: 3, invert_y=True,
                 connect=True, range_span=True,
                 direction_notes=self._SPECTRAL_DIRECTION_NOTES,
