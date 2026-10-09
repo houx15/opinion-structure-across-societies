@@ -1,11 +1,11 @@
-topic_id,topic,relevance_accuracy,relevance_auc,opinion_rmse
-gun,Gun Control,0.8600,,0.9546
-abo,Abortion Rights,0.9515,,0.9749
-clc,Climate Change,0.9425,,0.9217
-sxo,LGBT+ Rights,0.9283,,0.8411
-vac,Vaccine Mandate,0.7938,0.7951,1.2359
-soc,Social Media,0.8553,0.8418,0.6179
-dpp,Death Penalty,0.9142,0.8689,1.0061
-minwage,Minimum Wage,0.9024,0.9021,0.8454
-swe,Sex Work Legalization,0.8834,0.8564,0.7893
-ubi,Universal Basic Income,0.9713,0.9298,0.8165
+topic_id,topic,relevance_accuracy,relevance_auc,opinion_rmse,relevance_roc_auc
+gun,Gun Control,0.8600,,0.9546,0.8782
+abo,Abortion Rights,0.9515,,0.9749,0.9648
+clc,Climate Change,0.9425,,0.9217,0.9530
+sxo,LGBT+ Rights,0.9283,,0.8411,0.9756
+vac,Vaccine Mandate,0.7938,0.7951,1.2359,0.8590
+soc,Social Media,0.8553,0.8418,0.6179,0.9103
+dpp,Death Penalty,0.9142,0.8689,1.0061,0.9468
+minwage,Minimum Wage,0.9024,0.9021,0.8454,0.9640
+swe,Sex Work Legalization,0.8834,0.8564,0.7893,0.9345
+ubi,Universal Basic Income,0.9713,0.9298,0.8165,0.9799

@@ -40,3 +40,20 @@ the first data collection, before the LLM labelling pipeline.
   (earlier pipeline).
 * `bert_performance_weibo.csv`: the Weibo fine-tuning logs are on the PKU
   cluster; not rechecked.
+
+## ROC AUC of the Twitter relevance classifiers (added 2026-10-09)
+
+`bert_performance_twitter.csv` column `relevance_roc_auc` = ROC AUC of the
+predicted probability of "relevant" (mean over the 5 runs); the paper's
+relevance column for Twitter/X reports this value. `relevance_auc` keeps the
+label-based value (= balanced accuracy), which is the only AUC available for
+Weibo.
+
+* vac, soc, dpp, minwage, swe, ubi: `auc_prob_mean` of
+  `python -m cleaning.bert.evaluate` (outputs/reports/20261008_bert_reevaluation).
+* abo, gun, clc, sxo (first wave, no surviving checkpoints): mean AUC of the
+  5 original runs in the archived results workbook bert-results-0304.xlsx,
+  Sheet3 (the old pipeline computed roc_auc_score(labels, probabilities)):
+  abortion 0.96478, gun control 0.87824, LGBT+ 0.97562; climate change
+  0.95296, the setting with undersampling (label 1 to 80%) and augmentation
+  of label 0 (x3), confirmed by the authors as the one used.
