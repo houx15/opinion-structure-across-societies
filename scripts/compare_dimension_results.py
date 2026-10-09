@@ -25,6 +25,8 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("old", type=Path, help="earlier results folder")
     ap.add_argument("--new", type=Path, default=DIMENSION_RESULTS_DIR)
+    # Results computed before the ridge (dimensions.RIDGE = 1e-6) was enabled
+    # differ from current ones by ~1e-6; use e.g. --tol 1e-4 for those.
     ap.add_argument("--tol", type=float, default=1e-9)
     args = ap.parse_args()
 

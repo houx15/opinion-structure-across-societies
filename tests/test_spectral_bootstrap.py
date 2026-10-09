@@ -5,7 +5,7 @@ import numpy as np
 from scipy import sparse
 
 from analysis.dimension import spectral_bootstrap as sb
-from analysis.dimension.dimensions import pairwise_cov_eigendecomp
+from analysis.dimension.dimensions import pairwise_cov_eigendecomp, regularize
 
 
 def _sparse_opinions(n=400, L=5, missing=0.3, seed=0):
@@ -25,7 +25,7 @@ def _indicator(X):
 def test_unit_weights_reproduce_pipeline_eigenvalues():
     X = _sparse_opinions()
     lam_pipeline, _ = pairwise_cov_eigendecomp(X)
-    lam_ours = np.linalg.eigvalsh(sb.weighted_pairwise_cov(X, _indicator(X), np.ones(X.shape[0])))
+    lam_ours = np.linalg.eigvalsh(regularize(sb.weighted_pairwise_cov(X, _indicator(X), np.ones(X.shape[0]))))
     np.testing.assert_allclose(lam_ours, lam_pipeline, rtol=1e-10, atol=1e-12)
 
 
@@ -35,7 +35,7 @@ def test_integer_weights_equal_duplicated_rows():
     idx = rng.integers(0, X.shape[0], size=X.shape[0])
     w = np.bincount(idx, minlength=X.shape[0]).astype(float)
     lam_dup, _ = pairwise_cov_eigendecomp(X[idx])
-    lam_w = np.linalg.eigvalsh(sb.weighted_pairwise_cov(X, _indicator(X), w))
+    lam_w = np.linalg.eigvalsh(regularize(sb.weighted_pairwise_cov(X, _indicator(X), w)))
     np.testing.assert_allclose(lam_w, lam_dup, rtol=1e-10, atol=1e-12)
 
 

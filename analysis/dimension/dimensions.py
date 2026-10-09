@@ -312,6 +312,20 @@ def twonn_intrinsic_dim(
 # ===== New: pairwise covariance eigendecomposition & spectral-distance pipeline =====
 
 
+# Ridge added to the diagonal of the pairwise-available matrix before the
+# eigendecomposition, for numerical stability. It shifts every eigenvalue by
+# RIDGE, i.e. it changes PR / eRank only around the sixth decimal; it does not
+# make the matrix positive semidefinite (negative eigenvalues of the sparse
+# social-media matrices are much larger), so non-positive eigenvalues are still
+# dropped in spectral_effective_ranks_from_lam (= nearest PSD matrix).
+RIDGE = 1e-6
+
+
+def regularize(cov, ridge=RIDGE):
+    """Return ``cov + ridge * I``."""
+    return cov + ridge * np.eye(cov.shape[0])
+
+
 def cov_to_corr(cov):
     """Rescale a (pairwise-available) covariance matrix to unit diagonal."""
     sd = np.sqrt(np.clip(np.diag(cov), 0.0, None))
@@ -321,13 +335,13 @@ def cov_to_corr(cov):
     return corr
 
 
-def pairwise_cov_eigendecomp(X, standardize=False):
+def pairwise_cov_eigendecomp(X, standardize=False, ridge=RIDGE):
     """
     Return eigenvalues/eigenvectors of pairwise-available covariance.
     cov_ij = (X^T X)_ij - C_ij * mu_i * mu_j  all divided by (C_ij - 1) when C_ij > 1.
     With ``standardize`` the matrix is first rescaled to a correlation matrix
     (each topic's variance set to 1), so topics with larger variance do not
-    weigh more in the spectrum.
+    weigh more in the spectrum. ``ridge`` is added to the diagonal (see RIDGE).
     """
     B = X.copy()
     B.data = np.ones_like(B.data, dtype=float)
@@ -345,18 +359,9 @@ def pairwise_cov_eigendecomp(X, standardize=False):
     cov = 0.5 * (cov + cov.T)
     if standardize:
         cov = cov_to_corr(cov)
+    cov = regularize(cov, ridge)
 
-    # Add regularization to ensure numerical stability
-    # ridge = 1e-6
-    # cov += ridge * np.eye(cov.shape[0])
-
-    # try:
     lam, V = np.linalg.eigh(cov)  # ascending
-    # except np.linalg.LinAlgError:
-    #     # If eigendecomposition fails, try with more regularization
-    #     print(f"[WARN] Eigendecomposition failed, using more regularization")
-    #     cov += 1e-3 * np.eye(cov.shape[0])
-    #     lam, V = np.linalg.eigh(cov)
 
     return lam.astype(float), V.astype(float)
 

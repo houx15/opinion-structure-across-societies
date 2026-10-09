@@ -2,7 +2,7 @@
 
 Resamples rows (respondents / users) of each source's ``<year>.csr.npz``
 with replacement and recomputes the pairwise-available covariance spectrum
-exactly as ``dimensions.pairwise_cov_eigendecomp`` does. A resample is
+exactly as ``dimensions.pairwise_cov_eigendecomp`` does (same ridge). A resample is
 expressed as integer row weights (multinomial counts), which is identical
 to duplicating rows but avoids copying the matrix every replicate.
 
@@ -28,7 +28,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 import numpy as np
 from scipy import sparse
 
-from analysis.dimension.dimensions import cov_to_corr, spectral_effective_ranks_from_lam
+from analysis.dimension.dimensions import cov_to_corr, regularize, spectral_effective_ranks_from_lam
 from common.paths import CSR_DIR, DIMENSION_RESULTS_DIR
 
 NPZ_ROOT = CSR_DIR
@@ -73,7 +73,7 @@ def weighted_pairwise_cov(X: sparse.csr_matrix, B: sparse.csr_matrix, w: np.ndar
 
 def spectral_metrics(X, B, w, standardize: bool = False) -> Tuple[float, float]:
     cov = weighted_pairwise_cov(X, B, w)
-    lam = np.linalg.eigvalsh(cov_to_corr(cov) if standardize else cov)
+    lam = np.linalg.eigvalsh(regularize(cov_to_corr(cov) if standardize else cov))
     pr, erank, _ = spectral_effective_ranks_from_lam(lam)
     return pr, erank
 
