@@ -267,8 +267,8 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
         keys = [(r.code, medium) for r in regions]
         zmeans = np.array([_fisher(absr[k]).mean() for k in keys])
         means = np.array([absr[k].mean() for k in keys])
-        disp[medium] = float(zmeans.std(ddof=1))
-        boot_disp[medium] = np.stack([boot_zmean[k] for k in keys]).std(axis=0, ddof=1)
+        disp[medium] = float(zmeans.std(ddof=0))
+        boot_disp[medium] = np.stack([boot_zmean[k] for k in keys]).std(axis=0, ddof=0)
         lo, hi = q(boot_disp[medium])
         hi_code, lo_code = keys[means.argmax()][0], keys[means.argmin()][0]
         rows.append([
@@ -283,7 +283,8 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
         ["Same 36-pair |r| values as Part 2."],
         [
             "Fisher z of each pair: z = arctanh(|r|).",
-            "Dispersion (per medium) = SD (ddof=1) across societies of each society's mean z.",
+            "Dispersion (per medium) = population SD (ddof=0; the societies are fixed cases) across",
+            "societies of each society's mean z: D = sqrt(sum_s (z_s - mean z)^2 / n_societies).",
             "Dispersion ratio = dispersion(Survey) / dispersion(Social media).",
             "Range (original correlation scale) = max - min across societies of mean |r|.",
             boot_note + " Dispersion and its ratio are recomputed in each resample.",
