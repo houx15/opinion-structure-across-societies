@@ -320,13 +320,21 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
             src = getattr(r, attr)
             path = _spectral_path(src)
             if not path.exists():
-                rows.append([r.code, medium, src, "missing", "", "", "", ""])
+                rows.append([r.code, medium, src, "missing", "", "", "", "", "", ""])
                 continue
             summ = v4.load_spectral_summary(src)
             pr, er = float(np.mean(summ["PR"])), float(np.mean(summ["eRank"]))
             sources.append(display(path))
-            rows.append([r.code, medium, src, str(len(summ["PR"])), f"{pr:.3f}",
-                         f"{pr / N_TOPICS:.3f}", f"{er:.3f}"])
+            boot = v4.load_spectral_bootstrap(src)
+            if boot is None:
+                pr_ci = norm_ci = er_ci = "no bootstrap"
+            else:
+                sources.append(display(path.with_name(path.name.replace("-summary", "-bootstrap"))))
+                pr_ci = f"[{boot['PR_lo']:.3f}, {boot['PR_hi']:.3f}]"
+                norm_ci = f"[{boot['PR_lo'] / N_TOPICS:.3f}, {boot['PR_hi'] / N_TOPICS:.3f}]"
+                er_ci = f"[{boot['eRank_lo']:.3f}, {boot['eRank_hi']:.3f}]"
+            rows.append([r.code, medium, src, str(len(summ["PR"])), f"{pr:.3f}", pr_ci,
+                         f"{pr / N_TOPICS:.3f}", norm_ci, f"{er:.3f}", er_ci])
     lines += _part(
         "PART 6. Dimensionality: participation ratio and exponential rank (Fig 3)",
         sources + ["Keys \"PR\" and \"eRank\" (one entry per year in the source)."],
@@ -335,8 +343,12 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
             "covariance matrix: PR = (sum lambda)^2 / sum lambda^2; eRank = exp(entropy of lambda / sum lambda).",
             "Where a source has several yearly entries (Weibo), the mean is taken, as in Fig 3.",
             f"Normalized PR = PR / {N_TOPICS} (number of topics).",
+            "95% CI: percentile bootstrap from spectral_bootstrap.py (rows = respondents / users",
+            "resampled with replacement within each file; PR and eRank recomputed in each resample;",
+            f"these are the Fig 3 error bars). Normalized CI = CI / {N_TOPICS}.",
         ],
-        _table(["Country", "Medium", "Source", "Entries", "PR", "PR/9", "eRank"], rows),
+        _table(["Country", "Medium", "Source", "Entries", "PR", "PR 95% CI", "PR/9", "PR/9 95% CI",
+                "eRank", "eRank 95% CI"], rows),
     )
 
     # Part 7 - pairwise-complete overlap
