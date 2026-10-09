@@ -16,6 +16,7 @@ the task definitions live in plotting/figures.py (TASKS).
 | robust_8_survey_question   | survey topic = embedding of the full question text     | similarity_question column                       |
 | robust_9_correlation       | Fig 3 from the correlation instead of covariance matrix | data/dimension/results/corr/ (calculate_all / spectral_bootstrap --matrix corr) |
 | robust_10_annual           | Figs 2, 3 from social-media opinions of 2021 instead of pooled over years | year == 2021 rows of the correlation files; <stem>-2021.csr-none.json (+ spectral_bootstrap run weibo --year 2021) |
+| robust_11_survey_selected  | survey keywords before the top-5 cap (all selected keywords) | similarity column                            |
 
 Other robustness analyses in this folder:
     embedding_subspace_analysis.py   ngram-level semantic subspace diagnostics

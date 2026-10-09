@@ -59,7 +59,7 @@ STEPS="plots robustness" bash scripts/run_from_precomputed.sh
 
 | step | command | writes |
 |---|---|---|
-| semantic | `analysis.semantic.semantic_similarity survey_select / survey / process_all` | survey keyword selection, topic similarities |
+| semantic | `analysis.semantic.semantic_similarity survey_select / survey_top5 / survey / process_all` | survey keyword selection, topic similarities |
 | dimension | `analysis.dimension.dimension_pipeline transform / calculate_all`, `spectral_bootstrap all` | PR / eRank per source, bootstrap CIs |
 | subspace | `robustness.embedding_subspace_analysis`, `robustness.centroid_rank_check --plot` | SI semantic-subspace analyses |
 | plots | `plotting.prepare_word_overlap`, `plotting.figures main`, `plotting.graphical_abstract` | Fig 2, Fig 3, stats, GA panels |
@@ -92,7 +92,7 @@ python scripts/import_legacy_data.py /path/to/opinion_correlation [--csr_root /p
    for the paper, written with every figure), `graphical_abstract`.
 4. **Robustness** (`robustness/`): `run_robustness` (survey media users only,
    EVS without replacement, Great Britain only, LOWESS span, word2vec,
-   GB vs. rest of Europe, curated / full-question survey keywords),
+   GB vs. rest of Europe, curated / uncapped selected / full-question survey keywords),
    `run_word2vec.sh`, `embedding_subspace_analysis`, `centroid_rank_check`,
    `missingness_sensitivity` (simulation: PR / eRank under varying sample
    size, missingness and true dimensionality).

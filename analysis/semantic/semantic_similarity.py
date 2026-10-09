@@ -126,8 +126,13 @@ def _cosine_similarity_np(vec1, vec2):
 #      same survey (generic wording is about equally close to every topic);
 #   3. a keyword that also occurs in another topic's questions (battery
 #      wording such as "justified", "card") must reach SURVEY_SHARED_THRESHOLD.
-# The hand-curated lists (tf_idf/survey_<region>_topic_tfidf_curated.csv) are a
-# robustness variant.
+# The main keyword set ("top5", cap_survey_keywords) tightens the selected list
+# so that one generic word cannot carry a topic: the anchor is always a keyword,
+# a word or phrase whose tokens all lie inside a longer kept keyword is dropped
+# ("penalty" next to "death penalty"), the rest must reach SURVEY_TOP_THRESHOLD,
+# and at most SURVEY_TOP_K keywords are kept (anchor first, then by anchor_sim).
+# The selected list and the hand-curated lists
+# (tf_idf/survey_<region>_topic_tfidf_curated.csv) are robustness variants.
 
 # region -> survey sources sharing its codebook topics
 SURVEY_REGIONS = {
@@ -178,10 +183,14 @@ SURVEY_KEYWORD_REVIEW_ADD = {
     ("europe", "Egalitarian"): ["responsibility", "individual"],
     ("china", "Childbearing"): ["duty towards society"],
 }
-SURVEY_KEYWORD_SETS = ("selected", "curated")
+SURVEY_TOP_THRESHOLD = 0.40
+SURVEY_TOP_K = 5
+SURVEY_KEYWORD_SETS = ("top5", "selected", "curated")
 
 
 def _survey_keyword_csv(region, keywords):
+    if keywords == "top5":
+        return TF_IDF_DIR / f"survey_{region}_topic_keywords_top5.csv"
     if keywords == "selected":
         return TF_IDF_DIR / f"survey_{region}_topic_keywords_selected.csv"
     if keywords == "curated":
@@ -255,10 +264,49 @@ def select_survey_keywords(
         print(f"[{region}] wrote {path}: {len(out)} keywords for {out['topic'].nunique()} topics")
 
 
-def survey_topic_keyword_counts(region, keywords="selected"):
+def _is_fragment(word, others):
+    """True when every token of ``word`` lies inside a longer keyword in ``others``."""
+    tokens = set(word.split())
+    return any(word != o and tokens < set(o.split()) for o in others)
+
+
+def cap_survey_keywords(threshold=SURVEY_TOP_THRESHOLD, k=SURVEY_TOP_K):
+    """Main survey keyword set, built from the selected list (run survey_select first).
+
+    Per topic: the anchor (topic name) is always kept; other keywords are
+    dropped when they are a fragment of a longer keyword (anchor included) or
+    their cosine to the anchor is below ``threshold``; at most ``k`` keywords
+    remain, anchor first, then by ``anchor_sim``. Writes
+    tf_idf/survey_<region>_topic_keywords_top5.csv.
+    """
+    for region, anchors in SURVEY_TOPIC_ANCHORS.items():
+        selected = pd.read_csv(_survey_keyword_csv(region, "selected"))
+        kept = []
+        for topic, anchor in anchors.items():
+            group = selected[selected["topic"] == topic].sort_values("anchor_sim", ascending=False)
+            group = group[group["word"] != anchor]
+            words = [anchor] + group["word"].tolist()
+            keep = group[[
+                not _is_fragment(w, words) and s >= threshold
+                for w, s in zip(group["word"], group["anchor_sim"])
+            ]]
+            anchor_row = pd.DataFrame([{"topic": topic, "word": anchor, "ngram": len(anchor.split()),
+                                        "anchor": anchor, "anchor_sim": 1.0,
+                                        "selected_by": "anchor"}])
+            kept.append(pd.concat([anchor_row, keep], ignore_index=True).head(k))
+        out = pd.concat(kept, ignore_index=True)
+        path = _survey_keyword_csv(region, "top5")
+        out.to_csv(path, index=False)
+        print(f"[{region}] wrote {path}: {len(out)} keywords for {out['topic'].nunique()} topics")
+        for topic, group in out.groupby("topic", sort=False):
+            print(f"  {topic:13s} {' | '.join(group['word'])}")
+
+
+def survey_topic_keyword_counts(region, keywords="top5"):
     """Survey keywords per topic: {topic_id: DataFrame(word, count)}.
 
-    ``keywords`` is "selected" (automatic filters + review) or "curated" (by
+    ``keywords`` is "top5" (main, see cap_survey_keywords), "selected"
+    (automatic filters + review) or "curated" (by
     hand). Every survey keyword gets weight 1: in a short questionnaire item a
     keyword's count reflects how the question is phrased (battery items repeat
     the topic word), not how central the word is.
@@ -266,7 +314,7 @@ def survey_topic_keyword_counts(region, keywords="selected"):
     """
     path = _survey_keyword_csv(region, keywords)
     if not os.path.exists(path):
-        raise FileNotFoundError(f"{path} missing; run analysis.semantic.survey_codebook_tfidf and `semantic_similarity survey_select`")
+        raise FileNotFoundError(f"{path} missing; run analysis.semantic.survey_codebook_tfidf, then `semantic_similarity survey_select` and `survey_top5`")
     table = pd.read_csv(path)
     topic_alias = _build_topic_alias()
     out = {}
@@ -309,7 +357,7 @@ def _keyword_embedding(dse, word):
     return _keyword_embedding_source(dse, word)[0]
 
 
-def survey_topic_centroids(region, dse, keywords="selected"):
+def survey_topic_centroids(region, dse, keywords="top5"):
     """Equal-weight keyword centroid per survey topic (prints keyword coverage)."""
     centroids = {}
     sources = Counter()
@@ -335,20 +383,21 @@ def survey_topic_centroids(region, dse, keywords="selected"):
 
 def process_survey_embedding(
     embedding_type="gpt",
-    keywords="selected",
+    keywords="top5",
     backup_dir=str(EMBEDDING_DIR / "backup_full_question"),
 ):
     """Write survey topic-pair cosines into embedding/<src>_topic_distance.csv.
 
     Columns: ``similarity`` (gpt) / ``dictionary_similarity`` (word2vec) from
-    the selected keywords; ``*_curated`` from the hand-curated keywords. Every
+    the selected keywords; ``*_top5`` from the main capped keywords;
+    ``*_curated`` from the hand-curated keywords. Every
     survey source of a region gets the same values. The first time a file is
     rewritten the original is copied to ``backup_dir``, and its full-question
     ``similarity`` is kept as ``similarity_question``.
     """
     column = {"gpt": "similarity", "dictionary": "dictionary_similarity"}[embedding_type]
-    if keywords == "curated":
-        column += "_curated"
+    if keywords in ("top5", "curated"):
+        column += f"_{keywords}"
     dse = DynamicSemanticEmbedding() if embedding_type == "gpt" else DynamicDictionaryEmbedding("twitter")
     os.makedirs(backup_dir, exist_ok=True)
     for region, sources in SURVEY_REGIONS.items():
@@ -605,6 +654,7 @@ if __name__ == "__main__":
             "process_all": process_all,
             "sample": sample_tf_idf,
             "survey_select": select_survey_keywords,
+            "survey_top5": cap_survey_keywords,
             "survey": process_survey_embedding,
         }
     )

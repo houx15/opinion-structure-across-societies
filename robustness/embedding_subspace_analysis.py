@@ -15,8 +15,8 @@ Ngram provenance mirrors the reproducible pipeline:
   Ngrams: top ``top_k`` rows sorted by TF-IDF (same as
   ``semantic_similarity.process_embedding``).
 * Surveys (anes/anes_media, evs/en_evs/evs_media/..., wvs/wvs_media):
-  ``data/tf_idf/survey_{us,europe,china}_topic_keywords_selected.csv``: codebook
-  keywords selected against the topic names, equal weights (same as
+  ``data/tf_idf/survey_{us,europe,china}_topic_keywords_top5.csv``: codebook
+  keywords selected against the topic names, top 5, equal weights (same as
   ``semantic_similarity.survey_topic_keyword_counts``).
 
 Each ngram row is unit-normalized before stacking so the analysis reports
@@ -203,10 +203,10 @@ def _social_topic_ngrams(
 
 
 def _survey_topic_ngrams(src: str, topic_id: str, top_k: int = 100) -> pd.DataFrame:
-    """Selected keywords for one (survey src, topic), equal weights.
+    """Main (top-5) keywords for one (survey src, topic), equal weights.
 
     Same input as ``semantic_similarity.survey_topic_keyword_counts``
-    (``data/tf_idf/survey_<region>_topic_keywords_selected.csv``); ``top_k`` caps the list.
+    (``data/tf_idf/survey_<region>_topic_keywords_top5.csv``); ``top_k`` caps the list.
     """
     from analysis.semantic.semantic_similarity import survey_topic_keyword_counts
 

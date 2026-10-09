@@ -10,7 +10,7 @@ set -euo pipefail
 
 # social media: top-10 TF-IDF words per topic (same as the main analysis)
 python -m analysis.semantic.semantic_similarity process_all --embedding_type dictionary
-# surveys: the selected codebook keywords
+# surveys: the main (top-5) codebook keywords
 python -m analysis.semantic.semantic_similarity survey --embedding_type dictionary
 
 python -m plotting.figures task robust_5_word2vec

@@ -312,11 +312,13 @@ def load_pairwise_correlation(src: str, year: str = "average") -> pd.DataFrame:
 
 
 # Survey topic-distance column per embedding_type (semantic_similarity
-# .process_survey_embedding): selected keywords (main), hand-curated keywords,
-# and the earlier full-question embeddings.
+# .process_survey_embedding): capped top-5 keywords (main), the uncapped
+# selected keywords, hand-curated keywords, and the earlier full-question
+# embeddings.
 SURVEY_SIMILARITY_COLUMN: Dict[str, str] = {
-    "gpt": "similarity",
-    "dictionary": "dictionary_similarity",
+    "gpt": "similarity_top5",
+    "dictionary": "dictionary_similarity_top5",
+    "gpt_selected": "similarity",
     "gpt_curated": "similarity_curated",
     "gpt_question": "similarity_question",
 }
@@ -2538,6 +2540,14 @@ TASKS: List[Dict] = [
         "us_survey": "anes", "cn_survey": "wvs", "eu_survey": "evs_resample2",
         "eutwitter_src": "eutwitter", "embedding_type": "gpt",
         "figures": [2, 3], "social_year": "2021",
+    },
+    {
+        # Survey topic similarity from the uncapped selected keywords (before
+        # the anchor / fragment / top-5 rules of cap_survey_keywords).
+        "name": "robust_11_survey_selected",
+        "us_survey": "anes", "cn_survey": "wvs", "eu_survey": "evs_resample2",
+        "eutwitter_src": "eutwitter", "embedding_type": "gpt_selected",
+        "figures": [2],
     },
 ]
 

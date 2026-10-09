@@ -21,4 +21,5 @@ Tasks (plotting/figures.py `TASKS`):
 | `robust_5_word2vec` | Fig 2 | word2vec topic similarities |
 | `robust_6_eu_nen` | Fig 2, 3 | GB and rest of Europe separately |
 | `robust_7_survey_curated` | Fig 2 | hand-curated survey keywords |
+| `robust_11_survey_selected` | Fig 2 | survey keywords before the top-5 cap |
 | `robust_8_survey_question` | Fig 2 | survey topics embedded from the full question text |

@@ -20,7 +20,10 @@ step() { echo; echo "=== $(date +%H:%M:%S) $*"; }
 if has semantic; then
   step "semantic: survey keywords (topic-name anchors + review) -> data/tf_idf/survey_*_keywords_selected.csv"
   $PY -m analysis.semantic.semantic_similarity survey_select
-  step "semantic: survey topic similarities (selected / curated keywords) -> data/embedding/<survey>_topic_distance.csv"
+  step "semantic: main survey keywords (anchor, no fragments, cos >= 0.40, top 5) -> data/tf_idf/survey_*_keywords_top5.csv"
+  $PY -m analysis.semantic.semantic_similarity survey_top5
+  step "semantic: survey topic similarities (top5 / selected / curated keywords) -> data/embedding/<survey>_topic_distance.csv"
+  $PY -m analysis.semantic.semantic_similarity survey --embedding_type gpt --keywords top5
   $PY -m analysis.semantic.semantic_similarity survey --embedding_type gpt --keywords selected
   $PY -m analysis.semantic.semantic_similarity survey --embedding_type gpt --keywords curated
   step "semantic: social-media topic similarities -> data/embedding/dynamic_embedding_<src>_gpt.csv"
