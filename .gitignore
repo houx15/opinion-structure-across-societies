@@ -7,6 +7,23 @@ data/**
 !data/README.md
 !data/reference/
 !data/reference/**
+# precomputed aggregate results that reproduce the figures (no individual-level data)
+!data/correlation/
+!data/correlation/**
+!data/embedding/
+!data/embedding/*_topic_distance.csv
+!data/embedding/dynamic_embedding_*.csv
+!data/embedding/word_overlap_rows.json
+!data/embedding/backup_full_question/
+!data/embedding/backup_full_question/**
+!data/embedding/topic_centroids/
+!data/embedding/topic_centroids/**
+!data/tf_idf/
+!data/tf_idf/**
+!data/dimension/
+!data/dimension/results/
+!data/dimension/results/**
+data/dimension/results/**/*.log
 outputs/**
 !outputs/README.md
 

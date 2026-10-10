@@ -17,7 +17,21 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from common.paths import OPINION_DIR
+from common.paths import CSR_DIR, EMBEDDING_DIR, OPINION_DIR
+
+# Inputs that are not in the repository (individual-level data, the embedding
+# cache); tests that read them are skipped when they are absent.
+requires_individual = pytest.mark.skipif(
+    not (OPINION_DIR / "individual_opinion_anes.parquet").exists(),
+    reason="individual-level survey data not present (available on request)",
+)
+requires_csr = pytest.mark.skipif(
+    not (CSR_DIR / "anes").exists(), reason="respondent x topic matrices not present",
+)
+requires_embedding_cache = pytest.mark.skipif(
+    not (EMBEDDING_DIR / "cached_embedding.pkl").exists(),
+    reason="word-embedding cache not present",
+)
 
 
 def test_module_imports():
@@ -355,6 +369,7 @@ def test_load_spectral_summary_has_pr_and_erank(src):
     assert all(isinstance(x, float) for x in summary["eRank"])
 
 
+@requires_individual
 @pytest.mark.parametrize("src", SURVEY_SOURCES)
 def test_load_individual_opinion_has_topic_columns_and_respondent_id(src):
     """Individual-opinion loader returns respondent_id + the 9 topic columns."""
@@ -483,6 +498,8 @@ def test_exponential_rank_of_one_dominant_mode_is_one():
     assert v4.exponential_rank(lam) == pytest.approx(1.0, abs=1e-6)
 
 
+@requires_individual
+@requires_csr
 def test_participation_ratio_matches_dimension_data_for_anes():
     """PR computed from anes individual data must match dimension_data within 5%."""
     import plotting.figures as v4
@@ -519,6 +536,7 @@ def test_bootstrap_lowess_ci_returns_arrays_of_same_length():
 # -- v4 Figure 1: case study (LGBT x Env across contexts) -------------------
 
 
+@requires_individual
 @pytest.mark.parametrize(
     "src, expected_xy",
     [
@@ -540,6 +558,7 @@ def test_get_case_study_pair_survey_returns_lgbt_and_env_columns(src, expected_x
     assert df["x"].notna().any() and df["y"].notna().any()
 
 
+@requires_individual
 def test_case_study_correlations_match_reported_values_for_surveys():
     """Computed |r| from individual data should match the spec's anchor numbers.
 
@@ -711,6 +730,7 @@ def test_word_overlap_rows_carry_weights_for_font_size():
     assert matched[0].right_weight == pytest.approx(0.02)
 
 
+@requires_embedding_cache
 def test_make_fig2_row2_word_overlap_matched_pairs_share_row(tmp_figure_folder):
     """Every matched (left, right) pair renders at the same y in its panel half."""
     import plotting.figures as v4
@@ -1037,6 +1057,7 @@ def test_fig3_with_four_regions_dash_plot_has_eight_dashes(tmp_figure_folder):
     plt.close(fig)
 
 
+@requires_embedding_cache
 def test_prepare_word_overlap_writes_json_with_expected_schema(tmp_path):
     """prepare_word_overlap.compute writes the JSON shape that plotting.figures reads."""
     from plotting import prepare_word_overlap as prep
@@ -1105,6 +1126,7 @@ def test_word_overlap_panel_uses_cached_artifact_when_present(tmp_path, monkeypa
     plt.close(fig)
 
 
+@requires_embedding_cache
 def test_word_overlap_panel_falls_back_to_live_compute_when_cache_missing(
     tmp_path, monkeypatch,
 ):
@@ -1216,3 +1238,31 @@ def test_weibo_user_tables(tmp_path):
     assert tot["users"] == 3 and tot["relevant_posts"] == 10
     yr = out["weibo_users_by_topic_year"].set_index("year")
     assert yr.loc[2020, "users"] == 2 and yr.loc[2021, "relevant_posts"] == 7
+
+
+def test_case_study_export_round_trips_through_fallback(tmp_path, monkeypatch):
+    """Without individual data the panel uses the shipped aggregates: same r and covariance."""
+    import plotting.figures as v4
+
+    rng = np.random.default_rng(1)
+    xy = rng.multivariate_normal([3, 3], [[1.0, 0.4], [0.4, 1.0]], size=2000)
+    pair = pd.DataFrame({"x": xy[:, 0], "y": xy[:, 1]})
+    path = tmp_path / "case_study.json"
+    monkeypatch.setattr(v4, "CASE_STUDY_TOPICS", {"anes": ("LGBT", "Climate")})
+    monkeypatch.setattr(v4, "get_case_study_pair", lambda src: pair)
+    v4.export_case_study(path)
+
+    def missing(src):
+        raise FileNotFoundError(src)
+
+    monkeypatch.setattr(v4, "get_case_study_pair", missing)
+    monkeypatch.setattr(v4, "CASE_STUDY_PATH", path)
+    summary = v4.load_case_study_summary("anes")
+    assert summary["n"] == 2000
+    assert summary["r"] == pytest.approx(np.corrcoef(xy.T)[0, 1])
+    pts = v4.case_study_points(summary)
+    assert len(pts) == 2000
+    assert np.corrcoef(pts.T)[0, 1] == pytest.approx(summary["r"], abs=0.02)
+    plotter = v4.Plotter.__new__(v4.Plotter)
+    assert plotter._case_study_signed_r("anes") == pytest.approx(summary["r"])
+    assert plotter._case_study_ellipse("anes") is not None

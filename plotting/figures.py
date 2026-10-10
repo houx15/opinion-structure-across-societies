@@ -9,6 +9,7 @@ figure. Inputs (see data/README.md):
     data/dimension/results/cov/<stem>-none-summary.json PR / eRank (+ -bootstrap.json; corr/ for the robustness check)
     data/opinions/individual_opinion_<survey>.parquet
     data/opinions/user_opinion_<social>_lgbt_env.parquet
+    data/correlation/case_study_lgbt_env.json           Fig 2 case-study panel when the two above are absent
     data/tf_idf/tf_idf_twitter/, data/embedding/word_overlap_rows.json  (Fig 2 word panel)
 
 Usage (from the repository root):
@@ -23,6 +24,7 @@ from __future__ import annotations
 
 import json
 import pickle
+import zlib
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -555,7 +557,7 @@ def lookup_case_study_correlation(src: str) -> float:
     """|r| for the LGBT x Env pair from the pre-aggregated network_analysis CSV.
 
     This is the dash-plot fallback when user-level social-media data isn't
-    exported locally yet. Always available because the CSVs ship with the repo.
+    exported locally and the shipped case-study file has no entry for ``src``.
     """
     target = _CASE_STUDY_TIDS[src]
     df = load_pairwise_correlation(src)
@@ -563,6 +565,70 @@ def lookup_case_study_correlation(src: str) -> float:
     if matched.empty:
         return float("nan")
     return float(matched["correlation"].iloc[0])
+
+
+# Aggregate stand-in for the individual/user-level case-study data, shipped with
+# the repository: per source the signed r, the covariance of the standardized
+# pair, and a 2-D histogram of the standardized points.
+CASE_STUDY_PATH = CORRELATION_DIR / "case_study_lgbt_env.json"
+CASE_STUDY_BIN_WIDTH = 0.1
+
+
+def _standardized_pair(df: pd.DataFrame) -> np.ndarray:
+    xy = df.dropna(subset=["x", "y"])[["x", "y"]].to_numpy(dtype=float)
+    xy = xy - xy.mean(axis=0)
+    std = xy.std(axis=0)
+    std[std == 0] = 1.0
+    return xy / std
+
+
+def export_case_study(
+    path: Union[str, Path] = CASE_STUDY_PATH, bin_width: float = CASE_STUDY_BIN_WIDTH,
+) -> Path:
+    """Write the aggregate case-study file from the individual/user-level data.
+
+    Sources whose individual data is not available locally are skipped.
+    """
+    out: Dict[str, object] = {}
+    for src in CASE_STUDY_TOPICS:
+        try:
+            df = get_case_study_pair(src)
+        except (FileNotFoundError, KeyError):
+            continue
+        valid = df.dropna(subset=["x", "y"])
+        if len(valid) < 5:
+            continue
+        xy = _standardized_pair(df)
+        cells, counts = np.unique(np.floor(xy / bin_width).astype(int), axis=0, return_counts=True)
+        out[src] = {
+            "n": int(len(valid)),
+            "r": float(np.corrcoef(valid["x"], valid["y"])[0, 1]),
+            "abs_r": compute_abs_pearson(df["x"], df["y"])[0],
+            "cov": np.cov(xy.T).tolist(),
+            "bin_width": bin_width,
+            "bins": [[int(i), int(j), int(c)] for (i, j), c in zip(cells, counts)],
+        }
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(out))
+    print(f"[figures] case study written: {path} ({', '.join(out)})")
+    return path
+
+
+def load_case_study_summary(src: str) -> Optional[Dict[str, object]]:
+    """The shipped aggregate case-study entry for ``src``, or None."""
+    if not CASE_STUDY_PATH.exists():
+        return None
+    return json.loads(CASE_STUDY_PATH.read_text()).get(src)
+
+
+def case_study_points(summary: Mapping[str, object], seed: int = 0) -> np.ndarray:
+    """Standardized points rebuilt from the histogram: uniform within each bin."""
+    bins = np.asarray(summary["bins"], dtype=float)
+    width = float(summary["bin_width"])
+    cells = np.repeat(bins[:, :2], bins[:, 2].astype(int), axis=0)
+    rng = np.random.default_rng(seed)
+    return (cells + rng.uniform(size=cells.shape)) * width
 
 
 def signed_r_from_pairwise(corr_df: pd.DataFrame, t1, t2) -> float:
@@ -820,6 +886,26 @@ def _load_cached_word_overlap(
         return json.load(f)
 
 
+def _cached_word_overlap_rows(t1, t2, top_k: int) -> Optional[List["WordOverlapRow"]]:
+    """Rows for the (t1, t2) pair from the precomputed artifact, or None."""
+    cached = _load_cached_word_overlap()
+    if cached is None or cached.get("top_k") != top_k:
+        return None
+    for entry in cached["pairs"].values():
+        if {str(entry["topic_a"]), str(entry["topic_b"])} == {str(t1), str(t2)}:
+            return [
+                WordOverlapRow(
+                    left=r.get("left"), right=r.get("right"),
+                    left_weight=float(r.get("left_weight", 0.0)),
+                    right_weight=float(r.get("right_weight", 0.0)),
+                    similarity=float(r.get("similarity", 0.0)),
+                    kind=r.get("kind", "matched"),
+                )
+                for r in entry["rows"]
+            ]
+    return None
+
+
 def _load_word_embeddings() -> Mapping[str, np.ndarray]:
     """Load the shared GPT word-embedding cache (memoized at module level).
 
@@ -975,7 +1061,10 @@ def _render_one_word_venn(
 
     wa = _load_twitter_top_words_with_weights(t1, k=top_k)
     wb = _load_twitter_top_words_with_weights(t2, k=top_k)
-    rows = _compute_word_overlap_rows(wa, wb, embeddings=embeddings)
+    # The shipped artifact spares the embedding cache, which is not in the repository.
+    rows = _cached_word_overlap_rows(t1, t2, top_k)
+    if rows is None:
+        rows = _compute_word_overlap_rows(wa, wb, embeddings=embeddings)
     shared = [
         (rw.left, rw.right) for rw in rows
         if rw.kind == "matched" and rw.similarity > _WORD_OVERLAP_HIGHLIGHT_THRESHOLD
@@ -1299,6 +1388,9 @@ class Plotter:
                 raise ValueError("nan correlation")
             return rr
         except (FileNotFoundError, KeyError, ValueError):
+            summary = load_case_study_summary(src)
+            if summary is not None:
+                return float(summary["r"])
             return lookup_case_study_correlation(src)
 
     def _case_study_ellipse(self, src: str) -> Optional[Dict[str, object]]:
@@ -1316,16 +1408,18 @@ class Plotter:
         individual data isn't exported locally.
         """
         try:
-            df = get_case_study_pair(src)
-            valid = df.dropna(subset=["x", "y"])
-            if len(valid) < 5:
-                return None
-            xy = valid[["x", "y"]].to_numpy(dtype=float)
-            xy = xy - xy.mean(axis=0)
-            std = xy.std(axis=0)
-            std[std == 0] = 1.0
-            xy = xy / std            # standardize → covariance is the corr matrix
-            cov = np.cov(xy.T)
+            try:
+                df = get_case_study_pair(src)
+                if df.dropna(subset=["x", "y"]).shape[0] < 5:
+                    return None
+                xy = _standardized_pair(df)   # standardize → covariance is the corr matrix
+                cov = np.cov(xy.T)
+            except (FileNotFoundError, KeyError):
+                summary = load_case_study_summary(src)
+                if summary is None:
+                    raise
+                xy = case_study_points(summary)
+                cov = np.asarray(summary["cov"], dtype=float)
             w, vec = np.linalg.eigh(cov)
             w = np.clip(w, 1e-12, None)
 
@@ -1431,8 +1525,10 @@ class Plotter:
                         raise ValueError("nan correlation")
                     out[src] = abs_r
                 except (FileNotFoundError, KeyError, ValueError):
-                    # Fallback to the aggregate CSV (always available).
-                    out[src] = lookup_case_study_correlation(src)
+                    # Fallback to the shipped aggregates.
+                    summary = load_case_study_summary(src)
+                    out[src] = (float(summary["abs_r"]) if summary is not None
+                                else lookup_case_study_correlation(src))
         return out
 
     # -- Tutorial pair selection (Fig 2 row 1) -------------------------------
@@ -1539,7 +1635,9 @@ class Plotter:
         handles: List[Line2D] = []
         for code, signed_r in rows:
             color = self.country_color[code]
-            seed = hash((code, kind, pair["social_codes"])) & 0xFFFF
+            # crc32, not hash(): str hashes are salted per process, so the cloud
+            # would change on every run.
+            seed = zlib.crc32(f"{code}|{kind}|{pair['social_codes']}".encode()) & 0xFFFF
             r = float(max(min(signed_r, 0.999), -0.999))
             rng = np.random.default_rng(seed)
             cov = np.array([[1.0, r], [r, 1.0]])
@@ -2683,5 +2781,6 @@ if __name__ == "__main__":
             "all": run_all_tasks,
             "main": lambda **kw: run_all_tasks("main", **kw),
             "task": run_task,
+            "export_case_study": export_case_study,
         }
     )
