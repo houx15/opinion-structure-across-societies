@@ -1,0 +1,18 @@
+topic,word,ngram,anchor,anchor_sim,selected_by,pos,Frequency,df,TF,IDF,TF-IDF,other_sim
+Corrup,corruption,1,corruption,1.0,anchor,,,,,,,
+Corrup,bribe,1,corruption,0.5047290960265657,rule,NN,1.0,1.0,0.0333333333333333,1.7047480922384253,0.0568249364079475,0.2225173352964569
+GenderEqual,gender equality,2,gender equality,1.0,anchor,,,,,,,
+GenderEqual,woman,1,gender equality,0.4334474340245061,rule,NN,3.0,1.0,0.073170731707317,1.7047480922384253,0.1247376652857384,0.2914515742763235
+Marriage,marriage and divorce,3,marriage and divorce,1.0,anchor,,,,,,,
+Childbearing,childbearing,1,childbearing,1.0,anchor,,,,,,,
+LGBT,homosexuality,1,homosexuality,1.0,anchor,,,,,,,
+Environment,environmental protection,2,environmental protection,1.0,anchor,,,,,,,
+Environment,environment suffers,2,environmental protection,0.6793905579122284,rule,NP,1.0,1.0,0.0256410256410256,1.7047480922384253,0.043711489544575,0.2974871770426516
+Environment,protect,1,environmental protection,0.4870019643990019,rule,VB,1.0,1.0,0.0256410256410256,1.7047480922384253,0.043711489544575,0.2924495501663016
+Econ,economy,1,economy,1.0,anchor,,,,,,,
+Econ,financial situation,2,economy,0.4052812491089527,rule,NP,1.0,1.0,0.0714285714285714,1.7047480922384253,0.1217677208741732,0.3522551400138904
+Work,job security,2,job security,1.0,anchor,,,,,,,
+GovCtrl,government surveillance,2,government surveillance,1.0,anchor,,,,,,,
+GovCtrl,video surveillance,2,government surveillance,0.5964783371582636,rule,NP,1.0,1.0,0.0384615384615384,1.7047480922384253,0.0655672343168625,0.2854829212347454
+Foreign,immigration,1,immigration,1.0,anchor,,,,,,,
+Foreign,immigrant,1,immigration,0.7148999169765307,rule,NN,1.0,1.0,0.0625,1.7047480922384253,0.1065467557649015,0.2305718984590441

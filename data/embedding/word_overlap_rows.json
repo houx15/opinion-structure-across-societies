@@ -1,0 +1,349 @@
+{
+  "source": "twitter",
+  "embedding_type": "gpt",
+  "top_k": 10,
+  "pairs": {
+    "low": {
+      "topic_a": "vac",
+      "topic_b": "soc",
+      "topic_similarity": 0.2825659927986255,
+      "words_a": [
+        {
+          "word": "vaccine",
+          "tf_idf": 0.025439565192609273
+        },
+        {
+          "word": "vaccinate",
+          "tf_idf": 0.022683881662588723
+        },
+        {
+          "word": "vaccination",
+          "tf_idf": 0.014687280396293047
+        },
+        {
+          "word": "mandate",
+          "tf_idf": 0.012089287358664994
+        },
+        {
+          "word": "unvaccinate",
+          "tf_idf": 0.009574835804167452
+        },
+        {
+          "word": "booster",
+          "tf_idf": 0.006128220214218616
+        },
+        {
+          "word": "passport",
+          "tf_idf": 0.0038150067521382966
+        },
+        {
+          "word": "mask",
+          "tf_idf": 0.0037605631664730152
+        },
+        {
+          "word": "breaking",
+          "tf_idf": 0.0036238441527875927
+        },
+        {
+          "word": "immunity",
+          "tf_idf": 0.0031780112100559706
+        }
+      ],
+      "words_b": [
+        {
+          "word": "medium",
+          "tf_idf": 0.06229089903829036
+        },
+        {
+          "word": "media",
+          "tf_idf": 0.01205195832035969
+        },
+        {
+          "word": "post",
+          "tf_idf": 0.0055441777186262305
+        },
+        {
+          "word": "platform",
+          "tf_idf": 0.0035938562654054943
+        },
+        {
+          "word": "content",
+          "tf_idf": 0.0033536321233541564
+        },
+        {
+          "word": "myspace",
+          "tf_idf": 0.0031152832726686177
+        },
+        {
+          "word": "ye",
+          "tf_idf": 0.0029982669626392507
+        },
+        {
+          "word": "app",
+          "tf_idf": 0.0027461164638075096
+        },
+        {
+          "word": "facebook",
+          "tf_idf": 0.002406561847773773
+        },
+        {
+          "word": "routine",
+          "tf_idf": 0.002079799321654031
+        }
+      ],
+      "rows": [
+        {
+          "left": "breaking",
+          "right": "routine",
+          "left_weight": 0.0036238441527875927,
+          "right_weight": 0.002079799321654031,
+          "similarity": 0.3972574742153182,
+          "kind": "matched"
+        },
+        {
+          "left": "passport",
+          "right": "app",
+          "left_weight": 0.0038150067521382966,
+          "right_weight": 0.0027461164638075096,
+          "similarity": 0.3919024936112579,
+          "kind": "matched"
+        },
+        {
+          "left": "mask",
+          "right": "facebook",
+          "left_weight": 0.0037605631664730152,
+          "right_weight": 0.002406561847773773,
+          "similarity": 0.3308335006678833,
+          "kind": "matched"
+        },
+        {
+          "left": "booster",
+          "right": "platform",
+          "left_weight": 0.006128220214218616,
+          "right_weight": 0.0035938562654054943,
+          "similarity": 0.2822913112890514,
+          "kind": "matched"
+        },
+        {
+          "left": "immunity",
+          "right": "content",
+          "left_weight": 0.0031780112100559706,
+          "right_weight": 0.0033536321233541564,
+          "similarity": 0.2804687062888796,
+          "kind": "matched"
+        },
+        {
+          "left": "mandate",
+          "right": "post",
+          "left_weight": 0.012089287358664994,
+          "right_weight": 0.0055441777186262305,
+          "similarity": 0.24565144834267943,
+          "kind": "matched"
+        },
+        {
+          "left": "vaccine",
+          "right": "ye",
+          "left_weight": 0.025439565192609273,
+          "right_weight": 0.0029982669626392507,
+          "similarity": 0.21858093503210968,
+          "kind": "matched"
+        },
+        {
+          "left": "vaccinate",
+          "right": "media",
+          "left_weight": 0.022683881662588723,
+          "right_weight": 0.01205195832035969,
+          "similarity": 0.19515957675704426,
+          "kind": "matched"
+        },
+        {
+          "left": "unvaccinate",
+          "right": "medium",
+          "left_weight": 0.009574835804167452,
+          "right_weight": 0.06229089903829036,
+          "similarity": 0.1480670965081127,
+          "kind": "matched"
+        },
+        {
+          "left": "vaccination",
+          "right": "myspace",
+          "left_weight": 0.014687280396293047,
+          "right_weight": 0.0031152832726686177,
+          "similarity": 0.08700587590326365,
+          "kind": "matched"
+        }
+      ]
+    },
+    "high": {
+      "topic_a": "ubi",
+      "topic_b": "minwage",
+      "topic_similarity": 0.7143813391811932,
+      "words_a": [
+        {
+          "word": "income",
+          "tf_idf": 0.017960954426849047
+        },
+        {
+          "word": "paycheck",
+          "tf_idf": 0.01395599525820217
+        },
+        {
+          "word": "grieve",
+          "tf_idf": 0.0132882442889102
+        },
+        {
+          "word": "ubi",
+          "tf_idf": 0.012984808969108266
+        },
+        {
+          "word": "positivity",
+          "tf_idf": 0.010961511512876913
+        },
+        {
+          "word": "retwee",
+          "tf_idf": 0.010872248389807883
+        },
+        {
+          "word": "pilot",
+          "tf_idf": 0.0107463389324721
+        },
+        {
+          "word": "crypto",
+          "tf_idf": 0.006117499367664206
+        },
+        {
+          "word": "poverty",
+          "tf_idf": 0.0051565110177717605
+        },
+        {
+          "word": "decentralize",
+          "tf_idf": 0.004951127892895544
+        }
+      ],
+      "words_b": [
+        {
+          "word": "wage",
+          "tf_idf": 0.05656931329075986
+        },
+        {
+          "word": "minimum",
+          "tf_idf": 0.030834172169484596
+        },
+        {
+          "word": "hr",
+          "tf_idf": 0.027465606410706816
+        },
+        {
+          "word": "living",
+          "tf_idf": 0.013521434658905549
+        },
+        {
+          "word": "burger",
+          "tf_idf": 0.0120308212933921
+        },
+        {
+          "word": "min",
+          "tf_idf": 0.007028310042234816
+        },
+        {
+          "word": "afford",
+          "tf_idf": 0.0069287945243681716
+        },
+        {
+          "word": "raise",
+          "tf_idf": 0.006561344697900751
+        },
+        {
+          "word": "labor",
+          "tf_idf": 0.006183701656051294
+        },
+        {
+          "word": "shortage",
+          "tf_idf": 0.006009739422100193
+        }
+      ],
+      "rows": [
+        {
+          "left": "paycheck",
+          "right": "wage",
+          "left_weight": 0.01395599525820217,
+          "right_weight": 0.05656931329075986,
+          "similarity": 0.5661559057767394,
+          "kind": "matched"
+        },
+        {
+          "left": "income",
+          "right": "living",
+          "left_weight": 0.017960954426849047,
+          "right_weight": 0.013521434658905549,
+          "similarity": 0.5393761119492686,
+          "kind": "matched"
+        },
+        {
+          "left": "poverty",
+          "right": "shortage",
+          "left_weight": 0.0051565110177717605,
+          "right_weight": 0.006009739422100193,
+          "similarity": 0.45094450547038,
+          "kind": "matched"
+        },
+        {
+          "left": "grieve",
+          "right": "raise",
+          "left_weight": 0.0132882442889102,
+          "right_weight": 0.006561344697900751,
+          "similarity": 0.4220570543202949,
+          "kind": "matched"
+        },
+        {
+          "left": "ubi",
+          "right": "burger",
+          "left_weight": 0.012984808969108266,
+          "right_weight": 0.0120308212933921,
+          "similarity": 0.4098858234451642,
+          "kind": "matched"
+        },
+        {
+          "left": "pilot",
+          "right": "min",
+          "left_weight": 0.0107463389324721,
+          "right_weight": 0.007028310042234816,
+          "similarity": 0.30585496784326305,
+          "kind": "matched"
+        },
+        {
+          "left": "crypto",
+          "right": "labor",
+          "left_weight": 0.006117499367664206,
+          "right_weight": 0.006183701656051294,
+          "similarity": 0.2440367516428198,
+          "kind": "matched"
+        },
+        {
+          "left": "retwee",
+          "right": "hr",
+          "left_weight": 0.010872248389807883,
+          "right_weight": 0.027465606410706816,
+          "similarity": 0.24194014550176787,
+          "kind": "matched"
+        },
+        {
+          "left": "decentralize",
+          "right": "afford",
+          "left_weight": 0.004951127892895544,
+          "right_weight": 0.0069287945243681716,
+          "similarity": 0.2180234583537903,
+          "kind": "matched"
+        },
+        {
+          "left": "positivity",
+          "right": "minimum",
+          "left_weight": 0.010961511512876913,
+          "right_weight": 0.030834172169484596,
+          "similarity": 0.17017536118820598,
+          "kind": "matched"
+        }
+      ]
+    }
+  }
+}

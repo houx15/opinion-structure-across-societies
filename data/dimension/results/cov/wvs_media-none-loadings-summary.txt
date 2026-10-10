@@ -1,0 +1,96 @@
+=== Loading report: wvs_media (distance_space=none) ===
+
+Topics (L=9): Corrup, GenderEqual, Marriage, Childbearing, LGBT, Environment, Econ, Work, Foreign
+
+--- 2020.csr (N=2,106) ---
+PR=7.01, eRank=7.91, srank=4.21
+  PC1 | eigval=+3.0139 | var= 23.8% | cum= 23.8%
+      +0.988  Environment
+      -0.078  Marriage
+      +0.074  Foreign
+      +0.066  GenderEqual
+      -0.064  Corrup
+      -0.051  LGBT
+      -0.034  Econ
+      +0.008  Childbearing
+      -0.005  Work
+  PC2 | eigval=+2.2996 | var= 18.1% | cum= 41.9%
+      +0.673  Marriage
+      +0.644  LGBT
+      +0.238  Childbearing
+      -0.197  Work
+      +0.126  Foreign
+      +0.093  GenderEqual
+      +0.081  Corrup
+      +0.073  Environment
+      -0.012  Econ
+  PC3 | eigval=+1.6694 | var= 13.2% | cum= 55.1%
+      -0.871  Work
+      -0.415  Econ
+      -0.160  Corrup
+      -0.141  LGBT
+      -0.130  Childbearing
+      -0.063  Marriage
+      -0.043  Environment
+      +0.034  Foreign
+      -0.004  GenderEqual
+  PC4 | eigval=+1.3195 | var= 10.4% | cum= 65.5%
+      +0.723  Corrup
+      -0.482  Foreign
+      -0.271  Childbearing
+      -0.239  GenderEqual
+      -0.181  Work
+      +0.180  Marriage
+      +0.150  Econ
+      -0.116  LGBT
+      +0.114  Environment
+  PC5 | eigval=+1.1063 | var=  8.7% | cum= 74.2%
+      -0.505  Foreign
+      -0.467  Corrup
+      -0.418  Childbearing
+      -0.358  Econ
+      -0.277  GenderEqual
+      +0.249  Work
+      +0.220  LGBT
+      +0.188  Marriage
+      +0.045  Environment
+  PC6 | eigval=+1.0197 | var=  8.0% | cum= 82.3%
+      -0.741  Childbearing
+      +0.586  Foreign
+      +0.234  Marriage
+      +0.129  Work
+      +0.125  Corrup
+      +0.111  GenderEqual
+      -0.076  LGBT
+      -0.048  Econ
+      -0.024  Environment
+  PC7 | eigval=+0.9193 | var=  7.3% | cum= 89.5%
+      -0.810  Econ
+      +0.437  Corrup
+      +0.279  Work
+      +0.199  Childbearing
+      -0.140  Marriage
+      +0.082  Foreign
+      +0.065  GenderEqual
+      +0.064  LGBT
+      -0.018  Environment
+  PC8 | eigval=+0.7535 | var=  5.9% | cum= 95.5%
+      +0.696  LGBT
+      -0.624  Marriage
+      -0.272  Childbearing
+      +0.131  Econ
+      +0.127  Corrup
+      -0.113  Work
+      +0.077  GenderEqual
+      -0.011  Foreign
+      -0.003  Environment
+  PC9 | eigval=+0.5743 | var=  4.5% | cum=100.0%
+      +0.911  GenderEqual
+      -0.374  Foreign
+      -0.125  Childbearing
+      -0.080  LGBT
+      +0.075  Marriage
+      -0.032  Environment
+      +0.019  Work
+      -0.015  Econ
+      -0.014  Corrup

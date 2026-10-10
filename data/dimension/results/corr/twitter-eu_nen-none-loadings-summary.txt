@@ -1,0 +1,96 @@
+=== Loading report: twitter/eu_nen (distance_space=none-corr) ===
+
+Topics (L=9): abo, swe, clc, sxo, vac, dpp, soc, minwage, ubi
+
+--- 2021.csr (N=153,001) ---
+PR=4.32, eRank=5.69, srank=2.44
+  PC1 | eigval=+4.0425 | var= 40.9% | cum= 40.9%
+      -0.505  swe
+      -0.435  ubi
+      -0.407  sxo
+      -0.399  minwage
+      +0.346  vac
+      -0.267  abo
+      -0.189  dpp
+      -0.057  clc
+      +0.026  soc
+  PC2 | eigval=+1.6388 | var= 16.6% | cum= 57.5%
+      -0.766  clc
+      +0.421  vac
+      -0.337  dpp
+      +0.271  minwage
+      -0.139  soc
+      +0.101  ubi
+      +0.090  swe
+      +0.077  sxo
+      +0.075  abo
+  PC3 | eigval=+1.2418 | var= 12.6% | cum= 70.1%
+      +0.765  soc
+      -0.345  dpp
+      -0.281  abo
+      -0.278  minwage
+      +0.272  sxo
+      +0.150  swe
+      -0.122  vac
+      -0.120  clc
+      +0.115  ubi
+  PC4 | eigval=+0.9135 | var=  9.2% | cum= 79.3%
+      -0.530  abo
+      +0.514  dpp
+      +0.409  sxo
+      -0.332  minwage
+      +0.265  vac
+      -0.247  soc
+      +0.151  swe
+      -0.138  clc
+      +0.062  ubi
+  PC5 | eigval=+0.7570 | var=  7.7% | cum= 87.0%
+      +0.554  abo
+      +0.457  dpp
+      +0.431  vac
+      +0.403  soc
+      +0.245  ubi
+      -0.234  minwage
+      -0.111  sxo
+      -0.077  swe
+      -0.055  clc
+  PC6 | eigval=+0.5872 | var=  5.9% | cum= 92.9%
+      +0.457  minwage
+      -0.426  sxo
+      +0.423  dpp
+      -0.409  abo
+      +0.295  soc
+      -0.279  clc
+      -0.211  vac
+      -0.182  swe
+      +0.143  ubi
+  PC7 | eigval=+0.4941 | var=  5.0% | cum= 97.9%
+      +0.468  sxo
+      -0.450  swe
+      -0.424  ubi
+      -0.390  vac
+      -0.357  clc
+      +0.265  abo
+      +0.213  dpp
+      +0.059  soc
+      -0.007  minwage
+  PC8 | eigval=+0.2048 | var=  2.1% | cum=100.0%
+      +0.686  ubi
+      -0.408  swe
+      -0.372  minwage
+      -0.319  vac
+      -0.268  soc
+      -0.159  clc
+      -0.142  dpp
+      -0.071  sxo
+      +0.012  abo
+  PC9 | eigval=-0.8796 | var=  0.0% | cum=100.0%
+      +0.533  swe
+      -0.420  minwage
+      -0.412  sxo
+      -0.378  clc
+      -0.367  vac
+      -0.228  ubi
+      +0.138  abo
+      +0.112  dpp
+      -0.093  soc

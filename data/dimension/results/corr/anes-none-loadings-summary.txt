@@ -1,0 +1,96 @@
+=== Loading report: anes (distance_space=none-corr) ===
+
+Topics (L=9): Abortion, Gun, Climate, LGBT, VACC, DeathPenalty, Media, MinimumWage, UBI
+
+--- 2020.csr (N=8,280) ---
+PR=4.23, eRank=6.18, srank=2.28
+  PC1 | eigval=+3.9535 | var= 43.9% | cum= 43.9%
+      +0.422  Climate
+      +0.374  Abortion
+      +0.373  LGBT
+      +0.348  Gun
+      +0.338  Media
+      +0.324  MinimumWage
+      +0.305  UBI
+      +0.257  DeathPenalty
+      +0.208  VACC
+  PC2 | eigval=+1.0104 | var= 11.2% | cum= 55.2%
+      -0.775  VACC
+      +0.497  UBI
+      +0.303  DeathPenalty
+      -0.194  Gun
+      +0.130  MinimumWage
+      -0.079  Abortion
+      -0.022  Media
+      -0.008  Climate
+      -0.006  LGBT
+  PC3 | eigval=+0.7925 | var=  8.8% | cum= 64.0%
+      +0.869  DeathPenalty
+      -0.320  Abortion
+      -0.218  MinimumWage
+      +0.213  VACC
+      -0.160  UBI
+      -0.118  LGBT
+      +0.085  Gun
+      -0.045  Climate
+      +0.014  Media
+  PC4 | eigval=+0.7522 | var=  8.4% | cum= 72.3%
+      -0.566  LGBT
+      +0.565  MinimumWage
+      -0.421  Abortion
+      +0.291  Media
+      +0.288  Gun
+      -0.125  DeathPenalty
+      +0.026  Climate
+      +0.021  VACC
+      +0.013  UBI
+  PC5 | eigval=+0.6400 | var=  7.1% | cum= 79.4%
+      +0.647  Media
+      +0.420  UBI
+      -0.418  Gun
+      -0.334  MinimumWage
+      +0.273  VACC
+      -0.113  Climate
+      -0.105  Abortion
+      -0.101  DeathPenalty
+      -0.099  LGBT
+  PC6 | eigval=+0.5943 | var=  6.6% | cum= 86.0%
+      -0.474  Gun
+      -0.474  Media
+      +0.459  VACC
+      +0.457  MinimumWage
+      +0.323  UBI
+      +0.116  DeathPenalty
+      -0.088  Climate
+      -0.061  LGBT
+      +0.037  Abortion
+  PC7 | eigval=+0.5355 | var=  5.9% | cum= 92.0%
+      +0.584  UBI
+      +0.502  Gun
+      -0.393  MinimumWage
+      -0.384  Media
+      -0.181  Abortion
+      -0.153  DeathPenalty
+      +0.152  VACC
+      -0.144  LGBT
+      +0.077  Climate
+  PC8 | eigval=+0.3797 | var=  4.2% | cum= 96.2%
+      +0.715  Abortion
+      -0.545  LGBT
+      -0.373  Climate
+      +0.154  DeathPenalty
+      +0.146  Gun
+      -0.057  MinimumWage
+      +0.044  UBI
+      +0.039  Media
+      -0.024  VACC
+  PC9 | eigval=+0.3419 | var=  3.8% | cum=100.0%
+      -0.808  Climate
+      +0.442  LGBT
+      +0.279  Gun
+      +0.183  MinimumWage
+      -0.136  Abortion
+      +0.106  UBI
+      +0.093  Media
+      +0.043  VACC
+      -0.006  DeathPenalty

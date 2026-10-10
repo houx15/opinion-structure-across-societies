@@ -1,0 +1,296 @@
+{
+  "topics": [
+    "Abortion",
+    "Gun",
+    "Climate",
+    "LGBT",
+    "VACC",
+    "DeathPenalty",
+    "Media",
+    "MinimumWage",
+    "UBI"
+  ],
+  "N": 8280,
+  "L": 9,
+  "components": [
+    {
+      "pc": 1,
+      "eigenvalue": 5.554968190702015,
+      "variance_explained": 0.43814148795966207,
+      "cumulative_variance_explained": 0.43814148795966207,
+      "loadings": {
+        "Abortion": -0.40923062729098747,
+        "Gun": -0.22307169538893834,
+        "Climate": -0.37733114469737417,
+        "LGBT": -0.34340400516438135,
+        "VACC": -0.14380436505763808,
+        "DeathPenalty": -0.39653016457447676,
+        "Media": -0.3402866028327362,
+        "MinimumWage": -0.2766717895879028,
+        "UBI": -0.39013599017964345
+      },
+      "top_contributors": [
+        {
+          "topic": "Abortion",
+          "loading": -0.40923062729098747
+        },
+        {
+          "topic": "DeathPenalty",
+          "loading": -0.39653016457447676
+        },
+        {
+          "topic": "UBI",
+          "loading": -0.39013599017964345
+        }
+      ]
+    },
+    {
+      "pc": 2,
+      "eigenvalue": 1.7980447616735291,
+      "variance_explained": 0.14181863518432808,
+      "cumulative_variance_explained": 0.5799601231439901,
+      "loadings": {
+        "Abortion": -0.33588878065319294,
+        "Gun": -0.070767427368008,
+        "Climate": -0.12112390356201135,
+        "LGBT": -0.13536358785574143,
+        "VACC": -0.13575441088302292,
+        "DeathPenalty": 0.8939043894899201,
+        "Media": -0.13133392697925342,
+        "MinimumWage": -0.11553550177929049,
+        "UBI": -0.03293975034843419
+      },
+      "top_contributors": [
+        {
+          "topic": "DeathPenalty",
+          "loading": 0.8939043894899201
+        },
+        {
+          "topic": "Abortion",
+          "loading": -0.33588878065319294
+        },
+        {
+          "topic": "VACC",
+          "loading": -0.13575441088302292
+        }
+      ]
+    },
+    {
+      "pc": 3,
+      "eigenvalue": 1.3432036986480784,
+      "variance_explained": 0.10594358904586575,
+      "cumulative_variance_explained": 0.6859037121898559,
+      "loadings": {
+        "Abortion": -0.21149226991086803,
+        "Gun": -0.14235748645695184,
+        "Climate": -0.08412350574140427,
+        "LGBT": -0.15536744476227946,
+        "VACC": -0.412500613927543,
+        "DeathPenalty": -0.15751911580799907,
+        "Media": -0.056258440571470406,
+        "MinimumWage": 0.06336901985683908,
+        "UBI": 0.837639472302219
+      },
+      "top_contributors": [
+        {
+          "topic": "UBI",
+          "loading": 0.837639472302219
+        },
+        {
+          "topic": "VACC",
+          "loading": -0.412500613927543
+        },
+        {
+          "topic": "Abortion",
+          "loading": -0.21149226991086803
+        }
+      ]
+    },
+    {
+      "pc": 4,
+      "eigenvalue": 1.0175890884339063,
+      "variance_explained": 0.08026112518235741,
+      "cumulative_variance_explained": 0.7661648373722133,
+      "loadings": {
+        "Abortion": -0.5052173515667553,
+        "Gun": 0.13242201171240778,
+        "Climate": 0.05942642423939282,
+        "LGBT": -0.37051229222572146,
+        "VACC": 0.1911656864801075,
+        "DeathPenalty": -0.06699992015227918,
+        "Media": 0.6949479175571573,
+        "MinimumWage": 0.24302554472249763,
+        "UBI": -0.05797971549736038
+      },
+      "top_contributors": [
+        {
+          "topic": "Media",
+          "loading": 0.6949479175571573
+        },
+        {
+          "topic": "Abortion",
+          "loading": -0.5052173515667553
+        },
+        {
+          "topic": "LGBT",
+          "loading": -0.37051229222572146
+        }
+      ]
+    },
+    {
+      "pc": 5,
+      "eigenvalue": 0.801983259728249,
+      "variance_explained": 0.06325547269995598,
+      "cumulative_variance_explained": 0.8294203100721693,
+      "loadings": {
+        "Abortion": 0.08141442931775852,
+        "Gun": -0.16812234570771825,
+        "Climate": -0.16468580112154454,
+        "LGBT": 0.1859434267871548,
+        "VACC": 0.0587129160399847,
+        "DeathPenalty": 0.003486305788611998,
+        "Media": 0.4817069347603679,
+        "MinimumWage": -0.8063854278396066,
+        "UBI": 0.13286010104594256
+      },
+      "top_contributors": [
+        {
+          "topic": "MinimumWage",
+          "loading": -0.8063854278396066
+        },
+        {
+          "topic": "Media",
+          "loading": 0.4817069347603679
+        },
+        {
+          "topic": "LGBT",
+          "loading": 0.1859434267871548
+        }
+      ]
+    },
+    {
+      "pc": 6,
+      "eigenvalue": 0.7322985105809845,
+      "variance_explained": 0.05775917125747737,
+      "cumulative_variance_explained": 0.8871794813296467,
+      "loadings": {
+        "Abortion": 0.1922693039164518,
+        "Gun": -0.07684511206443916,
+        "Climate": -0.02164725829561724,
+        "LGBT": 0.0934750424530984,
+        "VACC": -0.8263641031968584,
+        "DeathPenalty": 0.010979489468762064,
+        "Media": 0.35171955311250824,
+        "MinimumWage": 0.15499020417872175,
+        "UBI": -0.3423366303736626
+      },
+      "top_contributors": [
+        {
+          "topic": "VACC",
+          "loading": -0.8263641031968584
+        },
+        {
+          "topic": "Media",
+          "loading": 0.35171955311250824
+        },
+        {
+          "topic": "UBI",
+          "loading": -0.3423366303736626
+        }
+      ]
+    },
+    {
+      "pc": 7,
+      "eigenvalue": 0.5733159123742829,
+      "variance_explained": 0.0452196085189238,
+      "cumulative_variance_explained": 0.9323990898485706,
+      "loadings": {
+        "Abortion": -0.5565577774370539,
+        "Gun": 0.3217688674770423,
+        "Climate": 0.4696301611605739,
+        "LGBT": 0.5060839664224289,
+        "VACC": -0.1873951373013158,
+        "DeathPenalty": -0.11905717107642752,
+        "Media": -0.12967443632361356,
+        "MinimumWage": -0.20281876464827098,
+        "UBI": -0.05284230083091529
+      },
+      "top_contributors": [
+        {
+          "topic": "Abortion",
+          "loading": -0.5565577774370539
+        },
+        {
+          "topic": "LGBT",
+          "loading": 0.5060839664224289
+        },
+        {
+          "topic": "Climate",
+          "loading": 0.4696301611605739
+        }
+      ]
+    },
+    {
+      "pc": 8,
+      "eigenvalue": 0.48725740515422683,
+      "variance_explained": 0.03843184644530919,
+      "cumulative_variance_explained": 0.9708309362938797,
+      "loadings": {
+        "Abortion": 0.25757886107135347,
+        "Gun": 0.5184552259397099,
+        "Climate": 0.3572122694760987,
+        "LGBT": -0.6071047452921983,
+        "VACC": -0.1767729703253601,
+        "DeathPenalty": 0.008274991082061457,
+        "Media": -0.08963667336152631,
+        "MinimumWage": -0.35941970201123385,
+        "UBI": 0.012087923072010606
+      },
+      "top_contributors": [
+        {
+          "topic": "LGBT",
+          "loading": -0.6071047452921983
+        },
+        {
+          "topic": "Gun",
+          "loading": 0.5184552259397099
+        },
+        {
+          "topic": "MinimumWage",
+          "loading": -0.35941970201123385
+        }
+      ]
+    },
+    {
+      "pc": 9,
+      "eigenvalue": 0.369819397370051,
+      "variance_explained": 0.029169063706120442,
+      "cumulative_variance_explained": 1.0000000000000002,
+      "loadings": {
+        "Abortion": -0.0060203269027592,
+        "Gun": 0.7077629737755429,
+        "Climate": -0.6757209723639125,
+        "LGBT": 0.18526276577996567,
+        "VACC": -0.03872351035309483,
+        "DeathPenalty": -0.004660569564796297,
+        "Media": 0.015504825672684328,
+        "MinimumWage": 0.04929326017650927,
+        "UBI": 0.0626318406148639
+      },
+      "top_contributors": [
+        {
+          "topic": "Gun",
+          "loading": 0.7077629737755429
+        },
+        {
+          "topic": "Climate",
+          "loading": -0.6757209723639125
+        },
+        {
+          "topic": "LGBT",
+          "loading": 0.18526276577996567
+        }
+      ]
+    }
+  ]
+}

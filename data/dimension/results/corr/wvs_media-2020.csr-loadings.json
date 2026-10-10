@@ -1,0 +1,296 @@
+{
+  "topics": [
+    "Corrup",
+    "GenderEqual",
+    "Marriage",
+    "Childbearing",
+    "LGBT",
+    "Environment",
+    "Econ",
+    "Work",
+    "Foreign"
+  ],
+  "N": 2106,
+  "L": 9,
+  "components": [
+    {
+      "pc": 1,
+      "eigenvalue": 1.6476502307868393,
+      "variance_explained": 0.18307206479313953,
+      "cumulative_variance_explained": 0.18307206479313953,
+      "loadings": {
+        "Corrup": -0.05377390194994003,
+        "GenderEqual": -0.304313372374793,
+        "Marriage": -0.560800330789351,
+        "Childbearing": -0.37273771111688436,
+        "LGBT": -0.5964431763509336,
+        "Environment": -0.03255269342983004,
+        "Econ": -0.00858563979327282,
+        "Work": 0.13351496474086466,
+        "Foreign": -0.27634620872253146
+      },
+      "top_contributors": [
+        {
+          "topic": "LGBT",
+          "loading": -0.5964431763509336
+        },
+        {
+          "topic": "Marriage",
+          "loading": -0.560800330789351
+        },
+        {
+          "topic": "Childbearing",
+          "loading": -0.37273771111688436
+        }
+      ]
+    },
+    {
+      "pc": 2,
+      "eigenvalue": 1.3357982420673062,
+      "variance_explained": 0.14842187847448884,
+      "cumulative_variance_explained": 0.3314939432676284,
+      "loadings": {
+        "Corrup": 0.42851112690617377,
+        "GenderEqual": -0.464341019765932,
+        "Marriage": 0.2978161278522109,
+        "Childbearing": -0.026378402538788554,
+        "LGBT": 0.20280659095754708,
+        "Environment": -0.37890756069250753,
+        "Econ": 0.2842770068287503,
+        "Work": 0.13714138936235898,
+        "Foreign": -0.47650050910511565
+      },
+      "top_contributors": [
+        {
+          "topic": "Foreign",
+          "loading": -0.47650050910511565
+        },
+        {
+          "topic": "GenderEqual",
+          "loading": -0.464341019765932
+        },
+        {
+          "topic": "Corrup",
+          "loading": 0.42851112690617377
+        }
+      ]
+    },
+    {
+      "pc": 3,
+      "eigenvalue": 1.2121658376643507,
+      "variance_explained": 0.13468495838885833,
+      "cumulative_variance_explained": 0.4661789016564867,
+      "loadings": {
+        "Corrup": 0.11661453377765975,
+        "GenderEqual": 0.25904649794938805,
+        "Marriage": -0.16532647753829216,
+        "Childbearing": 0.22073451892916718,
+        "LGBT": -0.08145248636111269,
+        "Environment": 0.10861465402186232,
+        "Econ": 0.6356746153097325,
+        "Work": 0.62461994247118,
+        "Foreign": 0.1748583732776155
+      },
+      "top_contributors": [
+        {
+          "topic": "Econ",
+          "loading": 0.6356746153097325
+        },
+        {
+          "topic": "Work",
+          "loading": 0.62461994247118
+        },
+        {
+          "topic": "GenderEqual",
+          "loading": 0.25904649794938805
+        }
+      ]
+    },
+    {
+      "pc": 4,
+      "eigenvalue": 0.9639817027478187,
+      "variance_explained": 0.10710897097411996,
+      "cumulative_variance_explained": 0.5732878726306067,
+      "loadings": {
+        "Corrup": 0.7485716126340712,
+        "GenderEqual": 0.1734832758077797,
+        "Marriage": 0.060550172148194886,
+        "Childbearing": -0.3167770328908328,
+        "LGBT": -0.15728293102484284,
+        "Environment": 0.4243586228230485,
+        "Econ": 0.07367054062391139,
+        "Work": -0.2857156129674356,
+        "Foreign": 0.11683818149010965
+      },
+      "top_contributors": [
+        {
+          "topic": "Corrup",
+          "loading": 0.7485716126340712
+        },
+        {
+          "topic": "Environment",
+          "loading": 0.4243586228230485
+        },
+        {
+          "topic": "Childbearing",
+          "loading": -0.3167770328908328
+        }
+      ]
+    },
+    {
+      "pc": 5,
+      "eigenvalue": 0.9360321221605463,
+      "variance_explained": 0.10400346512548445,
+      "cumulative_variance_explained": 0.6772913377560911,
+      "loadings": {
+        "Corrup": 0.16061782220224013,
+        "GenderEqual": 0.2669763848863869,
+        "Marriage": -0.06655119377527727,
+        "Childbearing": -0.18510742061280028,
+        "LGBT": -0.15495389456415895,
+        "Environment": -0.8017220549400284,
+        "Econ": 0.0559878705030836,
+        "Work": -0.1470241000237142,
+        "Foreign": 0.4155863521532566
+      },
+      "top_contributors": [
+        {
+          "topic": "Environment",
+          "loading": -0.8017220549400284
+        },
+        {
+          "topic": "Foreign",
+          "loading": 0.4155863521532566
+        },
+        {
+          "topic": "GenderEqual",
+          "loading": 0.2669763848863869
+        }
+      ]
+    },
+    {
+      "pc": 6,
+      "eigenvalue": 0.8846090346698241,
+      "variance_explained": 0.0982897944512971,
+      "cumulative_variance_explained": 0.7755811322073882,
+      "loadings": {
+        "Corrup": 0.25365847314696305,
+        "GenderEqual": 0.12293168087389786,
+        "Marriage": -0.29801184914537376,
+        "Childbearing": 0.7679591773479041,
+        "LGBT": -0.22764273261796414,
+        "Environment": -0.10022369930423172,
+        "Econ": -0.06100992722553445,
+        "Work": -0.32395221472310876,
+        "Foreign": -0.267281814335139
+      },
+      "top_contributors": [
+        {
+          "topic": "Childbearing",
+          "loading": 0.7679591773479041
+        },
+        {
+          "topic": "Work",
+          "loading": -0.32395221472310876
+        },
+        {
+          "topic": "Marriage",
+          "loading": -0.29801184914537376
+        }
+      ]
+    },
+    {
+      "pc": 7,
+      "eigenvalue": 0.779886093600441,
+      "variance_explained": 0.08665392374612524,
+      "cumulative_variance_explained": 0.8622350559535135,
+      "loadings": {
+        "Corrup": -0.34350343523206467,
+        "GenderEqual": -0.15192968586839062,
+        "Marriage": 0.055040822795343725,
+        "Childbearing": -0.03781642979923185,
+        "LGBT": -0.08049282521786079,
+        "Environment": 0.07383448456604008,
+        "Econ": 0.7016152555877743,
+        "Work": -0.5910147984894709,
+        "Foreign": 0.03114644553109755
+      },
+      "top_contributors": [
+        {
+          "topic": "Econ",
+          "loading": 0.7016152555877743
+        },
+        {
+          "topic": "Work",
+          "loading": -0.5910147984894709
+        },
+        {
+          "topic": "Corrup",
+          "loading": -0.34350343523206467
+        }
+      ]
+    },
+    {
+      "pc": 8,
+      "eigenvalue": 0.7255509454806504,
+      "variance_explained": 0.08061669110338114,
+      "cumulative_variance_explained": 0.9428517470568946,
+      "loadings": {
+        "Corrup": -0.13864007520722063,
+        "GenderEqual": 0.6930558548903427,
+        "Marriage": 0.022160849214996385,
+        "Childbearing": -0.2692721703262622,
+        "LGBT": 0.09537646851604864,
+        "Environment": -0.0723499842815906,
+        "Econ": 0.08007878962923486,
+        "Work": -0.03879900074894423,
+        "Foreign": -0.6365569421653248
+      },
+      "top_contributors": [
+        {
+          "topic": "GenderEqual",
+          "loading": 0.6930558548903427
+        },
+        {
+          "topic": "Foreign",
+          "loading": -0.6365569421653248
+        },
+        {
+          "topic": "Childbearing",
+          "loading": -0.2692721703262622
+        }
+      ]
+    },
+    {
+      "pc": 9,
+      "eigenvalue": 0.5143347908222244,
+      "variance_explained": 0.05714825294310531,
+      "cumulative_variance_explained": 0.9999999999999999,
+      "loadings": {
+        "Corrup": 0.11032582009209199,
+        "GenderEqual": -0.06914924422173535,
+        "Marriage": -0.6848712699620247,
+        "Childbearing": -0.11548040034165016,
+        "LGBT": 0.6930691937389037,
+        "Environment": -0.0017041572075065254,
+        "Econ": 0.06379555460465491,
+        "Work": -0.11923729107747108,
+        "Foreign": 0.045022220398543436
+      },
+      "top_contributors": [
+        {
+          "topic": "LGBT",
+          "loading": 0.6930691937389037
+        },
+        {
+          "topic": "Marriage",
+          "loading": -0.6848712699620247
+        },
+        {
+          "topic": "Work",
+          "loading": -0.11923729107747108
+        }
+      ]
+    }
+  ]
+}

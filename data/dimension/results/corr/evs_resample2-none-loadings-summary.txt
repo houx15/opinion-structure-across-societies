@@ -1,0 +1,96 @@
+=== Loading report: evs_resample2 (distance_space=none-corr) ===
+
+Topics (L=9): LGBT, Abortion, DeathPenalty, SocialMedia, Egalitarian, Environment, Prostitution, HealthCare, UnemplyAid
+
+--- 2020.csr (N=59,438) ---
+PR=7.46, eRank=8.19, srank=4.35
+  PC1 | eigval=+2.0705 | var= 23.0% | cum= 23.0%
+      -0.566  LGBT
+      -0.545  Abortion
+      -0.401  Environment
+      -0.392  Prostitution
+      -0.177  UnemplyAid
+      -0.135  DeathPenalty
+      -0.119  HealthCare
+      -0.066  Egalitarian
+      -0.036  SocialMedia
+  PC2 | eigval=+1.3483 | var= 15.0% | cum= 38.0%
+      +0.551  DeathPenalty
+      +0.509  UnemplyAid
+      +0.456  Egalitarian
+      -0.282  Prostitution
+      +0.229  Environment
+      -0.220  Abortion
+      +0.179  SocialMedia
+      -0.118  LGBT
+      +0.045  HealthCare
+  PC3 | eigval=+1.0520 | var= 11.7% | cum= 49.7%
+      +0.702  HealthCare
+      +0.641  SocialMedia
+      -0.224  Egalitarian
+      -0.178  UnemplyAid
+      -0.106  Prostitution
+      -0.054  Abortion
+      +0.022  Environment
+      +0.003  LGBT
+      -0.001  DeathPenalty
+  PC4 | eigval=+1.0091 | var= 11.2% | cum= 60.9%
+      +0.583  Egalitarian
+      -0.466  DeathPenalty
+      +0.404  SocialMedia
+      -0.367  Environment
+      +0.311  Prostitution
+      +0.198  UnemplyAid
+      -0.071  HealthCare
+      +0.052  Abortion
+      -0.035  LGBT
+  PC5 | eigval=+0.9206 | var= 10.2% | cum= 71.1%
+      +0.685  HealthCare
+      -0.607  SocialMedia
+      +0.260  UnemplyAid
+      -0.229  Environment
+      +0.144  Egalitarian
+      -0.098  DeathPenalty
+      +0.087  Prostitution
+      -0.067  LGBT
+      -0.011  Abortion
+  PC6 | eigval=+0.7984 | var=  8.9% | cum= 80.0%
+      +0.729  UnemplyAid
+      -0.571  Egalitarian
+      -0.264  DeathPenalty
+      -0.159  LGBT
+      +0.119  Prostitution
+      +0.119  SocialMedia
+      -0.095  HealthCare
+      +0.077  Environment
+      -0.067  Abortion
+  PC7 | eigval=+0.7132 | var=  7.9% | cum= 87.9%
+      +0.638  Prostitution
+      +0.586  DeathPenalty
+      -0.421  Environment
+      -0.176  Egalitarian
+      -0.130  LGBT
+      -0.123  Abortion
+      +0.075  SocialMedia
+      -0.041  UnemplyAid
+      -0.033  HealthCare
+  PC8 | eigval=+0.6811 | var=  7.6% | cum= 95.5%
+      +0.640  Environment
+      +0.478  Prostitution
+      -0.401  Abortion
+      -0.325  LGBT
+      -0.189  UnemplyAid
+      -0.177  DeathPenalty
+      +0.139  Egalitarian
+      +0.077  HealthCare
+      -0.063  SocialMedia
+  PC9 | eigval=+0.4068 | var=  4.5% | cum=100.0%
+      +0.716  LGBT
+      -0.685  Abortion
+      -0.087  Environment
+      -0.080  DeathPenalty
+      +0.048  UnemplyAid
+      -0.030  Egalitarian
+      -0.028  SocialMedia
+      +0.027  Prostitution
+      -0.021  HealthCare

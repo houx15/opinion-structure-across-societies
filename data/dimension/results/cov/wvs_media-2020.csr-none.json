@@ -1,0 +1,11 @@
+{
+  "PR": 7.014160940025891,
+  "eRank": 7.905707090566086,
+  "srank": 4.20566023774118,
+  "mle_mean": NaN,
+  "mle_lo": NaN,
+  "mle_hi": NaN,
+  "twonn_est": NaN,
+  "distance_space": null,
+  "matrix": "cov"
+}

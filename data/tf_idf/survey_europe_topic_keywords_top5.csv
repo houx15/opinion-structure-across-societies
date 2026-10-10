@@ -1,0 +1,17 @@
+topic,word,ngram,anchor,anchor_sim,selected_by,pos,Frequency,df,TF,IDF,TF-IDF,other_sim
+LGBT,homosexuality,1,homosexuality,1.0,anchor,,,,,,,
+Abortion,abortion,1,abortion,1.0,anchor,,,,,,,
+DeathPenalty,death penalty,2,death penalty,1.0,anchor,,,,,,,
+Egalitarian,welfare state,2,welfare state,1.0,anchor,,,,,,,
+Environment,environmental protection,2,environmental protection,1.0,anchor,,,,,,,
+Environment,environmental pollution,2,environmental protection,0.7063174088705049,rule,NP,1.0,1.0,0.03125,1.7047480922384253,0.0532733778824507,0.2546645833893534
+Environment,environmental threat,2,environmental protection,0.6148527475781896,rule,NP,1.0,1.0,0.03125,1.7047480922384253,0.0532733778824507,0.2273449904897272
+Environment,environment,1,environmental protection,0.5609189173381097,rule,NN,3.0,1.0,0.09375,1.7047480922384253,0.1598201336473523,0.2819675600359307
+Environment,protect,1,environmental protection,0.4870019643990019,rule,VB,1.0,1.0,0.03125,1.7047480922384253,0.0532733778824507,0.2822075425919302
+SocialMedia,social media,2,social media,1.0,anchor,,,,,,,
+Prostitution,prostitution,1,prostitution,1.0,anchor,,,,,,,
+HealthCare,health care,2,health care,1.0,anchor,,,,,,,
+HealthCare,health care system,3,health care,0.784930730227899,rule,NP,1.0,1.0,0.0666666666666666,1.7047480922384253,0.113649872815895,0.3989642594284575
+UnemployAid,unemployment aid,2,unemployment aid,1.0,anchor,,,,,,,
+UnemployAid,unemployed,1,unemployment aid,0.6260356348967309,rule,JJ,1.0,1.0,0.0454545454545454,1.7047480922384253,0.0774885496472011,0.3021337185897985
+Press,news press,2,news press,1.0,anchor,,,,,,,

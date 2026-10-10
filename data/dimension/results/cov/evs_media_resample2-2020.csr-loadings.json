@@ -1,0 +1,296 @@
+{
+  "topics": [
+    "LGBT",
+    "Abortion",
+    "DeathPenalty",
+    "SocialMedia",
+    "Egalitarian",
+    "Environment",
+    "Prostitution",
+    "HealthCare",
+    "UnemplyAid"
+  ],
+  "N": 35990,
+  "L": 9,
+  "components": [
+    {
+      "pc": 1,
+      "eigenvalue": 3.706779184201087,
+      "variance_explained": 0.27428676476518177,
+      "cumulative_variance_explained": 0.27428676476518177,
+      "loadings": {
+        "LGBT": -0.6366538541400782,
+        "Abortion": -0.618462571658351,
+        "DeathPenalty": -0.14549761787910243,
+        "SocialMedia": 0.05986117454852622,
+        "Egalitarian": -0.07024686441051833,
+        "Environment": -0.16349447961580643,
+        "Prostitution": -0.37641040414487004,
+        "HealthCare": -0.07322052087781598,
+        "UnemplyAid": -0.09333754115587595
+      },
+      "top_contributors": [
+        {
+          "topic": "LGBT",
+          "loading": -0.6366538541400782
+        },
+        {
+          "topic": "Abortion",
+          "loading": -0.618462571658351
+        },
+        {
+          "topic": "Prostitution",
+          "loading": -0.37641040414487004
+        }
+      ]
+    },
+    {
+      "pc": 2,
+      "eigenvalue": 2.308790324601185,
+      "variance_explained": 0.1708412066613297,
+      "cumulative_variance_explained": 0.4451279714265115,
+      "loadings": {
+        "LGBT": -0.06101699804356718,
+        "Abortion": -0.11384043320820345,
+        "DeathPenalty": 0.9116231609891454,
+        "SocialMedia": 0.004028130450390148,
+        "Egalitarian": 0.22115523326493525,
+        "Environment": 0.09386483604142676,
+        "Prostitution": -0.20620547332212386,
+        "HealthCare": 0.03492308910454832,
+        "UnemplyAid": 0.2253524000400199
+      },
+      "top_contributors": [
+        {
+          "topic": "DeathPenalty",
+          "loading": 0.9116231609891454
+        },
+        {
+          "topic": "UnemplyAid",
+          "loading": 0.2253524000400199
+        },
+        {
+          "topic": "Egalitarian",
+          "loading": 0.22115523326493525
+        }
+      ]
+    },
+    {
+      "pc": 3,
+      "eigenvalue": 1.5122951771987674,
+      "variance_explained": 0.11190376629171629,
+      "cumulative_variance_explained": 0.5570317377182278,
+      "loadings": {
+        "LGBT": -0.200048392832701,
+        "Abortion": -0.0604993442511112,
+        "DeathPenalty": -0.23380468396505968,
+        "SocialMedia": 0.12371405809123683,
+        "Egalitarian": 0.7134801732626767,
+        "Environment": -0.030269547968890618,
+        "Prostitution": 0.3318720713304074,
+        "HealthCare": -0.13992405528042373,
+        "UnemplyAid": 0.49665144247087467
+      },
+      "top_contributors": [
+        {
+          "topic": "Egalitarian",
+          "loading": 0.7134801732626767
+        },
+        {
+          "topic": "UnemplyAid",
+          "loading": 0.49665144247087467
+        },
+        {
+          "topic": "Prostitution",
+          "loading": 0.3318720713304074
+        }
+      ]
+    },
+    {
+      "pc": 4,
+      "eigenvalue": 1.3532706951140732,
+      "variance_explained": 0.10013659362187453,
+      "cumulative_variance_explained": 0.6571683313401023,
+      "loadings": {
+        "LGBT": 0.04614445590473912,
+        "Abortion": 0.07883180307087737,
+        "DeathPenalty": 0.02019838643247161,
+        "SocialMedia": -0.5032315664364365,
+        "Egalitarian": 0.05427041526572704,
+        "Environment": 0.010724552224061181,
+        "Prostitution": -0.1295466054028668,
+        "HealthCare": -0.8448924940498449,
+        "UnemplyAid": -0.06572905198319597
+      },
+      "top_contributors": [
+        {
+          "topic": "HealthCare",
+          "loading": -0.8448924940498449
+        },
+        {
+          "topic": "SocialMedia",
+          "loading": -0.5032315664364365
+        },
+        {
+          "topic": "Prostitution",
+          "loading": -0.1295466054028668
+        }
+      ]
+    },
+    {
+      "pc": 5,
+      "eigenvalue": 1.220538000880068,
+      "variance_explained": 0.09031490760529622,
+      "cumulative_variance_explained": 0.7474832389453986,
+      "loadings": {
+        "LGBT": -0.2794127695183561,
+        "Abortion": -0.13652572311965236,
+        "DeathPenalty": 0.2626061599727492,
+        "SocialMedia": 0.13160804615381877,
+        "Egalitarian": -0.39644367262194413,
+        "Environment": -0.049509073136345526,
+        "Prostitution": 0.7723653433470961,
+        "HealthCare": -0.24029964572616214,
+        "UnemplyAid": -0.0556388431231946
+      },
+      "top_contributors": [
+        {
+          "topic": "Prostitution",
+          "loading": 0.7723653433470961
+        },
+        {
+          "topic": "Egalitarian",
+          "loading": -0.39644367262194413
+        },
+        {
+          "topic": "LGBT",
+          "loading": -0.2794127695183561
+        }
+      ]
+    },
+    {
+      "pc": 6,
+      "eigenvalue": 1.0722354613831002,
+      "variance_explained": 0.07934111560321046,
+      "cumulative_variance_explained": 0.826824354548609,
+      "loadings": {
+        "LGBT": 0.1060899808555837,
+        "Abortion": 0.1534946755176982,
+        "DeathPenalty": 0.04407316253830116,
+        "SocialMedia": 0.8162199597332214,
+        "Egalitarian": 0.11888766500254579,
+        "Environment": -0.028834193824497558,
+        "Prostitution": -0.17721171209392528,
+        "HealthCare": -0.4079648816537135,
+        "UnemplyAid": -0.29020994303692393
+      },
+      "top_contributors": [
+        {
+          "topic": "SocialMedia",
+          "loading": 0.8162199597332214
+        },
+        {
+          "topic": "HealthCare",
+          "loading": -0.4079648816537135
+        },
+        {
+          "topic": "UnemplyAid",
+          "loading": -0.29020994303692393
+        }
+      ]
+    },
+    {
+      "pc": 7,
+      "eigenvalue": 1.0430552776795003,
+      "variance_explained": 0.07718189926320634,
+      "cumulative_variance_explained": 0.9040062538118154,
+      "loadings": {
+        "LGBT": 0.05254938350449574,
+        "Abortion": 0.06335369611177366,
+        "DeathPenalty": -0.10883443005360353,
+        "SocialMedia": 0.2036704341585498,
+        "Egalitarian": -0.5116555655024294,
+        "Environment": 0.09744832092899569,
+        "Prostitution": -0.22220424523620608,
+        "HealthCare": -0.1724192811865389,
+        "UnemplyAid": 0.7677939596529033
+      },
+      "top_contributors": [
+        {
+          "topic": "UnemplyAid",
+          "loading": 0.7677939596529033
+        },
+        {
+          "topic": "Egalitarian",
+          "loading": -0.5116555655024294
+        },
+        {
+          "topic": "Prostitution",
+          "loading": -0.22220424523620608
+        }
+      ]
+    },
+    {
+      "pc": 8,
+      "eigenvalue": 0.7806726347411396,
+      "variance_explained": 0.0577666380119182,
+      "cumulative_variance_explained": 0.9617728918237336,
+      "loadings": {
+        "LGBT": 0.6381478157313383,
+        "Abortion": -0.740542561360027,
+        "DeathPenalty": -0.046831523751698134,
+        "SocialMedia": 0.04827357365601441,
+        "Egalitarian": 0.02630513838410201,
+        "Environment": 0.14668323628106847,
+        "Prostitution": 0.10710576728624939,
+        "HealthCare": -0.07779653876044348,
+        "UnemplyAid": 0.010424568137259114
+      },
+      "top_contributors": [
+        {
+          "topic": "Abortion",
+          "loading": -0.740542561360027
+        },
+        {
+          "topic": "LGBT",
+          "loading": 0.6381478157313383
+        },
+        {
+          "topic": "Environment",
+          "loading": 0.14668323628106847
+        }
+      ]
+    },
+    {
+      "pc": 9,
+      "eigenvalue": 0.5166105954157034,
+      "variance_explained": 0.03822710817626642,
+      "cumulative_variance_explained": 1.0,
+      "loadings": {
+        "LGBT": -0.22243981980618394,
+        "Abortion": 0.007274263685645044,
+        "DeathPenalty": -0.08808227283301896,
+        "SocialMedia": 0.02248448745451435,
+        "Egalitarian": 0.01926823191728984,
+        "Environment": 0.96391544236065,
+        "Prostitution": 0.00863303127801471,
+        "HealthCare": -0.006090242610474134,
+        "UnemplyAid": -0.11219495363987386
+      },
+      "top_contributors": [
+        {
+          "topic": "Environment",
+          "loading": 0.96391544236065
+        },
+        {
+          "topic": "LGBT",
+          "loading": -0.22243981980618394
+        },
+        {
+          "topic": "UnemplyAid",
+          "loading": -0.11219495363987386
+        }
+      ]
+    }
+  ]
+}
