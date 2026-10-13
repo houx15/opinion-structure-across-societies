@@ -1002,9 +1002,9 @@ def test_task_list_covers_main_plus_robustness_variants():
     assert "robust_6_eu_nen" in names
 
 
-def test_run_task_supp_semantic_only_produces_fig2s(tmp_figure_folder):
-    """The Fig 2G supplement writes fig2s only: 3 rows (reweighting, OLS,
-    LOESS) x 4 panels."""
+def test_run_task_supp_semantic_writes_ols_and_loess_figures(tmp_figure_folder):
+    """The Fig 2G supplement writes two same-layout figures (OLS, LOESS),
+    2 rows x 4 panels each."""
     import plotting.figures as v4
     import matplotlib.pyplot as plt
 
@@ -1015,15 +1015,16 @@ def test_run_task_supp_semantic_only_produces_fig2s(tmp_figure_folder):
         n_bootstrap=20,
         write_stats=False,
     )
-    assert list(paths) == ["2s"]
-    p = Path(paths["2s"])
-    assert p.exists()
-    assert p.name == "20260513_supp_semantic_results_fig2s.pdf"
+    assert list(paths) == ["2s_ols", "2s_loess"]
+    assert Path(paths["2s_ols"]).name == "20260513_supp_semantic_results_fig2s_ols.pdf"
+    assert Path(paths["2s_loess"]).name == "20260513_supp_semantic_results_fig2s_loess.pdf"
     plotter = v4.Plotter(figure_folder=str(tmp_figure_folder), n_bootstrap=20)
-    fig = plotter.build_fig2s()
-    assert len(fig.axes) == 12
+    fig = plotter.build_fig2s("loess")
+    assert len(fig.axes) == 8
+    assert fig.axes[6].get_title() == "LOESS, reweighted, offline"
     plt.close(fig)
-
+    with pytest.raises(ValueError):
+        plotter.build_fig2s("spline")
 
 # -- v4 N-region (4-region eu_nen variant) ----------------------------------
 
@@ -1190,19 +1191,20 @@ def test_semantic_adjustment_reference_is_raw_and_shares_add_up(tmp_figure_folde
     assert plotter.semantic_adjustment() is res  # cached
 
 
-def test_adjusted_pairs_match_the_adjusted_means(tmp_figure_folder):
-    """Fig 2s distributions and Fig 2G / stats means come from the same pairs:
-    the (weighted) mean of the adjusted values is the adjusted mean."""
+def test_semantic_weights_reproduce_the_adjusted_means(tmp_figure_folder):
+    """Figs 2s and Fig 2G use the same weights: the weighted mean |r| is the
+    adjusted mean, and the reference society keeps equal weights."""
     import plotting.figures as v4
 
     plotter = v4.Plotter(figure_folder=str(tmp_figure_folder), n_bootstrap=10)
-    for method in ("kde", "ols", "lowess"):
-        res = plotter.semantic_adjustment(method)
-        for src in ("anes", "wvs", "weibo"):
-            vals, w = plotter._adjusted_pairs(src, method)
-            assert np.average(vals, weights=w) == pytest.approx(res["adjusted"][src])
+    res = plotter.semantic_adjustment()
+    for src in ("anes", "wvs", "evs_resample2", "twitter", "weibo", "eutwitter"):
+        w = plotter.semantic_weights(src)
+        assert w.sum() == pytest.approx(1.0)
+        assert w @ plotter.semantic_pairs(src)[1] == pytest.approx(res["adjusted"][src])
+    np.testing.assert_allclose(plotter.semantic_weights("anes"), 1 / 36)
     with pytest.raises(ValueError):
-        plotter.semantic_adjustment("magic")
+        plotter.semantic_adjustment("ols")
     assert v4.task_names("main") == ["main", "supp_semantic"]
 
 def test_fig3_non_pedagogical_keeps_only_pr_erank(tmp_figure_folder):

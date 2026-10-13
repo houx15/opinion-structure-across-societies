@@ -84,9 +84,9 @@ python scripts/import_legacy_data.py /path/to/opinion_correlation [--csr_root /p
      `weibo_correlation` -> `data/correlation/network_analysis_<src>.csv`
      (Pearson r per topic pair and year, plus the shuffle baseline for social media);
      `semantic_adjustment`: mean |r| with each society's topic pairs reweighted to the
-     U.S. semantic-similarity distribution (Fig 2G), the same adjustment along OLS / LOWESS
-     fits (supplementary Fig 2s), and the Shapley split of pair |r| variation into society
-     vs semantic similarity (text only; stats Parts 9-11).
+     U.S. semantic-similarity distribution by density-ratio weights (Fig 2G; raw vs weighted
+     OLS / LOESS fits in supplementary Figs 2s), and the Shapley split of pair |r| variation
+     into society vs semantic similarity (text only; stats Parts 9-11).
    - `semantic/`: `tfidf_twitter`, `tfidf_weibo` (noun/verb TF-IDF per topic),
      `survey_codebook_tfidf` (codebook keywords), `semantic_similarity`
      (keyword embeddings -> topic centroids -> cosine similarity).
