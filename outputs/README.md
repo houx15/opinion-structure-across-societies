@@ -4,7 +4,7 @@ Every file starts with the run date, `<YYYYMMDD>_`. Git-ignored.
 
 | folder | files |
 |---|---|
-| `figures/` | `<date>_<task>_results_fig2.pdf` / `_fig3.pdf`; `<date>_supp_semantic_results_fig2s.pdf`; `<date>_supp_centroid_rank_results_fig.pdf`; `<date>_graphical_abstract_panels/` |
+| `figures/` | `<date>_<task>_results_fig2.pdf` / `_fig3.pdf`; `<date>_supp_semantic_results_fig2s_ols.pdf` / `_fig2s_loess.pdf`; `<date>_supp_centroid_rank_results_fig.pdf`; `<date>_graphical_abstract_panels/` |
 | `stats/` | `<date>_<task>_results_stats.txt`: every number quoted in the paper for that task, each with its source files and calculation; `<date>_supp_centroid_rank_results_stats.txt`; `<date>_descriptive_stats.txt` |
 | `reports/` | `<date>_<analysis>/`: csv tables behind SI analyses (`centroid_rank_check`, `embedding_subspace`, `dimension_loadings`, `descriptive_stats`) |
 
@@ -13,7 +13,7 @@ Tasks (plotting/figures.py `TASKS`):
 | task | figures | content |
 |---|---|---|
 | `main` | Fig 2, Fig 3 | main text |
-| `supp_semantic` | Fig 2s | how Fig 2G holds semantic similarity fixed: similarity distributions and \|r\| before / after reweighting, then the same adjustment along OLS lines and LOWESS (span 0.4) curves |
+| `supp_semantic` | Figs 2s (OLS, LOESS) | Fig 2G's reweighting in detail: similarity and \|r\| distributions before / after reweighting; \|r\| vs similarity fits on raw and reweighted pairs, one figure with OLS lines, one with LOESS (span 0.4) |
 | `supp_centroid_rank` | SI figure | rank / conditioning of the topic centroids |
 | `robust_1_media` | Fig 2, 3 | survey respondents who use social media |
 | `robust_2_noputback` | Fig 2, 3 | EVS without resampling |

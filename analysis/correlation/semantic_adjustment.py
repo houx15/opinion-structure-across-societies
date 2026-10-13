@@ -2,35 +2,30 @@
 
 Each society's 36 topic pairs have their own semantic-similarity distribution,
 so a raw difference in mean |r| can partly come from one society asking about
-more (or less) similar topics. Tools (Fig 2G, supplementary Fig 2s;
-paper_stats Parts 9, 10):
+more (or less) similar topics. Tools (Fig 2G, supplementary Figs 2s;
+paper_stats Parts 9-11):
 
-1. Reweighting to the U.S. similarity distribution (main, Fig 2G). Within one
-   medium, the other society's observed pairs are reweighted so their
-   similarities are distributed like the U.S. pairs' -- no fitted curve.
-   "kde" (main): weight_j = f_US(x_j) / f_other(x_j), both densities Gaussian
-   KDEs (Scott bandwidth; DiNardo-Fortin-Lemieux); the weighted mean |r| is the
-   society's mean |r| "had its topics been as similar as the U.S. topics".
-   Sensitivity: "nn": for each U.S. pair, the mean |r| of the k other-society
-   pairs with the closest similarity; "strata": U.S. similarity quintiles,
-   each weighted by its U.S. share (other pairs outside the U.S. range
-   dropped).
+1. Density-ratio reweighting to the U.S. similarity distribution (Fig 2G).
+   Within one medium, the other society's observed pairs are reweighted so
+   their similarities are distributed like the U.S. pairs':
+   weight_j = f_US(x_j) / f_other(x_j), both densities Gaussian KDEs (Scott
+   bandwidth; DiNardo-Fortin-Lemieux). The weighted mean |r| is the society's
+   mean |r| "had its topics been as similar as the U.S. topics". Weighting
+   rather than matching: with 36 pairs per society, matching would let a few
+   pairs stand in for many. Sensitivity: "strata" (U.S. similarity quintiles,
+   each weighted by its U.S. share; other pairs outside the U.S. range
+   dropped). U.S. pairs beyond the other society's similarity range cannot be
+   reproduced by any weighting, so the reweighted distribution is close to,
+   not identical with, the U.S. one.
 
    The raw gap to the U.S. then splits into a part due to the different
    similarity mix (adjusted - raw) and a part due to different |r| at equal
    similarity (U.S. - adjusted).
 
-2. Shifting each society to the U.S. similarities along a fitted curve (OLS
-   or LOWESS; supplementary Fig 2s and sensitivity). Within one medium, fit
-   the other society's |r| on similarity (f). Its pair of similarity rank k is moved to the U.S. similarity of the
-   same rank (quantile matching), and its |r| moves along the fitted curve:
-       |r|*_j = |r|_j + f(x_US,(k)) - f(x_j).
-   Each pair keeps its residual, so the result is the society's whole |r|
-   distribution "had its topics been as similar as the U.S. topics"; its mean
-   is the adjusted mean |r|. With OLS (and equal pair counts) that mean is
-   mean|r| + b * (mean sim_US - mean sim_other). LOWESS (span ``frac``) is
-   evaluated by linear interpolation of the fitted curve and held constant
-   beyond the society's own similarity range.
+2. Weighted fits of |r| on similarity (supplementary Figs 2s): OLS, or a
+   local-linear LOESS with tricube kernel over the nearest ``frac`` of the
+   pairs, each optionally carrying the reweighting weights. They describe the
+   |r|-similarity relation before and after reweighting; they do not adjust.
 
 3. Shapley R^2 decomposition. Pool one medium's pairs across societies and
    regress Fisher z = arctanh(|r|) on society (dummies) and similarity. Each
@@ -40,47 +35,14 @@ paper_stats Parts 9, 10):
 
 from __future__ import annotations
 
-from typing import Dict, Sequence
+from typing import Callable, Dict, Optional, Sequence
 
 import numpy as np
+import statsmodels.api as sm
 from scipy.stats import gaussian_kde
-from statsmodels.nonparametric.smoothers_lowess import lowess
 
-FIT_METHODS = ("ols", "lowess")
-ADJUSTMENT_METHODS = ("kde", "nn", "strata") + FIT_METHODS
-
-
-def matched_similarities(x_ref: np.ndarray, x_other: np.ndarray) -> np.ndarray:
-    """The reference similarity of the same rank for every ``x_other`` value.
-
-    Rank k of n maps to the reference quantile (k + 0.5) / n (Hazen), which is
-    exactly the k-th smallest reference value when both have n pairs.
-    """
-    x_ref, x_other = np.asarray(x_ref, float), np.asarray(x_other, float)
-    rank = np.empty(len(x_other))
-    rank[np.argsort(x_other, kind="stable")] = np.arange(len(x_other))
-    return np.quantile(x_ref, (rank + 0.5) / len(x_other), method="hazen")
-
-
-def fitted_curve(x: np.ndarray, y: np.ndarray, fit: str = "ols", frac: float = 0.4):
-    """Callable fitted |r| = f(similarity) for one society."""
-    x, y = np.asarray(x, float), np.asarray(y, float)
-    if fit == "ols":
-        slope, intercept = np.polyfit(x, y, 1)
-        return lambda v: intercept + slope * np.asarray(v, float)
-    if fit == "lowess":
-        curve = lowess(y, x, frac=frac)
-        return lambda v: np.interp(np.asarray(v, float), curve[:, 0], curve[:, 1])
-    raise ValueError(f"fit must be one of {FIT_METHODS}, got {fit!r}")
-
-
-def shifted_values(
-    x_ref: np.ndarray, x_other: np.ndarray, y_other: np.ndarray,
-    fit: str = "ols", frac: float = 0.4,
-) -> np.ndarray:
-    """Each other-society pair's |r| moved to the U.S. similarity of its rank."""
-    f = fitted_curve(x_other, y_other, fit, frac)
-    return np.asarray(y_other, float) + f(matched_similarities(x_ref, x_other)) - f(x_other)
+ADJUSTMENT_METHODS = ("kde", "strata")
+FITS = ("ols", "loess")
 
 
 def density_ratio_weights(x_ref: np.ndarray, x_other: np.ndarray) -> np.ndarray:
@@ -96,13 +58,6 @@ def effective_sample_size(w: np.ndarray) -> float:
     """Kish effective number of pairs behind a weighted mean."""
     w = np.asarray(w, float)
     return float(w.sum() ** 2 / (w ** 2).sum())
-
-
-def _nn_mean(x_ref, x_other, y_other, k: int) -> float:
-    k = min(k, len(x_other))
-    dist = np.abs(x_ref[:, None] - x_other[None, :])
-    nearest = np.argsort(dist, axis=1, kind="stable")[:, :k]
-    return float(y_other[nearest].mean())
 
 
 def _strata_mean(x_ref, x_other, y_other, n_strata: int) -> float:
@@ -126,18 +81,12 @@ def adjusted_mean(
     y_other: np.ndarray,
     method: str = "kde",
     *,
-    k: int = 3,
     n_strata: int = 5,
-    frac: float = 0.4,
 ) -> float:
     """Mean of ``y_other`` with its similarities redistributed like ``x_ref``."""
     x_ref, x_other, y_other = (np.asarray(a, float) for a in (x_ref, x_other, y_other))
-    if method in FIT_METHODS:
-        return float(shifted_values(x_ref, x_other, y_other, method, frac).mean())
     if method == "kde":
         return float(density_ratio_weights(x_ref, x_other) @ y_other)
-    if method == "nn":
-        return _nn_mean(x_ref, x_other, y_other, k)
     if method == "strata":
         return _strata_mean(x_ref, x_other, y_other, n_strata)
     raise ValueError(f"method must be one of {ADJUSTMENT_METHODS}, got {method!r}")
@@ -152,6 +101,54 @@ def gap_decomposition(x_ref, y_ref, x_other, y_other, method: str = "kde") -> Di
         "adjusted_other": adj,
         "similarity_part": float(adj - np.mean(y_other)),
         "society_part": float(np.mean(y_ref) - adj),
+    }
+
+
+def weighted_fit(
+    x: np.ndarray, y: np.ndarray, w: Optional[np.ndarray] = None,
+    fit: str = "ols", frac: float = 0.4,
+) -> Callable[[np.ndarray], np.ndarray]:
+    """Fitted |r| = f(similarity) with pair weights ``w`` (None = equal).
+
+    "ols": weighted least-squares line. "loess": at each evaluation point a
+    weighted straight-line fit over the nearest ceil(frac * n) pairs, local
+    weights tricube(distance / distance to the farthest of them) * w; no
+    robustness iterations, so the same estimator serves raw and weighted
+    pairs.
+    """
+    x, y = np.asarray(x, float), np.asarray(y, float)
+    w = np.ones(len(x)) if w is None else np.asarray(w, float)
+    if fit == "ols":
+        slope, intercept = np.polyfit(x, y, 1, w=np.sqrt(w))
+        return lambda v: intercept + slope * np.asarray(v, float)
+    if fit != "loess":
+        raise ValueError(f"fit must be one of {FITS}, got {fit!r}")
+    k = max(3, int(np.ceil(frac * len(x))))
+
+    def f(v):
+        v = np.atleast_1d(np.asarray(v, float))
+        out = np.empty(len(v))
+        for i, v0 in enumerate(v):
+            d = np.abs(x - v0)
+            h = np.sort(d)[k - 1] * 1.0001 or 1.0
+            lw = np.clip(1 - (d / h) ** 3, 0, None) ** 3 * w
+            X = np.column_stack([np.ones(len(x)), x - v0])
+            beta = np.linalg.lstsq(X * np.sqrt(lw)[:, None], y * np.sqrt(lw), rcond=None)[0]
+            out[i] = beta[0]
+        return out
+    return f
+
+
+def weighted_ols(x: np.ndarray, y: np.ndarray, w: Optional[np.ndarray] = None) -> Dict[str, float]:
+    """|r| = intercept + slope * similarity by weighted least squares
+    (statsmodels WLS; equal weights = OLS): intercept, slope, slope SE,
+    two-sided p, and the weighted R^2."""
+    x, y = np.asarray(x, float), np.asarray(y, float)
+    w = np.ones(len(x)) if w is None else np.asarray(w, float)
+    res = sm.WLS(y, sm.add_constant(x), weights=w).fit()
+    return {
+        "intercept": float(res.params[0]), "slope": float(res.params[1]),
+        "se": float(res.bse[1]), "p": float(res.pvalues[1]), "r2": float(res.rsquared),
     }
 
 

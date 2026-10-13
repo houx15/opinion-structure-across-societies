@@ -42,7 +42,8 @@ from analysis.correlation.semantic_adjustment import (
     adjusted_mean,
     density_ratio_weights,
     shapley_r2,
-    shifted_values,
+    weighted_fit,
+    weighted_ols,
 )
 from common.topics import (
     CN_SURVEY_TOPICS,
@@ -2082,79 +2083,6 @@ class Plotter:
         if panel_label:
             ax.set_title(panel_label, fontsize=12, fontweight="bold", pad=8)
 
-    def _semantic_loess_panel(
-        self,
-        ax,
-        sources: Sequence[str],
-        *,
-        line_style,
-        panel_label: str,
-        trend: str = "linear",
-        annotate_fit: bool = False,
-    ) -> None:
-        """|r| vs semantic similarity: light scatter + one trend per society
-        (``trend`` "linear" = OLS line, "lowess" = bootstrapped LOWESS, span
-        ``loess_frac``; supplementary Fig 2s). ``annotate_fit`` writes each
-        society's OLS slope and R^2 in the corner.
-        """
-        if trend not in ("linear", "lowess"):
-            raise ValueError(f"trend must be 'linear' or 'lowess', got {trend!r}")
-        fit_lines = []
-        rng = np.random.default_rng(7)
-        for src in sources:
-            color = self.country_color[self.source_country[src]]
-            corr = self.pair_correlations(src)
-            sem = load_semantic_similarity(src, embedding_type=self.embedding_type)
-            merged = (
-                corr.merge(
-                    sem[["topic_combination", "similarity"]],
-                    on="topic_combination",
-                    how="left",
-                )
-                .dropna(subset=["similarity"])
-                .drop_duplicates(subset=["topic_combination"])
-            )
-            if merged.empty:
-                continue
-            ax.scatter(
-                merged["similarity"].to_numpy(),
-                merged["correlation"].to_numpy(),
-                color=color, alpha=0.18, s=18, edgecolors="none",
-            )
-            x = merged["similarity"].to_numpy()
-            y = merged["correlation"].to_numpy()
-            if trend == "linear":
-                x_grid, mean_curve = None, None
-                if len(x) >= 2 and np.ptp(x) > 0:
-                    slope, intercept = np.polyfit(x, y, 1)
-                    x_grid = np.linspace(x.min(), x.max(), 100)
-                    mean_curve = intercept + slope * x_grid
-                    r2 = np.corrcoef(x, y)[0, 1] ** 2
-                    fit_lines.append((color, f"{self.source_country[src]}: b = {slope:+.2f}, R² = {r2:.2f}"))
-            else:
-                x_grid, mean_curve, _lo, _hi = bootstrap_lowess_ci(
-                    x, y,
-                    frac=self.loess_frac,
-                    n_bootstrap=self.n_bootstrap,
-                    rng=rng,
-                )
-            if x_grid is not None:
-                ax.plot(x_grid, mean_curve, color=color, linewidth=3, linestyle=line_style)
-
-        if annotate_fit:
-            for i, (color, text) in enumerate(fit_lines):
-                ax.text(0.03, 0.97 - 0.075 * i, text, transform=ax.transAxes,
-                        ha="left", va="top", fontsize=9, color=color)
-        ax.set_xlabel("Semantic similarity", fontsize=12)
-        ax.set_ylabel("|r|", fontsize=12, fontweight="bold")
-        ax.set_title(panel_label, fontsize=12, fontweight="bold")
-        # Let matplotlib autoscale x to the actual similarity range — the
-        # row 2 examples panel sits at [0, 1] but locking row 3 to that range
-        # wastes white space where the data doesn't reach.
-        ax.set_ylim(0, 0.6)
-        ax.spines["top"].set_visible(False)
-        ax.spines["right"].set_visible(False)
-
     # -- Fig 2G: |r| with semantic similarity held fixed ----------------------
 
     # Medium label -> RegionSpec attribute, as in paper_stats.MEDIA.
@@ -2174,9 +2102,8 @@ class Plotter:
         """Similarity-adjusted mean |r| per source and the Shapley decomposition
         per medium, with percentile bootstrap intervals (cached per method).
 
-        ``method``: "kde" (main, Fig 2G: reweighting) or any other
-        semantic_adjustment.ADJUSTMENT_METHODS entry ("ols" / "lowess" shift
-        along the fitted curve, span ``loess_frac``; supplementary Fig 2s).
+        ``method``: "kde" (main, Fig 2G: density-ratio reweighting) or
+        "strata" (quintile reweighting, sensitivity).
 
         Returns ``raw`` / ``adjusted`` {src: mean |r|}, ``adjusted_ci``
         {src: (lo, hi)}, ``decomposition`` {medium: shapley_r2 dict on Fisher z}
@@ -2202,7 +2129,7 @@ class Plotter:
                 xr = data[ref_src][0]
                 adj = {
                     src: (float(y.mean()) if src == ref_src
-                          else adjusted_mean(xr, x, y, method, frac=self.loess_frac))
+                          else adjusted_mean(xr, x, y, method))
                     for src, (x, y) in data.items()
                 }
                 groups = np.concatenate([np.full(len(data[s][0]), i) for i, s in enumerate(sources)])
@@ -2379,38 +2306,27 @@ class Plotter:
         plt.close(fig)
         return path
 
-    # -- Supplementary Fig 2s: how Fig 2G holds similarity fixed --------------
+    # -- Supplementary Figs 2s: Fig 2G's reweighting in detail ----------------
 
-    # Adjustment shown in each row of Fig 2s: (method, row title).
-    SUPP_SEMANTIC_ROWS = (
-        ("kde", "Reweighting (Fig 2G)"),
-        ("ols", "OLS shift"),
-        ("lowess", "LOESS shift"),
-    )
+    SUPP_FITS = {"ols": "OLS", "loess": "LOESS"}
 
-    def _adjusted_pairs(self, src: str, method: str) -> Tuple[np.ndarray, np.ndarray]:
-        """(|r| values, weights) of ``src`` after holding similarity at the
-        reference distribution: the reweighted pairs ("kde") or the pairs
-        shifted along the OLS / LOWESS curve (equal weights). The reference
-        source itself is returned unchanged."""
-        x, y = self.semantic_pairs(src)
+    def semantic_weights(self, src: str) -> np.ndarray:
+        """Fig 2G weights of ``src``'s pairs (sum 1): density-ratio weights to
+        the reference society of the same medium; equal for the reference."""
+        x, _ = self.semantic_pairs(src)
         ref_src = next(
             getattr(self.semantic_reference(), attr)
             for _, attr in self.SEMANTIC_MEDIA
             if src in [getattr(r, attr) for r in self.regions]
         )
-        uniform = np.full(len(y), 1 / len(y))
         if src == ref_src:
-            return y, uniform
-        xr = self.semantic_pairs(ref_src)[0]
-        if method == "kde":
-            return y, density_ratio_weights(xr, x)
-        return shifted_values(xr, x, y, fit=method, frac=self.loess_frac), uniform
+            return np.full(len(x), 1 / len(x))
+        return density_ratio_weights(self.semantic_pairs(ref_src)[0], x)
 
     def _similarity_distribution_panel(self, ax, sources: Sequence[str], *, panel_label: str) -> None:
-        """Semantic-similarity density per society: raw (thin) and after
-        reweighting to the reference (thick); the reference is shaded."""
-        ref_codes = {self.semantic_reference().code}
+        """Semantic-similarity density per society: raw (thin, dotted) and
+        after reweighting (thick); the reference society is shaded."""
+        ref_code = self.semantic_reference().code
         xs = np.concatenate([self.semantic_pairs(s)[0] for s in sources])
         pad = 0.15 * np.ptp(xs)
         grid = np.linspace(xs.min() - pad, xs.max() + pad, 300)
@@ -2419,15 +2335,13 @@ class Plotter:
             color = self.country_color[code]
             x, _ = self.semantic_pairs(src)
             raw = gaussian_kde(x)(grid)
-            if code in ref_codes:
+            if code == ref_code:
                 ax.fill_between(grid, raw, color=color, alpha=0.18, linewidth=0)
                 ax.plot(grid, raw, color=color, linewidth=2.2, label=f"{code} (reference)")
                 continue
-            _, w = self._adjusted_pairs(src, "kde")
-            ax.plot(grid, raw, color=color, linewidth=1.0, linestyle=(0, (2, 2)),
-                    label=f"{code} raw")
-            ax.plot(grid, gaussian_kde(x, weights=w)(grid), color=color, linewidth=2.2,
-                    label=f"{code} reweighted")
+            ax.plot(grid, raw, color=color, linewidth=1.0, linestyle=(0, (2, 2)), label=f"{code} raw")
+            ax.plot(grid, gaussian_kde(x, weights=self.semantic_weights(src))(grid), color=color,
+                    linewidth=2.2, label=f"{code} reweighted")
         ax.set_xlabel("Semantic similarity", fontsize=12)
         ax.set_ylabel("Density", fontsize=12, fontweight="bold")
         ax.set_title(panel_label, fontsize=12, fontweight="bold")
@@ -2436,85 +2350,113 @@ class Plotter:
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
 
-    def _before_after_panel(self, ax, sources: Sequence[str], method: str, *, panel_label: str) -> None:
-        """Split violin per society: raw pair |r| (left, light) and |r| with
-        similarity held at the reference (right, dark), means marked as
-        segments and written "raw -> adjusted" above each violin."""
+    def _before_after_panel(self, ax, sources: Sequence[str], *, panel_label: str) -> None:
+        """Split violin per society: pair |r| raw (left, light) and reweighted
+        (right, dark); means marked and written "raw -> reweighted" on top."""
         countries = [self.source_country[s] for s in sources]
         width = 0.42
-        values = {s: (self.semantic_pairs(s)[1], self._adjusted_pairs(s, method)) for s in sources}
-        lo = min(0.0, min(min(raw.min(), adj.min()) for raw, (adj, _) in values.values()) - 0.02)
-        grid = np.linspace(lo, 0.7, 260)
+        grid = np.linspace(0.0, 0.7, 260)
         for i, src in enumerate(sources):
             color = self.country_color[countries[i]]
-            raw, (adj, w) = values[src]
+            _, y = self.semantic_pairs(src)
             means = []
-            for side, vals, weights, alpha in ((-1, raw, None, 0.15), (1, adj, w, 0.45)):
-                dens = gaussian_kde(vals, weights=weights)(grid)
+            for side, weights, alpha in ((-1, None, 0.15), (1, self.semantic_weights(src), 0.45)):
+                dens = gaussian_kde(y, weights=weights)(grid)
                 dens = dens / dens.max() * width
                 ax.fill_betweenx(grid, i, i + side * dens, color=color, alpha=alpha, linewidth=0)
-                mean_v = float(np.average(vals, weights=weights))
+                mean_v = float(np.average(y, weights=weights))
                 reach = float(dens[np.argmin(np.abs(grid - mean_v))])
                 ax.plot([i, i + side * reach], [mean_v, mean_v], color=color, linewidth=2.2)
                 means.append(mean_v)
-            ax.plot([i, i], [lo, 0.7], color=color, linewidth=0.5, alpha=0.45)
+            ax.plot([i, i], [0, 0.7], color=color, linewidth=0.5, alpha=0.45)
             ax.text(i, 0.69, f"{means[0]:.3f} → {means[1]:.3f}", color=color, fontsize=9,
                     ha="center", va="top")
         ax.set_xticks(range(len(sources)))
         ax.set_xticklabels(countries, fontsize=12, fontweight="bold")
         ax.set_xlim(-0.75, len(sources) - 0.25)
-        ax.set_ylim(lo, 0.7)
-        ax.set_ylabel("|r|  (left: raw, right: adjusted)", fontsize=11, fontweight="bold")
+        ax.set_ylim(0, 0.7)
+        ax.set_ylabel("|r|  (left: raw, right: reweighted)", fontsize=11, fontweight="bold")
         ax.set_title(panel_label, fontsize=12, fontweight="bold")
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
 
-    def build_fig2s(self) -> Figure:
-        """Supplementary Fig 2s: holding semantic similarity at the U.S.
-        distribution, three ways (rows), offline and online (column pairs).
+    def _weighted_fit_panel(
+        self, ax, sources: Sequence[str], *, fit: str, weighted: bool, line_style, panel_label: str,
+    ) -> None:
+        """|r| vs similarity with one fit per society (``fit`` "ols" / "loess",
+        span ``loess_frac``), on the raw pairs or with the Fig 2G weights;
+        point area is proportional to the pair's weight. OLS panels list each
+        society's slope and R^2."""
+        notes = []
+        for src in sources:
+            code = self.source_country[src]
+            color = self.country_color[code]
+            x, y = self.semantic_pairs(src)
+            w = self.semantic_weights(src) if weighted else np.full(len(x), 1 / len(x))
+            ax.scatter(x, y, s=18 * w * len(x), color=color, alpha=0.25, edgecolors="none")
+            grid = np.linspace(x.min(), x.max(), 100)
+            ax.plot(grid, weighted_fit(x, y, w, fit, self.loess_frac)(grid),
+                    color=color, linewidth=2.8, linestyle=line_style)
+            if fit == "ols":
+                res = weighted_ols(x, y, w)
+                notes.append((color, f"{code}: b = {res['slope']:+.2f}, R² = {res['r2']:.2f}"))
+        for i, (color, text) in enumerate(notes):
+            ax.text(0.03, 0.97 - 0.075 * i, text, transform=ax.transAxes,
+                    ha="left", va="top", fontsize=9, color=color)
+        ax.set_xlabel("Semantic similarity", fontsize=12)
+        ax.set_ylabel("|r|", fontsize=12, fontweight="bold")
+        ax.set_title(panel_label, fontsize=12, fontweight="bold")
+        ax.set_ylim(0, 0.6)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
 
-            Row 1, reweighting (the Fig 2G method): similarity densities raw
-                vs reweighted (a, b); pair |r| raw vs reweighted (c, d).
-            Row 2, OLS: |r| vs similarity with OLS lines, slope and R^2
-                (e, f); pair |r| raw vs shifted along the OLS line (g, h).
-            Row 3, LOESS: the same with bootstrapped LOWESS curves (i-l).
+    def build_fig2s(self, fit: str = "ols") -> Figure:
+        """Supplementary Fig 2s (one per ``fit``, same layout): Fig 2G's
+        density-ratio reweighting in detail, 2 rows x 4 panels.
+
+            Row 1 (identical in both figures): similarity densities raw vs
+                reweighted (a offline, b online); pair |r| raw vs reweighted
+                (c, d).
+            Row 2: |r| vs similarity with one OLS line / LOESS curve per
+                society, on the raw pairs (e, f) and with the reweighting
+                weights (g, h).
         """
+        if fit not in self.SUPP_FITS:
+            raise ValueError(f"fit must be one of {tuple(self.SUPP_FITS)}, got {fit!r}")
         plt.rcParams["font.family"] = "Times New Roman"
-        offline = [r.survey for r in self.regions]
-        online = [r.social for r in self.regions]
-        fig = plt.figure(figsize=(18, 14))
-        gs = fig.add_gridspec(3, 4, hspace=0.42, wspace=0.3)
-        letters = iter("abcdefghijkl")
-        for row, (method, row_title) in enumerate(self.SUPP_SEMANTIC_ROWS):
-            axes = [fig.add_subplot(gs[row, c]) for c in range(4)]
-            for col, (sources, medium, ls) in enumerate((
-                (offline, "offline", "solid"), (online, "online", self._MEDIA_DASH_PATTERN),
-            )):
-                if method == "kde":
-                    self._similarity_distribution_panel(
-                        axes[col], sources, panel_label=f"{row_title}: similarity, {medium}",
-                    )
-                else:
-                    self._semantic_loess_panel(
-                        axes[col], sources, line_style=ls,
-                        panel_label=f"{row_title}: fit, {medium}",
-                        trend="linear" if method == "ols" else "lowess",
-                        annotate_fit=method == "ols",
-                    )
-                self._before_after_panel(
-                    axes[2 + col], sources, method, panel_label=f"{row_title}: |r|, {medium}",
-                )
-            for ax in axes:
-                self._label_panel(ax, next(letters))
+        name = self.SUPP_FITS[fit]
+        media = (
+            ([r.survey for r in self.regions], "offline", "solid"),
+            ([r.social for r in self.regions], "online", self._MEDIA_DASH_PATTERN),
+        )
+        fig = plt.figure(figsize=(18, 9.5))
+        gs = fig.add_gridspec(2, 4, hspace=0.38, wspace=0.3)
+        axes = [fig.add_subplot(gs[r, c]) for r in range(2) for c in range(4)]
+        for col, (sources, medium, ls) in enumerate(media):
+            self._similarity_distribution_panel(axes[col], sources, panel_label=f"Similarity, {medium}")
+            self._before_after_panel(axes[2 + col], sources, panel_label=f"|r|, {medium}")
+            self._weighted_fit_panel(axes[4 + col], sources, fit=fit, weighted=False, line_style=ls,
+                                     panel_label=f"{name}, raw pairs, {medium}")
+            self._weighted_fit_panel(axes[6 + col], sources, fit=fit, weighted=True, line_style=ls,
+                                     panel_label=f"{name}, reweighted, {medium}")
+        for ax, letter in zip(axes, "abcdefgh"):
+            self._label_panel(ax, letter)
         return fig
 
-    def make_fig2s(self, task_name: str = "supp_semantic") -> Path:
-        """Build and save supplementary Fig 2s; returns the saved PDF path."""
-        fig = self.build_fig2s()
-        path = self._output_path(task_name, "fig2s")
+    def _make_fig2s(self, fit: str, task_name: str) -> Path:
+        fig = self.build_fig2s(fit)
+        path = self._output_path(task_name, f"fig2s_{fit}")
         fig.savefig(path, format="pdf", bbox_inches="tight")
         plt.close(fig)
         return path
+
+    def make_fig2s_ols(self, task_name: str = "supp_semantic") -> Path:
+        """Save supplementary Fig 2s with OLS fits; returns the PDF path."""
+        return self._make_fig2s("ols", task_name)
+
+    def make_fig2s_loess(self, task_name: str = "supp_semantic") -> Path:
+        """Save supplementary Fig 2s with LOESS fits; returns the PDF path."""
+        return self._make_fig2s("loess", task_name)
 
     # -- Figure 3 ------------------------------------------------------------
 
@@ -2797,13 +2739,14 @@ TASKS: List[Dict] = [
         "figures": [2, 3],
     },
     {
-        # Supplementary Fig 2s: how Fig 2G holds semantic similarity fixed -
-        # similarity distributions before / after reweighting, and the same
-        # adjustment along OLS lines and LOWESS (span 0.4) curves.
+        # Supplementary Figs 2s: Fig 2G's reweighting in detail - similarity
+        # and |r| distributions before / after reweighting, |r| vs similarity
+        # fits on raw and reweighted pairs; one figure with OLS lines, one
+        # with LOESS (span 0.4) curves.
         "name": "supp_semantic",
         "us_survey": "anes", "cn_survey": "wvs", "eu_survey": "evs_resample2",
         "eutwitter_src": "eutwitter", "embedding_type": "gpt",
-        "figures": ["2s"],
+        "figures": ["2s_ols", "2s_loess"],
     },
     {
         "name": "robust_1_media",
