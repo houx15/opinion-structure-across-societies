@@ -35,10 +35,15 @@ import numpy as np
 import pandas as pd
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
-from scipy.stats import pearsonr
+from scipy.stats import gaussian_kde, pearsonr
 from statsmodels.nonparametric.smoothers_lowess import lowess
 
-from analysis.correlation.semantic_adjustment import adjusted_mean, shapley_r2
+from analysis.correlation.semantic_adjustment import (
+    adjusted_mean,
+    density_ratio_weights,
+    shapley_r2,
+    shifted_values,
+)
 from common.topics import (
     CN_SURVEY_TOPICS,
     EU_SURVEY_TOPICS,
@@ -369,7 +374,7 @@ def load_semantic_similarity(src: str, embedding_type: str = "gpt") -> pd.DataFr
 def similarity_pairs(
     src: str, embedding_type: str = "gpt", year: str = "average",
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """(semantic similarity, |r|) per topic pair: the points behind Fig 2G, H."""
+    """(semantic similarity, |r|) per topic pair: the points behind Fig 2G and Fig 2s."""
     corr = load_pairwise_correlation(src, year=year)
     sem = load_semantic_similarity(src, embedding_type=embedding_type)
     merged = (
@@ -1207,20 +1212,12 @@ class Plotter:
         n_bootstrap: int = 1000,
         regions: Optional[Sequence[RegionSpec]] = None,
         pedagogical: bool = True,
-        trend: str = "linear",
         spectral_matrix: str = "cov",
         social_year: str = "average",
-        semantic_panels: str = "adjusted",
     ):
         self.embedding_type = embedding_type
-        # Fig 2G, H: "adjusted" (main) = mean |r| with similarities reweighted
-        # to the U.S. distribution + Shapley decomposition (society vs
-        # similarity); "trend" = the earlier |r|-vs-similarity scatter with
-        # per-society trend lines (``trend``), kept as a supplement.
-        if semantic_panels not in ("adjusted", "trend"):
-            raise ValueError(f"semantic_panels must be 'adjusted' or 'trend', got {semantic_panels!r}")
-        self.semantic_panels = semantic_panels
-        self._semantic_cache: Optional[Dict[str, object]] = None
+        # semantic_adjustment results per method (bootstrap is the slow part).
+        self._semantic_cache: Dict[str, Dict[str, object]] = {}
         # Fig 3 spectrum: pairwise-available covariance ("cov", main) or the
         # same matrix rescaled to correlations ("corr", robustness check).
         dimension_results_dir(spectral_matrix)  # validates the name
@@ -1231,11 +1228,6 @@ class Plotter:
         # spectra from that year only). Surveys are single cross-sections.
         self.social_year = str(social_year)
         self.loess_frac = loess_frac
-        # Fig 2 |r|-vs-similarity trend: "linear" (OLS line, first-order only,
-        # easier for a general audience) or "lowess" (bootstrapped LOWESS).
-        if trend not in ("linear", "lowess"):
-            raise ValueError(f"trend must be 'linear' or 'lowess', got {trend!r}")
-        self.trend = trend
         self.n_bootstrap = n_bootstrap
         # When False, drop the explanatory panels (Fig 2 word-overlap row,
         # Fig 3 toy-cloud + scree rows) and keep only the real-data panels.
@@ -1869,8 +1861,6 @@ class Plotter:
         Replaces the old strip plot + separate mean dash row. The mean is
         drawn as a short horizontal segment inside the violin at its mean |r|.
         """
-        from scipy.stats import gaussian_kde
-
         countries = [r.code for r in self.regions]
         positions = {r.code: i for i, r in enumerate(self.regions)}
         width = 0.40
@@ -2099,14 +2089,17 @@ class Plotter:
         *,
         line_style,
         panel_label: str,
+        trend: str = "linear",
+        annotate_fit: bool = False,
     ) -> None:
-        """|r| vs semantic similarity panel.
-
-        Just the light background scatter + per-country trend (OLS line by
-        default, bootstrapped LOWESS when ``trend="lowess"``). Concrete
-        example pairs live in the dedicated examples row above so this panel
-        stays uncluttered.
+        """|r| vs semantic similarity: light scatter + one trend per society
+        (``trend`` "linear" = OLS line, "lowess" = bootstrapped LOWESS, span
+        ``loess_frac``; supplementary Fig 2s). ``annotate_fit`` writes each
+        society's OLS slope and R^2 in the corner.
         """
+        if trend not in ("linear", "lowess"):
+            raise ValueError(f"trend must be 'linear' or 'lowess', got {trend!r}")
+        fit_lines = []
         rng = np.random.default_rng(7)
         for src in sources:
             color = self.country_color[self.source_country[src]]
@@ -2130,12 +2123,14 @@ class Plotter:
             )
             x = merged["similarity"].to_numpy()
             y = merged["correlation"].to_numpy()
-            if self.trend == "linear":
+            if trend == "linear":
                 x_grid, mean_curve = None, None
                 if len(x) >= 2 and np.ptp(x) > 0:
                     slope, intercept = np.polyfit(x, y, 1)
                     x_grid = np.linspace(x.min(), x.max(), 100)
                     mean_curve = intercept + slope * x_grid
+                    r2 = np.corrcoef(x, y)[0, 1] ** 2
+                    fit_lines.append((color, f"{self.source_country[src]}: b = {slope:+.2f}, R² = {r2:.2f}"))
             else:
                 x_grid, mean_curve, _lo, _hi = bootstrap_lowess_ci(
                     x, y,
@@ -2146,6 +2141,10 @@ class Plotter:
             if x_grid is not None:
                 ax.plot(x_grid, mean_curve, color=color, linewidth=3, linestyle=line_style)
 
+        if annotate_fit:
+            for i, (color, text) in enumerate(fit_lines):
+                ax.text(0.03, 0.97 - 0.075 * i, text, transform=ax.transAxes,
+                        ha="left", va="top", fontsize=9, color=color)
         ax.set_xlabel("Semantic similarity", fontsize=12)
         ax.set_ylabel("|r|", fontsize=12, fontweight="bold")
         ax.set_title(panel_label, fontsize=12, fontweight="bold")
@@ -2156,7 +2155,7 @@ class Plotter:
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
 
-    # -- Fig 2G, H: |r| with semantic similarity held fixed -------------------
+    # -- Fig 2G: |r| with semantic similarity held fixed ----------------------
 
     # Medium label -> RegionSpec attribute, as in paper_stats.MEDIA.
     SEMANTIC_MEDIA = (("Survey", "survey"), ("Social media", "social"))
@@ -2167,9 +2166,17 @@ class Plotter:
         (the U.S.; the first region when there is no U.S.)."""
         return next((r for r in self.regions if r.code == "US"), self.regions[0])
 
-    def semantic_adjustment(self) -> Dict[str, object]:
+    def semantic_pairs(self, src: str) -> Tuple[np.ndarray, np.ndarray]:
+        """(similarity, |r|) per topic pair of ``src`` at this plotter's year."""
+        return similarity_pairs(src, self.embedding_type, self.correlation_year(src))
+
+    def semantic_adjustment(self, method: str = "kde") -> Dict[str, object]:
         """Similarity-adjusted mean |r| per source and the Shapley decomposition
-        per medium, with percentile bootstrap intervals (cached).
+        per medium, with percentile bootstrap intervals (cached per method).
+
+        ``method``: "kde" (main, Fig 2G: reweighting) or any other
+        semantic_adjustment.ADJUSTMENT_METHODS entry ("ols" / "lowess" shift
+        along the fitted curve, span ``loess_frac``; supplementary Fig 2s).
 
         Returns ``raw`` / ``adjusted`` {src: mean |r|}, ``adjusted_ci``
         {src: (lo, hi)}, ``decomposition`` {medium: shapley_r2 dict on Fisher z}
@@ -2178,8 +2185,8 @@ class Plotter:
         ``n_bootstrap`` resamples of each source's topic pairs (independently,
         with replacement); weights and regressions are recomputed in each.
         """
-        if self._semantic_cache is not None:
-            return self._semantic_cache
+        if method in self._semantic_cache:
+            return self._semantic_cache[method]
         rng = np.random.default_rng(self.SEMANTIC_SEED)
         ref = self.semantic_reference()
         out: Dict[str, Dict] = {
@@ -2189,15 +2196,13 @@ class Plotter:
         for medium, attr in self.SEMANTIC_MEDIA:
             sources = [getattr(r, attr) for r in self.regions]
             ref_src = getattr(ref, attr)
-            pairs = {
-                src: similarity_pairs(src, self.embedding_type, self.correlation_year(src))
-                for src in sources
-            }
+            pairs = {src: self.semantic_pairs(src) for src in sources}
 
             def estimate(data):
                 xr = data[ref_src][0]
                 adj = {
-                    src: (float(y.mean()) if src == ref_src else adjusted_mean(xr, x, y))
+                    src: (float(y.mean()) if src == ref_src
+                          else adjusted_mean(xr, x, y, method, frac=self.loess_frac))
                     for src, (x, y) in data.items()
                 }
                 groups = np.concatenate([np.full(len(data[s][0]), i) for i, s in enumerate(sources)])
@@ -2228,7 +2233,7 @@ class Plotter:
                 key: tuple(float(v) for v in np.quantile(vals, [0.025, 0.975]))
                 for key, vals in boot_dec.items()
             }
-        self._semantic_cache = out
+        self._semantic_cache[method] = out
         return out
 
     def _adjusted_mean_panel(self, ax) -> None:
@@ -2246,48 +2251,6 @@ class Plotter:
             connect=True, range_span=True, intervals=intervals,
             legend_loc="upper right",
         )
-
-    # Shapley-share colors: society, semantic similarity, unexplained.
-    _DECOMP_COLORS = ("0.25", "0.62", "0.92")
-
-    def _decomposition_panel(self, ax) -> None:
-        """Share of the variation in pair |r| (Fisher z) explained by society
-        and by semantic similarity, per medium (Fig 2H, Shapley R^2)."""
-        res = self.semantic_adjustment()
-        parts = (("society", "Society"), ("similarity", "Semantic\nsimilarity"),
-                 ("unexplained", "Unexplained"))
-        half = 0.22
-        for i, (medium, _) in enumerate(self.SEMANTIC_MEDIA):
-            shares = res["decomposition"][medium]
-            bottom = 0.0
-            for (key, label), color in zip(parts, self._DECOMP_COLORS):
-                height = max(shares[key], 0.0)
-                ax.bar(i, height, bottom=bottom, width=2 * half, color=color,
-                       edgecolor="0.4", linewidth=0.6)
-                mid = bottom + height / 2
-                if key != "unexplained":
-                    # Share inside the segment when it fits, else left of the bar.
-                    inside = height > 0.07
-                    ax.text(
-                        i if inside else i - half - 0.03, mid, f"{100 * height:.0f}%",
-                        ha="center" if inside else "right", va="center", fontsize=9,
-                        color="white" if inside and key == "society" else "black",
-                    )
-                if i == len(self.SEMANTIC_MEDIA) - 1:
-                    # Direct labels right of the last bar instead of a legend.
-                    ax.text(i + half + 0.05, mid, label, ha="left", va="center",
-                            fontsize=8.5, color="0.3", linespacing=0.95)
-                bottom += height
-        ax.set_xticks([0, 1])
-        ax.set_xticklabels([self._OFFLINE_LABEL, self._ONLINE_LABEL], fontsize=11, fontweight="bold")
-        ax.set_xlim(-0.5, 1.75)
-        ax.set_ylim(0, 1)
-        ax.set_yticks([0, 0.25, 0.5, 0.75, 1])
-        ax.set_yticklabels(["0", "25%", "50%", "75%", "100%"])
-        ax.set_ylabel("Share of variation in pair |r|", fontsize=12, fontweight="bold")
-        ax.set_title("Society vs semantic similarity", fontsize=12, fontweight="bold")
-        ax.spines["top"].set_visible(False)
-        ax.spines["right"].set_visible(False)
 
     # -- Figure 1 ------------------------------------------------------------
 
@@ -2336,17 +2299,14 @@ class Plotter:
                 selected US/EU pair, offline and online (a, b); plus two word
                 Venns anchoring 'semantic similarity = 0.X' in concrete
                 US-Twitter TF-IDF keywords (c = low, d = high).
-            Row 2 (generalization): per-country half-violin of pair |r| with
-                mean marker (e, f); with ``semantic_panels="adjusted"`` (main)
-                mean |r| at the U.S. similarity distribution (g) and the
-                society / similarity decomposition (h), with "trend" the
-                |r| vs similarity trend lines, offline (g) and online (h).
+            Row 2 (generalization, three panels): per-country half-violin of
+                pair |r| with mean marker (e offline, f online); mean |r| with
+                each society's pairs reweighted to the U.S. similarity
+                distribution (g). The trend lines and the before / after
+                distributions behind (g) are in supplementary Fig 2s.
 
         Robustness checks (``pedagogical=False``) drop the tutorial row,
-        leaving the four generalization panels (a-d) laid out 2 rows x 2
-        cols: row 1 = half-violins (a offline, b online), row 2 = the two
-        semantic panels (c, d). The wider per-panel footprint keeps
-        country labels and dashed-line legends legible.
+        leaving the three generalization panels (a-c) in one row.
         """
         plt.rcParams["font.family"] = "Times New Roman"
         offline_sources = [r.survey for r in self.regions]
@@ -2357,8 +2317,8 @@ class Plotter:
             gs = fig.add_gridspec(
                 2, 4, height_ratios=[1.0, 0.82], hspace=0.32, wspace=0.32,
             )
-            bottom_coords = [(1, 0), (1, 1), (1, 2), (1, 3)]
-            bottom_labels = ("e", "f", "g", "h")
+            bottom = gs[1, :].subgridspec(1, 3, wspace=0.28)
+            bottom_labels = ("e", "f", "g")
 
             # Row 1: tutorial — two scatter+regression panels + two word Venns.
             # The regression panels use the algorithmically-selected pair
@@ -2393,45 +2353,165 @@ class Plotter:
             self._label_panel(ax_venn_low, "c", x=-0.04, y=1.02)
             self._label_panel(ax_venn_high, "d", x=-0.04, y=1.02)
         else:
-            fig = plt.figure(figsize=(12.5, 9.0))
-            gs = fig.add_gridspec(2, 2, hspace=0.32, wspace=0.28)
-            bottom_coords = [(0, 0), (0, 1), (1, 0), (1, 1)]
-            bottom_labels = ("a", "b", "c", "d")
+            fig = plt.figure(figsize=(17, 4.8))
+            bottom = fig.add_gridspec(1, 3, wspace=0.28)
+            bottom_labels = ("a", "b", "c")
 
-        # Distributions (half-violin) on row 1; LOWESS curves on row 2 (or
-        # the bottom row of the 2x4 grid in pedagogical mode).
-        ax_v_off = fig.add_subplot(gs[bottom_coords[0]])
-        ax_v_on = fig.add_subplot(gs[bottom_coords[1]])
-        ax_l_off = fig.add_subplot(gs[bottom_coords[2]])
-        ax_l_on = fig.add_subplot(gs[bottom_coords[3]])
+        ax_v_off = fig.add_subplot(bottom[0, 0])
+        ax_v_on = fig.add_subplot(bottom[0, 1])
+        ax_adj = fig.add_subplot(bottom[0, 2])
         self._half_violin_panel(
             ax_v_off, offline_sources, panel_label="Offline (Surveys)",
         )
         self._half_violin_panel(
             ax_v_on, online_sources, panel_label="Online (Social Media)",
         )
-        if self.semantic_panels == "adjusted":
-            self._adjusted_mean_panel(ax_l_off)
-            self._decomposition_panel(ax_l_on)
-        else:
-            self._semantic_loess_panel(
-                ax_l_off, offline_sources, line_style="solid",
-                panel_label="Offline (Surveys)",
-            )
-            self._semantic_loess_panel(
-                ax_l_on, online_sources, line_style=self._MEDIA_DASH_PATTERN,
-                panel_label="Online (Social Media)",
-            )
-        self._label_panel(ax_v_off, bottom_labels[0])
-        self._label_panel(ax_v_on, bottom_labels[1])
-        self._label_panel(ax_l_off, bottom_labels[2])
-        self._label_panel(ax_l_on, bottom_labels[3])
+        self._adjusted_mean_panel(ax_adj)
+        for ax, letter in zip((ax_v_off, ax_v_on, ax_adj), bottom_labels):
+            self._label_panel(ax, letter)
         return fig
 
     def make_fig2(self, task_name: str = "main") -> Path:
         """Build and save Figure 2; returns the saved PDF path."""
         fig = self.build_fig2()
         path = self._output_path(task_name, "fig2")
+        fig.savefig(path, format="pdf", bbox_inches="tight")
+        plt.close(fig)
+        return path
+
+    # -- Supplementary Fig 2s: how Fig 2G holds similarity fixed --------------
+
+    # Adjustment shown in each row of Fig 2s: (method, row title).
+    SUPP_SEMANTIC_ROWS = (
+        ("kde", "Reweighting (Fig 2G)"),
+        ("ols", "OLS shift"),
+        ("lowess", "LOESS shift"),
+    )
+
+    def _adjusted_pairs(self, src: str, method: str) -> Tuple[np.ndarray, np.ndarray]:
+        """(|r| values, weights) of ``src`` after holding similarity at the
+        reference distribution: the reweighted pairs ("kde") or the pairs
+        shifted along the OLS / LOWESS curve (equal weights). The reference
+        source itself is returned unchanged."""
+        x, y = self.semantic_pairs(src)
+        ref_src = next(
+            getattr(self.semantic_reference(), attr)
+            for _, attr in self.SEMANTIC_MEDIA
+            if src in [getattr(r, attr) for r in self.regions]
+        )
+        uniform = np.full(len(y), 1 / len(y))
+        if src == ref_src:
+            return y, uniform
+        xr = self.semantic_pairs(ref_src)[0]
+        if method == "kde":
+            return y, density_ratio_weights(xr, x)
+        return shifted_values(xr, x, y, fit=method, frac=self.loess_frac), uniform
+
+    def _similarity_distribution_panel(self, ax, sources: Sequence[str], *, panel_label: str) -> None:
+        """Semantic-similarity density per society: raw (thin) and after
+        reweighting to the reference (thick); the reference is shaded."""
+        ref_codes = {self.semantic_reference().code}
+        xs = np.concatenate([self.semantic_pairs(s)[0] for s in sources])
+        pad = 0.15 * np.ptp(xs)
+        grid = np.linspace(xs.min() - pad, xs.max() + pad, 300)
+        for src in sources:
+            code = self.source_country[src]
+            color = self.country_color[code]
+            x, _ = self.semantic_pairs(src)
+            raw = gaussian_kde(x)(grid)
+            if code in ref_codes:
+                ax.fill_between(grid, raw, color=color, alpha=0.18, linewidth=0)
+                ax.plot(grid, raw, color=color, linewidth=2.2, label=f"{code} (reference)")
+                continue
+            _, w = self._adjusted_pairs(src, "kde")
+            ax.plot(grid, raw, color=color, linewidth=1.0, linestyle=(0, (2, 2)),
+                    label=f"{code} raw")
+            ax.plot(grid, gaussian_kde(x, weights=w)(grid), color=color, linewidth=2.2,
+                    label=f"{code} reweighted")
+        ax.set_xlabel("Semantic similarity", fontsize=12)
+        ax.set_ylabel("Density", fontsize=12, fontweight="bold")
+        ax.set_title(panel_label, fontsize=12, fontweight="bold")
+        ax.set_ylim(bottom=0)
+        ax.legend(fontsize=8.5, frameon=False, loc="upper right")
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+
+    def _before_after_panel(self, ax, sources: Sequence[str], method: str, *, panel_label: str) -> None:
+        """Split violin per society: raw pair |r| (left, light) and |r| with
+        similarity held at the reference (right, dark), means marked as
+        segments and written "raw -> adjusted" above each violin."""
+        countries = [self.source_country[s] for s in sources]
+        width = 0.42
+        values = {s: (self.semantic_pairs(s)[1], self._adjusted_pairs(s, method)) for s in sources}
+        lo = min(0.0, min(min(raw.min(), adj.min()) for raw, (adj, _) in values.values()) - 0.02)
+        grid = np.linspace(lo, 0.7, 260)
+        for i, src in enumerate(sources):
+            color = self.country_color[countries[i]]
+            raw, (adj, w) = values[src]
+            means = []
+            for side, vals, weights, alpha in ((-1, raw, None, 0.15), (1, adj, w, 0.45)):
+                dens = gaussian_kde(vals, weights=weights)(grid)
+                dens = dens / dens.max() * width
+                ax.fill_betweenx(grid, i, i + side * dens, color=color, alpha=alpha, linewidth=0)
+                mean_v = float(np.average(vals, weights=weights))
+                reach = float(dens[np.argmin(np.abs(grid - mean_v))])
+                ax.plot([i, i + side * reach], [mean_v, mean_v], color=color, linewidth=2.2)
+                means.append(mean_v)
+            ax.plot([i, i], [lo, 0.7], color=color, linewidth=0.5, alpha=0.45)
+            ax.text(i, 0.69, f"{means[0]:.3f} → {means[1]:.3f}", color=color, fontsize=9,
+                    ha="center", va="top")
+        ax.set_xticks(range(len(sources)))
+        ax.set_xticklabels(countries, fontsize=12, fontweight="bold")
+        ax.set_xlim(-0.75, len(sources) - 0.25)
+        ax.set_ylim(lo, 0.7)
+        ax.set_ylabel("|r|  (left: raw, right: adjusted)", fontsize=11, fontweight="bold")
+        ax.set_title(panel_label, fontsize=12, fontweight="bold")
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+
+    def build_fig2s(self) -> Figure:
+        """Supplementary Fig 2s: holding semantic similarity at the U.S.
+        distribution, three ways (rows), offline and online (column pairs).
+
+            Row 1, reweighting (the Fig 2G method): similarity densities raw
+                vs reweighted (a, b); pair |r| raw vs reweighted (c, d).
+            Row 2, OLS: |r| vs similarity with OLS lines, slope and R^2
+                (e, f); pair |r| raw vs shifted along the OLS line (g, h).
+            Row 3, LOESS: the same with bootstrapped LOWESS curves (i-l).
+        """
+        plt.rcParams["font.family"] = "Times New Roman"
+        offline = [r.survey for r in self.regions]
+        online = [r.social for r in self.regions]
+        fig = plt.figure(figsize=(18, 14))
+        gs = fig.add_gridspec(3, 4, hspace=0.42, wspace=0.3)
+        letters = iter("abcdefghijkl")
+        for row, (method, row_title) in enumerate(self.SUPP_SEMANTIC_ROWS):
+            axes = [fig.add_subplot(gs[row, c]) for c in range(4)]
+            for col, (sources, medium, ls) in enumerate((
+                (offline, "offline", "solid"), (online, "online", self._MEDIA_DASH_PATTERN),
+            )):
+                if method == "kde":
+                    self._similarity_distribution_panel(
+                        axes[col], sources, panel_label=f"{row_title}: similarity, {medium}",
+                    )
+                else:
+                    self._semantic_loess_panel(
+                        axes[col], sources, line_style=ls,
+                        panel_label=f"{row_title}: fit, {medium}",
+                        trend="linear" if method == "ols" else "lowess",
+                        annotate_fit=method == "ols",
+                    )
+                self._before_after_panel(
+                    axes[2 + col], sources, method, panel_label=f"{row_title}: |r|, {medium}",
+                )
+            for ax in axes:
+                self._label_panel(ax, next(letters))
+        return fig
+
+    def make_fig2s(self, task_name: str = "supp_semantic") -> Path:
+        """Build and save supplementary Fig 2s; returns the saved PDF path."""
+        fig = self.build_fig2s()
+        path = self._output_path(task_name, "fig2s")
         fig.savefig(path, format="pdf", bbox_inches="tight")
         plt.close(fig)
         return path
@@ -2717,21 +2797,13 @@ TASKS: List[Dict] = [
         "figures": [2, 3],
     },
     {
-        # Supplement / robustness: main data with LOWESS curves (span 0.4)
-        # instead of the main figure's linear fits (nonlinear alternative).
-        "name": "supp_lowess",
+        # Supplementary Fig 2s: how Fig 2G holds semantic similarity fixed -
+        # similarity distributions before / after reweighting, and the same
+        # adjustment along OLS lines and LOWESS (span 0.4) curves.
+        "name": "supp_semantic",
         "us_survey": "anes", "cn_survey": "wvs", "eu_survey": "evs_resample2",
         "eutwitter_src": "eutwitter", "embedding_type": "gpt",
-        "figures": [2], "trend": "lowess", "semantic_panels": "trend",
-    },
-    {
-        # Supplement: the earlier Fig 2G, H - |r| vs semantic similarity with
-        # one OLS line per society - instead of the similarity-adjusted means
-        # and the decomposition.
-        "name": "supp_ols_trend",
-        "us_survey": "anes", "cn_survey": "wvs", "eu_survey": "evs_resample2",
-        "eutwitter_src": "eutwitter", "embedding_type": "gpt",
-        "figures": [2], "semantic_panels": "trend",
+        "figures": ["2s"],
     },
     {
         "name": "robust_1_media",
@@ -2850,10 +2922,8 @@ def task_plotter_kwargs(
         # Explanatory panels (Fig 2 word-overlap, Fig 3 toy clouds + scree)
         # only belong in the main figure; robustness checks omit them.
         pedagogical=task.get("pedagogical", name == "main"),
-        trend=task.get("trend", "linear"),
         spectral_matrix=task.get("spectral_matrix", "cov"),
         social_year=task.get("social_year", "average"),
-        semantic_panels=task.get("semantic_panels", "adjusted"),
     )
     if "regions" in task:
         plotter_kwargs["regions"] = task["regions"]
@@ -2875,7 +2945,7 @@ def run_task(
     date_prefix: Optional[str] = None,
     n_bootstrap: int = 1000,
     write_stats: bool = True,
-) -> Dict[int, Path]:
+) -> Dict[Union[int, str], Path]:
     """Run one task by name and return {fig_num: output_path}.
 
     With ``write_stats`` a plain-text statistics report for the task's
@@ -2898,7 +2968,7 @@ def run_task(
             print(f"[figures] skipped {name}: no {plotter.spectral_matrix} results in {folder} for {missing} "
                   f"(run dimension_pipeline calculate_all / spectral_bootstrap all --matrix {plotter.spectral_matrix})")
             return {}
-    paths: Dict[int, Path] = {}
+    paths: Dict[Union[int, str], Path] = {}
     for fig_num in task["figures"]:
         method = getattr(plotter, f"make_fig{fig_num}")
         paths[fig_num] = method(task_name=name)
@@ -2912,9 +2982,9 @@ def run_task(
     return paths
 
 
-# Paper figures (main text + trend-line supplements); every other task is a
+# Paper figures (main text + the Fig 2G supplement); every other task is a
 # robustness check, run by robustness/run_robustness.py.
-MAIN_TASKS = ("main", "supp_lowess", "supp_ols_trend")
+MAIN_TASKS = ("main", "supp_semantic")
 
 
 def task_names(group: str = "all") -> List[str]:
@@ -2933,9 +3003,9 @@ def run_all_tasks(
     figure_folder: Union[str, Path] = FIGURE_DIR,
     date_prefix: Optional[str] = None,
     n_bootstrap: int = 1000,
-) -> Dict[str, Dict[int, Path]]:
+) -> Dict[str, Dict[Union[int, str], Path]]:
     """Run every task of ``group`` and return {task_name: {fig_num: output_path}}."""
-    out: Dict[str, Dict[int, Path]] = {}
+    out: Dict[str, Dict[Union[int, str], Path]] = {}
     for task in (t for t in TASKS if t["name"] in task_names(group)):
         print(f"[figures] running task: {task['name']}")
         out[task["name"]] = run_task(

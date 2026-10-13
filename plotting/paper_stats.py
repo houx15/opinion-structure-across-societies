@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
-from scipy.stats import skew
+from scipy.stats import linregress, skew
 
 from analysis.correlation import semantic_adjustment as sa
 from common.paths import display
@@ -372,7 +372,7 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
     sem_boot_note = (
         f"95% CI: percentile bootstrap, {plotter.n_bootstrap:,} resamples of each source's topic pairs "
         f"(with replacement, independently); numpy seed {plotter.SEMANTIC_SEED}; weights / regressions "
-        "recomputed in each resample (the Fig 2G, H intervals)."
+        "recomputed in each resample (the Fig 2G and Fig 2s intervals)."
     )
     sem_sources = [
         f"{csv(getattr(r, attr))} + similarity of {getattr(r, attr)} ({plotter.embedding_type} embedding)"
@@ -399,12 +399,12 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
                 f"{d['similarity_part']:+.3f}", f"{d['society_part']:.3f}",
                 f"{100 * d['society_part'] / d['raw_gap']:.0f}%",
             ])
-            b, a = np.polyfit(x, y, 1)
             rows_alt.append([
                 r.code, medium, f"{sem['adjusted'][src]:.3f}",
                 f"{sa.adjusted_mean(xr, x, y, 'nn'):.3f}",
                 f"{sa.adjusted_mean(xr, x, y, 'strata'):.3f}",
-                f"{(a + b * xr).mean():.3f}",
+                f"{sa.adjusted_mean(xr, x, y, 'ols'):.3f}",
+                f"{sa.adjusted_mean(xr, x, y, 'lowess', frac=plotter.loess_frac):.3f}",
             ])
     lines += _part(
         f"PART 9. Mean |r| with semantic similarity held fixed at the {ref.code} distribution (Fig 2G)",
@@ -426,19 +426,19 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
             "    closest similarity, averaged over the reference pairs;",
             f"  strata: {ref.code} similarity quintiles, each weighted by its {ref.code} share (other pairs outside",
             f"    the {ref.code} range dropped);",
-            f"  OLS line: the society's |r| = a + b * similarity line averaged at the {ref.code} similarities",
-            "    (the earlier Fig 2G, H estimate).",
+            f"  OLS / LOESS shift: each pair moved to the {ref.code} similarity of the same rank along the society's",
+            "    fitted curve, keeping its residual (Part 11, Fig 2s).",
         ],
         _table(["Country", "Medium", "Source", "Mean sim", "Raw mean |r|", "Adjusted mean |r|", "95% CI",
                 "ESS"], rows_main)
         + ["", "Gap decomposition (main method):"]
         + _table(["Comparison", "Medium", "Raw gap", "Similarity mix", "Society", "Society share"], rows_gap)
         + ["", "Sensitivity - adjusted mean |r| by method:"]
-        + _table(["Country", "Medium", "Density ratio (main)", "Nearest 3", "Quintile strata", "OLS line"],
-                 rows_alt),
+        + _table(["Country", "Medium", "Density ratio (main)", "Nearest 3", "Quintile strata", "OLS shift",
+                  "LOESS shift"], rows_alt),
     )
 
-    # Part 10 - Shapley decomposition (Fig 2H)
+    # Part 10 - Shapley decomposition (text only, no figure panel)
     rows, rows_alt = [], []
     for medium, attr in MEDIA:
         sources = [getattr(r, attr) for r in regions]
@@ -461,7 +461,7 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
             f"{100 * raw['society']:.1f}% / {100 * raw['similarity']:.1f}%",
         ])
     lines += _part(
-        "PART 10. Variance decomposition: society vs semantic similarity (Shapley R^2, Fig 2H)",
+        "PART 10. Variance decomposition: society vs semantic similarity (Shapley R^2; text, no figure)",
         ["Same pairs as Part 9."],
         [
             "Pool the pairs of one medium across societies; outcome Fisher z = arctanh(|r|) (as in Part 5).",
@@ -479,6 +479,58 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
         + ["", "Sensitivity:"]
         + _table(["Medium", "Society first / last", "Similarity first / last", "|r| scale: society / similarity"],
                  rows_alt),
+    )
+
+    # Part 11 - supplementary Fig 2s
+    rows_sim, rows_ols, rows_adj = [], [], []
+    by_method = {m: plotter.semantic_adjustment(m) for m in ("kde", "ols", "lowess")}
+    for medium, attr in MEDIA:
+        ref_src = getattr(ref, attr)
+        xr = v4.similarity_pairs(ref_src, plotter.embedding_type, plotter.correlation_year(ref_src))[0]
+        for r in regions:
+            src = getattr(r, attr)
+            x, y = v4.similarity_pairs(src, plotter.embedding_type, plotter.correlation_year(src))
+            w = (np.full(len(x), 1 / len(x)) if r is ref else sa.density_ratio_weights(xr, x))
+            q25, q50, q75 = np.quantile(x, [0.25, 0.5, 0.75])
+            rows_sim.append([
+                r.code, medium, f"{x.mean():.3f}", f"{x.std(ddof=1):.3f}", f"{x.min():.3f}", f"{q25:.3f}",
+                f"{q50:.3f}", f"{q75:.3f}", f"{x.max():.3f}", f"{w @ x:.3f}",
+            ])
+            fit = linregress(x, y)
+            rows_ols.append([
+                r.code, medium, f"{fit.intercept:.3f}", f"{fit.slope:+.3f}", f"{fit.stderr:.3f}",
+                f"{fit.pvalue:.3f}", f"{fit.rvalue ** 2:.3f}", str(len(x)),
+            ])
+            row = [r.code, medium, f"{np.mean(y):.3f}"]
+            for m in ("kde", "ols", "lowess"):
+                lo, hi = by_method[m]["adjusted_ci"][src]
+                row += [f"{by_method[m]['adjusted'][src]:.3f}", _ci(lo, hi)]
+            rows_adj.append(row)
+    lines += _part(
+        f"PART 11. Holding similarity at the {ref.code} distribution, three ways (supplementary Fig 2s)",
+        ["Same pairs as Part 9."],
+        [
+            "Similarity distribution of each source's pairs (Fig 2s a, b); \"reweighted mean\" = weighted mean",
+            f"  similarity under the Part 9 weights (equals the {ref.code} mean when the reweighting works).",
+            "OLS fit per source: |r| = intercept + slope * similarity over its 36 pairs (scipy.stats.linregress;",
+            "  slope SE and two-sided p from the t distribution; Fig 2s e, f).",
+            "Adjusted mean |r| by method (Fig 2s c, d / g, h / k, l):",
+            "  reweighting = Part 9 main (observed |r|, density-ratio weights);",
+            f"  OLS shift: the pair of similarity rank k is moved to the k-th {ref.code} similarity",
+            "    (quantile matching) and |r| moves along the OLS line, keeping its residual:",
+            f"    |r|* = |r| + f(sim_{ref.code}(k)) - f(sim); its mean = mean|r| + slope * (mean sim_{ref.code} - mean sim);",
+            f"  LOESS shift: the same along the LOWESS curve (span {plotter.loess_frac}), interpolated linearly and",
+            "    held constant beyond the society's own similarity range.",
+            sem_boot_note,
+        ],
+        ["Similarity distribution:"]
+        + _table(["Country", "Medium", "Mean", "SD", "Min", "Q25", "Median", "Q75", "Max", "Reweighted mean"],
+                 rows_sim)
+        + ["", "OLS |r| ~ similarity:"]
+        + _table(["Country", "Medium", "Intercept", "Slope", "SE", "p", "R^2", "Pairs"], rows_ols)
+        + ["", "Adjusted mean |r|:"]
+        + _table(["Country", "Medium", "Raw", "Reweighting", "95% CI", "OLS shift", "95% CI", "LOESS shift",
+                  "95% CI"], rows_adj),
     )
 
     # Appendix - every pair
