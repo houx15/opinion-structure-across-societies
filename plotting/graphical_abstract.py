@@ -457,7 +457,7 @@ def _semantic_curves(ax, sources: Sequence[Tuple[str, str]], *, line_style,
                      x0: float, x1: float) -> None:
     """Plot per-country OLS |r|-vs-similarity lines filling the half [x0, x1].
 
-    Linear fits match the paper's Fig 2 (plotting.figures ``trend="linear"``).
+    Linear fits match supplementary Fig 2s (OLS row).
 
     Each group (offline / online) is rescaled to its *own* similarity range so
     it spans the full sub-range — online no longer crowds into a narrow slice

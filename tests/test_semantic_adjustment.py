@@ -1,4 +1,4 @@
-"""Tests for analysis.correlation.semantic_adjustment (Fig 2G, H)."""
+"""Tests for analysis.correlation.semantic_adjustment (Fig 2G, Fig 2s)."""
 
 from __future__ import annotations
 
@@ -76,3 +76,35 @@ def test_shapley_gives_similarity_nothing_when_r_is_set_by_society_alone():
     s = sa.shapley_r2(y, groups, x)
     assert s["society"] > 0.95
     assert s["similarity"] < 0.01
+
+
+def test_matched_similarities_map_rank_k_to_the_kth_reference_value():
+    x_ref = np.array([0.1, 0.4, 0.2, 0.3])
+    x_other = np.array([0.9, 0.5, 0.7, 0.6])
+    np.testing.assert_allclose(sa.matched_similarities(x_ref, x_other), [0.4, 0.1, 0.3, 0.2])
+
+
+def test_ols_shift_keeps_residuals_and_moves_mean_by_slope_times_similarity_gap():
+    rng = np.random.default_rng(5)
+    x_ref, x_other = rng.uniform(0.3, 0.6, 36), rng.uniform(0.1, 0.4, 36)
+    y_other = 0.2 * x_other + rng.normal(0, 0.02, 36)
+    b, a = np.polyfit(x_other, y_other, 1)
+    shifted = sa.shifted_values(x_ref, x_other, y_other, fit="ols")
+    assert shifted.mean() == pytest.approx(y_other.mean() + b * (x_ref.mean() - x_other.mean()))
+    resid_before = y_other - (a + b * x_other)
+    resid_after = shifted - (a + b * sa.matched_similarities(x_ref, x_other))
+    np.testing.assert_allclose(resid_after, resid_before)
+
+
+def test_lowess_shift_is_flat_beyond_the_observed_range():
+    x_other = np.linspace(0.2, 0.4, 36)
+    y_other = np.linspace(0.0, 0.2, 36)
+    x_ref = np.full(36, 0.9)
+    shifted = sa.shifted_values(x_ref, x_other, y_other, fit="lowess")
+    f = sa.fitted_curve(x_other, y_other, "lowess")
+    np.testing.assert_allclose(shifted, y_other + f(0.4) - f(x_other))
+
+
+def test_fitted_curve_rejects_unknown_fit():
+    with pytest.raises(ValueError):
+        sa.fitted_curve(np.ones(3), np.ones(3), fit="spline")

@@ -647,8 +647,9 @@ def test_make_fig2_writes_pdf_with_expected_naming(tmp_figure_folder):
     assert out_path.name == "20260513_main_results_fig2.pdf"
 
 
-def test_make_fig2_loess_panel_has_no_pair_callouts(tmp_figure_folder):
-    """LOWESS panels stay clean — callouts live in the dedicated examples row."""
+def test_make_fig2_bottom_row_has_three_panels_without_pair_callouts(tmp_figure_folder):
+    """Bottom row = two half-violins + the similarity-adjusted dash plot (G);
+    no pair callouts there (they live in the tutorial row)."""
     import plotting.figures as v4
     import matplotlib.pyplot as plt
 
@@ -657,10 +658,12 @@ def test_make_fig2_loess_panel_has_no_pair_callouts(tmp_figure_folder):
         n_bootstrap=50,
     )
     fig = plotter.build_fig2()
-    for ax in fig.axes[3:5]:
+    assert len(fig.axes) == 7
+    assert fig.axes[-1].get_title() == "Semantic similarity held fixed"
+    for ax in fig.axes[4:]:
         annotations = [t for t in ax.texts if "×" in t.get_text()]
         assert annotations == [], (
-            f"LOWESS panel must have no pair callouts; got {[t.get_text() for t in annotations]}"
+            f"bottom panel must have no pair callouts; got {[t.get_text() for t in annotations]}"
         )
     plt.close(fig)
 
@@ -986,7 +989,7 @@ def test_make_fig3_dash_plot_legend_has_no_medium_handles(tmp_figure_folder):
 
 
 def test_task_list_covers_main_plus_robustness_variants():
-    """main + LOWESS supplement + media + noputback + england + word2vec + 4-region eu_nen."""
+    """main + Fig 2s supplement + media + noputback + england + word2vec + 4-region eu_nen."""
     import plotting.figures as v4
 
     names = [t["name"] for t in v4.TASKS]
@@ -994,25 +997,32 @@ def test_task_list_covers_main_plus_robustness_variants():
     assert "robust_1_media" in names
     assert "robust_2_noputback" in names
     assert "robust_3_england" in names
-    assert "supp_lowess" in names
+    assert "supp_semantic" in names
     assert "robust_5_word2vec" in names
     assert "robust_6_eu_nen" in names
 
 
-def test_run_task_loess_variant_only_produces_fig2(tmp_figure_folder):
-    """The LOWESS (nonlinear) alternative should regenerate Fig 2 only."""
+def test_run_task_supp_semantic_only_produces_fig2s(tmp_figure_folder):
+    """The Fig 2G supplement writes fig2s only: 3 rows (reweighting, OLS,
+    LOESS) x 4 panels."""
     import plotting.figures as v4
+    import matplotlib.pyplot as plt
 
     paths = v4.run_task(
-        "supp_lowess",
+        "supp_semantic",
         figure_folder=str(tmp_figure_folder),
         date_prefix="20260513",
         n_bootstrap=20,
+        write_stats=False,
     )
-    assert list(paths) == [2]
-    p = Path(paths[2])
+    assert list(paths) == ["2s"]
+    p = Path(paths["2s"])
     assert p.exists()
-    assert p.name == "20260513_supp_lowess_results_fig2.pdf"
+    assert p.name == "20260513_supp_semantic_results_fig2s.pdf"
+    plotter = v4.Plotter(figure_folder=str(tmp_figure_folder), n_bootstrap=20)
+    fig = plotter.build_fig2s()
+    assert len(fig.axes) == 12
+    plt.close(fig)
 
 
 # -- v4 N-region (4-region eu_nen variant) ----------------------------------
@@ -1151,8 +1161,8 @@ def test_fig2_non_pedagogical_omits_word_overlap_row(tmp_figure_folder):
         n_bootstrap=50, pedagogical=False,
     )
     fig = plotter.build_fig2()
-    assert len(fig.axes) == 4, (
-        f"non-pedagogical Fig 2 should have 4 axes (2 violin + 2 semantic), got {len(fig.axes)}"
+    assert len(fig.axes) == 3, (
+        f"non-pedagogical Fig 2 should have 3 axes (2 violin + adjusted means), got {len(fig.axes)}"
     )
     # No 'Low similarity' / 'High similarity' headers from the word-overlap panel.
     all_text = " ".join(t.get_text() for ax in fig.axes for t in ax.texts)
@@ -1162,7 +1172,7 @@ def test_fig2_non_pedagogical_omits_word_overlap_row(tmp_figure_folder):
 
 
 def test_semantic_adjustment_reference_is_raw_and_shares_add_up(tmp_figure_folder):
-    """Fig 2G, H numbers: the U.S. keeps its raw mean |r|, every adjusted mean
+    """Fig 2G and Part 10 numbers: the U.S. keeps its raw mean |r|, every adjusted mean
     lies inside its bootstrap interval, and the Shapley shares add up."""
     import plotting.figures as v4
 
@@ -1180,16 +1190,20 @@ def test_semantic_adjustment_reference_is_raw_and_shares_add_up(tmp_figure_folde
     assert plotter.semantic_adjustment() is res  # cached
 
 
-def test_semantic_panels_option_validates_and_trend_task_exists(tmp_figure_folder):
+def test_adjusted_pairs_match_the_adjusted_means(tmp_figure_folder):
+    """Fig 2s distributions and Fig 2G / stats means come from the same pairs:
+    the (weighted) mean of the adjusted values is the adjusted mean."""
     import plotting.figures as v4
 
+    plotter = v4.Plotter(figure_folder=str(tmp_figure_folder), n_bootstrap=10)
+    for method in ("kde", "ols", "lowess"):
+        res = plotter.semantic_adjustment(method)
+        for src in ("anes", "wvs", "weibo"):
+            vals, w = plotter._adjusted_pairs(src, method)
+            assert np.average(vals, weights=w) == pytest.approx(res["adjusted"][src])
     with pytest.raises(ValueError):
-        v4.Plotter(figure_folder=str(tmp_figure_folder), semantic_panels="ols")
-    kwargs = v4.task_plotter_kwargs("supp_ols_trend", figure_folder=str(tmp_figure_folder))
-    assert kwargs["semantic_panels"] == "trend" and kwargs["trend"] == "linear"
-    assert v4.task_plotter_kwargs("main", figure_folder=str(tmp_figure_folder))["semantic_panels"] == "adjusted"
-    assert "supp_ols_trend" in v4.task_names("main")
-
+        plotter.semantic_adjustment("magic")
+    assert v4.task_names("main") == ["main", "supp_semantic"]
 
 def test_fig3_non_pedagogical_keeps_only_pr_erank(tmp_figure_folder):
     """Robustness Fig 3 (pedagogical=False) has 2 axes and no 3D toy-cloud panels."""
