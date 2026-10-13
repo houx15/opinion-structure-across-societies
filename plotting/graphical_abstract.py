@@ -32,6 +32,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.colors import LinearSegmentedColormap
 
+from analysis.correlation.semantic_adjustment import adjusted_mean
 from plotting import figures as P
 
 
@@ -492,6 +493,27 @@ def _semantic_curves(ax, sources: Sequence[Tuple[str, str]], *, line_style,
 
 
 def panel_3B() -> Path:
+    """Mean pairwise |r| with semantic similarity held fixed (Fig 2G).
+
+    Same chart as 3A, but each society's topic pairs are reweighted to the U.S.
+    similarity distribution of the same medium (density-ratio weights; the
+    U.S. keeps its raw mean), so differences cannot come from one society
+    being asked about more similar topics.
+    """
+    values = {}
+    for code, (off, on) in REGION_SOURCES.items():
+        adjusted = []
+        for src, ref in ((off, REGION_SOURCES["US"][0]), (on, REGION_SOURCES["US"][1])):
+            x, y = P.similarity_pairs(src)
+            adjusted.append(float(y.mean()) if src == ref
+                            else adjusted_mean(P.similarity_pairs(ref)[0], x, y))
+        values[code] = tuple(adjusted)
+    fig, ax = plt.subplots(figsize=(4.2, 3.0))
+    _compression_chart(ax, values)  # auto-fit y
+    return _save(fig, "ga_3B_semantic_adjusted.pdf")
+
+
+def panel_3B_ols() -> Path:
     """|r| vs semantic similarity in one frame — offline (left) / online (right).
 
     A single x-axis (Offline | Online, like 3A/3C) and a single bare y-axis
@@ -673,6 +695,7 @@ PANELS = {
     "fig3e_scree": panel_fig3e_scree,
     "3A": panel_3A,
     "3B": panel_3B,
+    "3B_ols": panel_3B_ols,
     "3C": panel_3C,
     "F2a_us": panel_fig2a_us,
 }

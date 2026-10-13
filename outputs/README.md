@@ -13,7 +13,8 @@ Tasks (plotting/figures.py `TASKS`):
 | task | figures | content |
 |---|---|---|
 | `main` | Fig 2, Fig 3 | main text |
-| `supp_lowess` | Fig 2 | LOWESS (span 0.4) instead of linear trends: nonlinear alternative |
+| `supp_lowess` | Fig 2 | G, H as \|r\| vs semantic similarity with LOWESS (span 0.4) curves |
+| `supp_ols_trend` | Fig 2 | G, H as \|r\| vs semantic similarity with OLS lines (the earlier main panels) |
 | `supp_centroid_rank` | SI figure | rank / conditioning of the topic centroids |
 | `robust_1_media` | Fig 2, 3 | survey respondents who use social media |
 | `robust_2_noputback` | Fig 2, 3 | EVS without resampling |

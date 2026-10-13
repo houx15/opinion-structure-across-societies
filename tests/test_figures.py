@@ -1152,12 +1152,43 @@ def test_fig2_non_pedagogical_omits_word_overlap_row(tmp_figure_folder):
     )
     fig = plotter.build_fig2()
     assert len(fig.axes) == 4, (
-        f"non-pedagogical Fig 2 should have 4 axes (2 violin + 2 LOESS), got {len(fig.axes)}"
+        f"non-pedagogical Fig 2 should have 4 axes (2 violin + 2 semantic), got {len(fig.axes)}"
     )
     # No 'Low similarity' / 'High similarity' headers from the word-overlap panel.
     all_text = " ".join(t.get_text() for ax in fig.axes for t in ax.texts)
     assert "Low similarity" not in all_text and "High similarity" not in all_text
     plt.close(fig)
+
+
+
+def test_semantic_adjustment_reference_is_raw_and_shares_add_up(tmp_figure_folder):
+    """Fig 2G, H numbers: the U.S. keeps its raw mean |r|, every adjusted mean
+    lies inside its bootstrap interval, and the Shapley shares add up."""
+    import plotting.figures as v4
+
+    plotter = v4.Plotter(figure_folder=str(tmp_figure_folder), n_bootstrap=50)
+    res = plotter.semantic_adjustment()
+    for src in ("anes", "twitter"):
+        assert res["adjusted"][src] == pytest.approx(res["raw"][src])
+    for src, value in res["adjusted"].items():
+        lo, hi = res["adjusted_ci"][src]
+        assert lo <= value <= hi, src
+    for medium, d in res["decomposition"].items():
+        assert d["society"] + d["similarity"] + d["unexplained"] == pytest.approx(1.0)
+    # Surveys differ by society, social media far less (the paper's claim).
+    assert res["decomposition"]["Survey"]["society"] > res["decomposition"]["Social media"]["society"]
+    assert plotter.semantic_adjustment() is res  # cached
+
+
+def test_semantic_panels_option_validates_and_trend_task_exists(tmp_figure_folder):
+    import plotting.figures as v4
+
+    with pytest.raises(ValueError):
+        v4.Plotter(figure_folder=str(tmp_figure_folder), semantic_panels="ols")
+    kwargs = v4.task_plotter_kwargs("supp_ols_trend", figure_folder=str(tmp_figure_folder))
+    assert kwargs["semantic_panels"] == "trend" and kwargs["trend"] == "linear"
+    assert v4.task_plotter_kwargs("main", figure_folder=str(tmp_figure_folder))["semantic_panels"] == "adjusted"
+    assert "supp_ols_trend" in v4.task_names("main")
 
 
 def test_fig3_non_pedagogical_keeps_only_pr_erank(tmp_figure_folder):

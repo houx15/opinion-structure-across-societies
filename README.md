@@ -21,7 +21,7 @@ config/       config_example.py -> copy to config/config.py (git-ignored): paths
 common/       paths.py: every data/output location (single source of truth)
 cleaning/     stage 1  raw data -> cleaned opinions          (clusters; see cleaning/README.md)
 analysis/     stage 2  cleaned opinions -> correlations, semantic similarities, dimensionality
-  correlation/   pairwise correlations + shuffle baselines
+  correlation/   pairwise correlations + shuffle baselines; semantic_adjustment (Fig 2G, H)
   semantic/      topic keywords (TF-IDF), embeddings, topic similarities
   dimension/     csr matrices, PR / eRank / srank, bootstrap intervals
 plotting/     stage 3  figures, paper statistics, graphical abstract
@@ -82,7 +82,10 @@ python scripts/import_legacy_data.py /path/to/opinion_correlation [--csr_root /p
 2. **Analysis** (`analysis/`):
    - `correlation/`: `survey_correlation all`, `twitter_correlation all`,
      `weibo_correlation` -> `data/correlation/network_analysis_<src>.csv`
-     (Pearson r per topic pair and year, plus the shuffle baseline for social media).
+     (Pearson r per topic pair and year, plus the shuffle baseline for social media);
+     `semantic_adjustment`: mean |r| with each society's topic pairs reweighted to the
+     U.S. semantic-similarity distribution, and the Shapley split of pair |r| variation
+     into society vs semantic similarity (Fig 2G, H; stats Parts 9, 10).
    - `semantic/`: `tfidf_twitter`, `tfidf_weibo` (noun/verb TF-IDF per topic),
      `survey_codebook_tfidf` (codebook keywords), `semantic_similarity`
      (keyword embeddings -> topic centroids -> cosine similarity).

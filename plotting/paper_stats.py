@@ -23,6 +23,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 import numpy as np
 from scipy.stats import skew
 
+from analysis.correlation import semantic_adjustment as sa
 from common.paths import display
 from plotting import figures as v4
 
@@ -65,31 +66,6 @@ def _eta_sq(groups: Sequence[np.ndarray]) -> Tuple[float, float, float]:
     ss_total = float(((allv - grand) ** 2).sum())
     ss_between = float(sum(len(g) * (g.mean() - grand) ** 2 for g in groups))
     return ss_between, ss_total, ss_between / ss_total if ss_total > 0 else float("nan")
-
-
-def _similarity_pairs(src: str, embedding_type: str, year: str = "average") -> Tuple[np.ndarray, np.ndarray]:
-    """(semantic similarity, |r|) per topic pair, merged exactly as Fig 2g, h."""
-    corr = v4.load_pairwise_correlation(src, year=year)
-    sem = v4.load_semantic_similarity(src, embedding_type=embedding_type)
-    merged = (
-        corr.merge(sem[["topic_combination", "similarity"]], on="topic_combination", how="left")
-        .dropna(subset=["similarity"])
-        .drop_duplicates(subset=["topic_combination"])
-    )
-    return merged["similarity"].to_numpy(float), merged["correlation"].to_numpy(float)
-
-
-def _gap_closed(xu, yu, xo, yo, ref) -> Tuple[float, float]:
-    """(gap remaining at equal similarity, share of raw gap eliminated).
-
-    Both societies' OLS lines are evaluated at the reference similarities;
-    the remaining gap is the mean difference of the two lines there.
-    """
-    bu, au = np.polyfit(xu, yu, 1)
-    bo, ao = np.polyfit(xo, yo, 1)
-    raw = yu.mean() - yo.mean()
-    remaining = float(((au + bu * ref) - (ao + bo * ref)).mean())
-    return remaining, 1.0 - remaining / raw
 
 
 def _spectral_path(src: str, matrix: str = "cov", year: Optional[str] = None) -> Path:
@@ -390,74 +366,120 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
         _table(["Dataset", "Source", "N"], rows),
     )
 
-    # Part 9 - gap eliminated by semantic similarity
-    if "US" in codes:
-        rows_main, rows_alt, sources = [], [], []
-        rng9 = np.random.default_rng(SEED)
-        for medium, attr in MEDIA:
-            us_region = next(r for r in regions if r.code == "US")
-            xu, yu = _similarity_pairs(getattr(us_region, attr), plotter.embedding_type,
-                                       plotter.correlation_year(getattr(us_region, attr)))
-            for r in regions:
-                if r.code == "US":
-                    continue
-                xo, yo = _similarity_pairs(getattr(r, attr), plotter.embedding_type,
-                                           plotter.correlation_year(getattr(r, attr)))
-                raw = yu.mean() - yo.mean()
-                bo, ao = np.polyfit(xo, yo, 1)
-                remaining, share = _gap_closed(xu, yu, xo, yo, xu)
-                boot = []
-                for _ in range(n_boot):
-                    iu = rng9.integers(0, len(xu), len(xu))
-                    io = rng9.integers(0, len(xo), len(xo))
-                    boot.append(_gap_closed(xu[iu], yu[iu], xo[io], yo[io], xu[iu])[1])
-                lo, hi = q(np.array(boot))
-                rows_main.append([
-                    f"US - {r.code}", medium, f"{xu.mean():.3f}", f"{xo.mean():.3f}",
-                    f"{yu.mean():.3f}", f"{yo.mean():.3f}", f"{raw:.3f}",
-                    f"{(ao + bo * xu).mean():.3f}", f"{remaining:.3f}",
-                    f"{100 * share:.1f}%", f"[{100 * lo:.1f}%, {100 * hi:.1f}%]",
-                ])
-                shared = np.linspace(max(xu.min(), xo.min()), min(xu.max(), xo.max()), 200)
-                alt = [_gap_closed(xu, yu, xo, yo, ref) for ref in (xu, shared, np.r_[xu, xo])]
-                rows_alt.append([f"US - {r.code}", medium] + [
-                    f"{rem:.3f} ({100 * sh:.1f}%)" for rem, sh in alt
-                ])
-        for medium, attr in MEDIA:
-            for r in regions:
-                sources.append(
-                    f"{csv(getattr(r, attr))} + similarity of {getattr(r, attr)} "
-                    f"({plotter.embedding_type} embedding)"
-                )
-        lines += _part(
-            "PART 9. How much of the US gap in mean |r| is eliminated by semantic similarity",
-            sources + [
-                "Pairs merged on topic_combination exactly as in Fig 2g, h",
-                "(figures.load_pairwise_correlation + load_semantic_similarity).",
-            ],
-            [
-                "Raw gap = mean|r|(US) - mean|r|(other), same medium.",
-                "Fit each society's OLS line |r| = a + b * similarity (the Fig 2g, h lines).",
-                "Main estimate (\"align the other society to the U.S. similarity distribution\"):",
-                "  evaluate both lines at the U.S. pairs' similarity values;",
-                "  gap at equal similarity = mean(US line - other line) at those values",
-                "  (= mean|r|(US) - mean of the other society's line at U.S. similarities);",
-                "  share eliminated = 1 - gap at equal similarity / raw gap.",
-                boot_note + " Lines are refit in each resample.",
-                "Sensitivity: the same calculation with other reference similarity values -",
-                "  U.S. pairs (main), evenly spaced over the range both societies cover,",
-                "  and all pairs of both societies pooled.",
-                "Note: with a small raw gap (social media) the share is unstable and its CI wide.",
-            ],
-            _table(
-                ["Comparison", "Medium", "Mean sim US", "Mean sim other", "Mean |r| US",
-                 "Mean |r| other", "Raw gap", "Other line at US sims", "Gap at equal sim",
-                 "Eliminated", "95% CI"],
-                rows_main,
-            )
-            + ["", "Sensitivity - gap at equal similarity (share eliminated), by reference:"]
-            + _table(["Comparison", "Medium", "US pairs (main)", "Shared range", "Pooled pairs"], rows_alt),
-        )
+    # Part 9 - mean |r| with semantic similarity held fixed (Fig 2G)
+    ref = plotter.semantic_reference()
+    sem = plotter.semantic_adjustment()
+    sem_boot_note = (
+        f"95% CI: percentile bootstrap, {plotter.n_bootstrap:,} resamples of each source's topic pairs "
+        f"(with replacement, independently); numpy seed {plotter.SEMANTIC_SEED}; weights / regressions "
+        "recomputed in each resample (the Fig 2G, H intervals)."
+    )
+    sem_sources = [
+        f"{csv(getattr(r, attr))} + similarity of {getattr(r, attr)} ({plotter.embedding_type} embedding)"
+        for medium, attr in MEDIA for r in regions
+    ] + ["Pairs merged on topic_combination (figures.similarity_pairs)."]
+    rows_main, rows_gap, rows_alt = [], [], []
+    for medium, attr in MEDIA:
+        ref_src = getattr(ref, attr)
+        xr, yr = v4.similarity_pairs(ref_src, plotter.embedding_type, plotter.correlation_year(ref_src))
+        for r in regions:
+            src = getattr(r, attr)
+            x, y = v4.similarity_pairs(src, plotter.embedding_type, plotter.correlation_year(src))
+            lo, hi = sem["adjusted_ci"][src]
+            ess = "" if r is ref else f"{sa.effective_sample_size(sa.density_ratio_weights(xr, x)):.1f}"
+            rows_main.append([
+                r.code, medium, src, f"{x.mean():.3f}", f"{sem['raw'][src]:.3f}",
+                f"{sem['adjusted'][src]:.3f}", _ci(lo, hi), ess,
+            ])
+            if r is ref:
+                continue
+            d = sa.gap_decomposition(xr, yr, x, y)
+            rows_gap.append([
+                f"{ref.code} - {r.code}", medium, f"{d['raw_gap']:.3f}",
+                f"{d['similarity_part']:+.3f}", f"{d['society_part']:.3f}",
+                f"{100 * d['society_part'] / d['raw_gap']:.0f}%",
+            ])
+            b, a = np.polyfit(x, y, 1)
+            rows_alt.append([
+                r.code, medium, f"{sem['adjusted'][src]:.3f}",
+                f"{sa.adjusted_mean(xr, x, y, 'nn'):.3f}",
+                f"{sa.adjusted_mean(xr, x, y, 'strata'):.3f}",
+                f"{(a + b * xr).mean():.3f}",
+            ])
+    lines += _part(
+        f"PART 9. Mean |r| with semantic similarity held fixed at the {ref.code} distribution (Fig 2G)",
+        sem_sources,
+        [
+            f"Within each medium, reweight every other society's 36 pairs so their semantic similarities are",
+            f"distributed like the {ref.code} pairs' (DiNardo-Fortin-Lemieux reweighting):",
+            f"  weight_j = f_{ref.code}(sim_j) / f_other(sim_j), both densities Gaussian KDEs (Scott bandwidth),",
+            "  weights normalised to sum to 1; adjusted mean |r| = sum_j weight_j * |r|_j.",
+            f"The {ref.code} value is its raw mean (it is the reference). ESS = Kish effective number of pairs",
+            "  (sum w)^2 / sum w^2, out of 36: how far the weights are from uniform.",
+            sem_boot_note,
+            f"Gap decomposition: raw gap = mean|r|({ref.code}) - mean|r|(other) =",
+            "  similarity mix (adjusted - raw mean of the other society; what the gap would change by if the",
+            f"  other society's topics were as similar as the {ref.code} topics, with sign) +",
+            f"  society ({ref.code} - adjusted; the gap in |r| between topic pairs of equal similarity).",
+            "Sensitivity - adjusted mean by other matching methods:",
+            f"  nearest neighbours: for each {ref.code} pair, the mean |r| of the 3 other-society pairs with the",
+            "    closest similarity, averaged over the reference pairs;",
+            f"  strata: {ref.code} similarity quintiles, each weighted by its {ref.code} share (other pairs outside",
+            f"    the {ref.code} range dropped);",
+            f"  OLS line: the society's |r| = a + b * similarity line averaged at the {ref.code} similarities",
+            "    (the earlier Fig 2G, H estimate).",
+        ],
+        _table(["Country", "Medium", "Source", "Mean sim", "Raw mean |r|", "Adjusted mean |r|", "95% CI",
+                "ESS"], rows_main)
+        + ["", "Gap decomposition (main method):"]
+        + _table(["Comparison", "Medium", "Raw gap", "Similarity mix", "Society", "Society share"], rows_gap)
+        + ["", "Sensitivity - adjusted mean |r| by method:"]
+        + _table(["Country", "Medium", "Density ratio (main)", "Nearest 3", "Quintile strata", "OLS line"],
+                 rows_alt),
+    )
+
+    # Part 10 - Shapley decomposition (Fig 2H)
+    rows, rows_alt = [], []
+    for medium, attr in MEDIA:
+        sources = [getattr(r, attr) for r in regions]
+        data = [v4.similarity_pairs(s, plotter.embedding_type, plotter.correlation_year(s)) for s in sources]
+        groups = np.concatenate([np.full(len(x), i) for i, (x, _) in enumerate(data)])
+        x_all = np.concatenate([x for x, _ in data])
+        r_all = np.concatenate([y for _, y in data])
+        d = sem["decomposition"][medium]
+        ci = sem["decomposition_ci"][medium]
+        rows.append([
+            medium, str(len(r_all)), f"{100 * d['society']:.1f}%", _ci(100 * ci["society"][0], 100 * ci["society"][1], 1),
+            f"{100 * d['similarity']:.1f}%", _ci(100 * ci["similarity"][0], 100 * ci["similarity"][1], 1),
+            f"{100 * d['total']:.1f}%", f"{100 * d['unexplained']:.1f}%",
+        ])
+        raw = sa.shapley_r2(r_all, groups, x_all)
+        rows_alt.append([
+            medium,
+            f"{100 * d['society_alone']:.1f}% / {100 * (d['total'] - d['similarity_alone']):.1f}%",
+            f"{100 * d['similarity_alone']:.1f}% / {100 * (d['total'] - d['society_alone']):.1f}%",
+            f"{100 * raw['society']:.1f}% / {100 * raw['similarity']:.1f}%",
+        ])
+    lines += _part(
+        "PART 10. Variance decomposition: society vs semantic similarity (Shapley R^2, Fig 2H)",
+        ["Same pairs as Part 9."],
+        [
+            "Pool the pairs of one medium across societies; outcome Fisher z = arctanh(|r|) (as in Part 5).",
+            "Linear regression on society (dummies) and semantic similarity (linear). R^2 of each subset:",
+            "  R^2(society), R^2(similarity), R^2(both).",
+            "Shapley share of a factor = mean of its R^2 gain over the two entry orders, e.g.",
+            "  society = [R^2(society) + R^2(both) - R^2(similarity)] / 2; the two shares add up to R^2(both).",
+            "Unexplained = 1 - R^2(both) (topic-pair differences not captured by society or similarity).",
+            "Society alone = eta^2 of Part 5.",
+            sem_boot_note,
+            "Sensitivity: each factor entered first / last (the two bounds the Shapley share averages),",
+            "  and the same decomposition on |r| instead of Fisher z.",
+        ],
+        _table(["Medium", "Pairs", "Society", "95% CI", "Similarity", "95% CI", "R^2 both", "Unexplained"], rows)
+        + ["", "Sensitivity:"]
+        + _table(["Medium", "Society first / last", "Similarity first / last", "|r| scale: society / similarity"],
+                 rows_alt),
+    )
 
     # Appendix - every pair
     lines += ["", RULE, "APPENDIX. |r| of every topic pair (for re-verification)", RULE]
