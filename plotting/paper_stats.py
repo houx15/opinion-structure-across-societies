@@ -627,6 +627,39 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
             ],
         )
 
+    # Part 14 - does the labelling pipeline make platforms alike by itself?
+    from robustness import random_topicsets as rts
+
+    res14 = rts.analysis(plotter)
+    if res14 is not None:
+        rows = []
+        for code, pl in res14["platforms"].items():
+            m = pl["means"]
+            rows.append([code, pl["src"], str(pl["n_topics"]), f"{len(m):,}", f"{m.min():.3f}",
+                         f"{np.percentile(m, 5):.3f}", f"{np.median(m):.3f}", f"{np.percentile(m, 95):.3f}",
+                         f"{m.max():.3f}", f"{pl['matched']:.3f}"])
+        gap_rows = []
+        for (a_, b_), g in res14["gaps"].items():
+            gap_rows.append([f"{a_}-{b_}", f"{g['gaps'].size:,}", f"{np.median(g['gaps']):.3f}",
+                             f"{np.percentile(g['gaps'], 95):.3f}", f"{g['matched']:.3f}", f"{g['survey']:.3f}",
+                             f"{100 * np.mean(g['gaps'] >= g['survey']):.1f}%"])
+        lines += _part(
+            "PART 14. Random, unmatched topic sets on the platforms (does the pipeline make platforms alike?)",
+            ["data/correlation/network_analysis_<platform>.csv, all labelled topics of the file (not only the nine",
+             "analysed ones), pooled years; platforms whose file holds more than nine topics."],
+            [
+                "Every set of nine labelled topics of a platform (matched to a survey item or not): mean |r| over its",
+                "  36 pairs. Gap between two platforms = |difference in mean |r||, over all pairs of their sets.",
+                "Matched = the nine analysed topics (Part 2); surveys = the same societies' survey sources (Part 2).",
+                "The same labelling pipeline scored all topics, so a wide spread of random-set levels means the",
+                "  pipeline does not set the level by itself. Exhaustive enumeration, no sampling.",
+            ],
+            _table(["Society", "Platform", "Topics", "Sets", "Min", "5%", "Median", "95%", "Max", "Matched"], rows)
+            + ["", "Gap between platforms:"]
+            + _table(["Pair", "Set pairs", "Median gap", "95% gap", "Matched gap", "Survey gap",
+                      "Share >= survey gap"], gap_rows),
+        )
+
     # Appendix - every pair
     lines += ["", RULE, "APPENDIX. |r| of every topic pair (for re-verification)", RULE]
     for medium, attr in MEDIA:
