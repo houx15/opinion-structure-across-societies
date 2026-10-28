@@ -600,6 +600,33 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
                     "Pattern r", "Random pattern r", "p"], rows),
         )
 
+    # Part 13 - sensitivity to the selection of topics
+    from robustness import topic_subsets as ts
+
+    means13 = ts.subset_means(plotter)
+    if means13 is not None:
+        sm = ts.summary(ts.dispersions(means13))
+        lines += _part(
+            "PART 13. Sensitivity of the dispersion contrast to the selection of topics",
+            ["Same |r| values as Part 2; figures.OFFLINE_ONLINE_TOPIC_MAP pairs each survey topic with its platform topic."],
+            [
+                f"Drop {ts.N_DROP} of each society's topics - the same concepts in the survey and the platform source -",
+                "  in every possible way (36 subsets of seven topics per society); combine the societies' subsets",
+                f"  independently ({sm['n']:,} combinations). For each combination: mean Fisher z over the 21 pairs of",
+                "  each source, dispersion = population SD across societies (as Part 4) per medium, and their ratio.",
+                "Overlap = share of combinations whose survey dispersion is not above the largest social-media",
+                "  dispersion of any combination. Exhaustive enumeration, no sampling.",
+            ],
+            [
+                f"Survey dispersion: median {sm['off_median']:.3f}, minimum {sm['off_min']:.3f}",
+                f"Social-media dispersion: median {sm['on_median']:.3f}, maximum {sm['on_max']:.3f}",
+                f"Ratio survey / social media: median {sm['ratio_median']:.2f}, 5th percentile {sm['ratio_p5']:.2f}, "
+                f"minimum {sm['ratio_min']:.2f}; share of combinations with ratio > 1: {100 * sm['share_ratio_gt1']:.1f}%",
+                f"Overlap: {100 * sm['share_overlap']:.1f}% (largest social-media dispersion {sm['on_max']:.3f} vs smallest "
+                f"survey dispersion {sm['off_min']:.3f})",
+            ],
+        )
+
     # Appendix - every pair
     lines += ["", RULE, "APPENDIX. |r| of every topic pair (for re-verification)", RULE]
     for medium, attr in MEDIA:
