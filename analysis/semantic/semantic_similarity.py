@@ -476,7 +476,11 @@ SRC_TOPICS = {
     "entwitter": twitter_eu_topic_list,
     "eutwitter": twitter_eu_topic_list,
     "eu_nentwitter": twitter_eu_topic_list,
+    # ROBUSTNESS ONLY: U.S. users on the European topic set (tf_idf_twitter_euset;
+    # robustness/wvs_us.py). Not part of the default process_all run.
+    "twitter_euset": twitter_eu_topic_list,
 }
+ROBUSTNESS_SRC_TYPES = {"twitter_euset"}
 
 
 def process_embedding(src_type, embedding_type="gpt"):
@@ -574,7 +578,7 @@ def process_all(embedding_type=None, src_types=None):
     else:
         modes = [embedding_type]
     if src_types is None:
-        chosen_srcs = list(SRC_TOPICS.keys())
+        chosen_srcs = [s for s in SRC_TOPICS if s not in ROBUSTNESS_SRC_TYPES]
     elif isinstance(src_types, str):
         chosen_srcs = [s.strip() for s in src_types.split(",") if s.strip()]
     else:

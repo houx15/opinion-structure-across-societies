@@ -41,7 +41,9 @@ N_BOOT = 2000
 FIG3_STEMS: Tuple[str, ...] = (
     "anes", "anes_media", "wvs", "wvs_media",
     "evs", "evs_media", "evs_resample2", "evs_media_resample2", "en_evs", "en_evs_media", "eu_nen_evs",
+    "wvs_us",  # robustness only
     "twitter-us", "twitter-eu", "twitter-en", "twitter-eu_nen", "weibo",
+    "twitter-us_euset",  # robustness only
 )
 
 

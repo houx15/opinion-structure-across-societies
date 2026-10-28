@@ -30,6 +30,7 @@ import os
 import fire
 
 from common.paths import CORRELATION_DIR, SURVEY_DIR
+from common.topics import WVS_US_TOPICS
 
 us_survey_using_topics = [
     "Abortion",
@@ -78,6 +79,8 @@ restricted_topics = {
     "en_evs": eu_survey_using_topics,
     "en_evs_media": eu_survey_using_topics,
     "eu_nen_evs": eu_survey_using_topics,
+    # robustness only (robustness/wvs_us.py)
+    "wvs_us": WVS_US_TOPICS,
 }
 
 

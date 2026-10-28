@@ -32,6 +32,19 @@ EUTWITTER_TOPICS: List[str] = [
 ]
 WEIBO_TOPICS: List[int] = [7, 9, 11, 12, 10, 13, 15, 14, 0]
 
+# ROBUSTNESS ONLY (robustness/wvs_us.py; task robust_12_wvs_us): the U.S.
+# survey source measured with WVS wave 7 (USA, 2017) on items mirroring EVS.
+# Never used by the main analysis. Names follow EVS where the WVS item is the
+# same item (Abortion ... UnemplyAid); "WHO" (confidence in the WHO, for
+# vaccine mandates) and "Press" (confidence in the press, for social media)
+# are substitutes; "Environment" is the WVS environment-vs-growth item used
+# for China. Its online counterpart is U.S. Twitter/X on the European topic
+# set (sex work in place of gun control, which has no WVS item).
+WVS_US_TOPICS: List[str] = [
+    "Abortion", "LGBT", "DeathPenalty", "Prostitution", "Egalitarian",
+    "UnemplyAid", "WHO", "Press", "Environment",
+]
+
 ANALYSED_SOCIAL_TOPICS: Dict[str, List[str]] = {
     "twitter": list(dict.fromkeys(TWITTER_TOPICS + EUTWITTER_TOPICS)),   # 10 codes
     "weibo": [str(t) for t in WEIBO_TOPICS],

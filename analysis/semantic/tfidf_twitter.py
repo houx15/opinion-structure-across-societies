@@ -31,7 +31,15 @@ original_dir = cfg.TWITTER_DIR
 output_dir = cfg.TWITTER_WORD_COUNT_DIR
 YEARS = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023]
 
-MODE_SOURCE = {"us": "twitter", "eu": "eutwitter", "en": "entwitter", "eu_nen": "eu_nentwitter"}
+# ROBUSTNESS ONLY: "us_euset" = U.S.-located users on the European topic set
+# (sex-work legalization in place of gun control); online counterpart of the
+# WVS wave 7 U.S. survey source (robustness/wvs_us.py). Separate outputs.
+MODE_SOURCE = {"us": "twitter", "eu": "eutwitter", "en": "entwitter", "eu_nen": "eu_nentwitter",
+               "us_euset": "twitter_euset"}
+# Users and word-count folder of each mode: us_euset reads (and adds the
+# sex-work counts to) the U.S. word counts; the main "us" TF-IDF never reads
+# them because its topic list excludes "swe". Its tables go to tf_idf_twitter_euset.
+COUNT_MODE = {"us_euset": "us"}
 
 # Folder of each topic's tweets under TWITTER_DIR (+ "-opinion" after BERT prediction).
 folder_map = {
@@ -53,6 +61,8 @@ TFIDF_TOPICS = {
     "eu": ["abo", "clc", "gun", "sxo", "vac", "soc", "dpp", "minwage", "swe", "ubi"],
     "en": ["abo", "clc", "gun", "sxo", "vac", "soc", "dpp", "minwage", "swe", "ubi"],
     "eu_nen": ["abo", "clc", "sxo", "vac", "soc", "dpp", "minwage", "swe", "ubi"],
+    # as "eu": the U.S. topics plus sex work enter the IDF
+    "us_euset": ["abo", "clc", "gun", "sxo", "vac", "soc", "dpp", "minwage", "swe", "ubi"],
 }
 
 
@@ -65,7 +75,7 @@ def get_keep_ids(mode="en"):
     """Author ids located in the region (cleaning/twitter/location)."""
     if mode not in MODE_SOURCE:
         raise ValueError(f"Invalid mode: {mode}")
-    with open(os.path.join(cfg.LOCATION_DIR, f"{mode}_user_ids.json"), "r") as f:
+    with open(os.path.join(cfg.LOCATION_DIR, f"{COUNT_MODE.get(mode, mode)}_user_ids.json"), "r") as f:
         return set(json.load(f))
 
 
@@ -124,7 +134,7 @@ def year_noun_verb_extractor(topic, year, mode):
 
 
 def process(topic, year, mode):
-    mode_out_dir = os.path.join(output_dir, mode)
+    mode_out_dir = os.path.join(output_dir, COUNT_MODE.get(mode, mode))
     os.makedirs(mode_out_dir, exist_ok=True)
     output_file = os.path.join(mode_out_dir, f"noun-verb-{topic}-{year}.parquet")
     if os.path.exists(output_file):
@@ -144,7 +154,7 @@ def process_all_years(topic, mode):
 
 
 def merge_years(topic, mode):
-    mode_out_dir = os.path.join(output_dir, mode)
+    mode_out_dir = os.path.join(output_dir, COUNT_MODE.get(mode, mode))
     all_files = glob.glob(os.path.join(mode_out_dir, f"noun-verb-{topic}-20*.parquet"))
     all_dataframes = []
     for file in all_files:
@@ -162,7 +172,7 @@ def merge_years(topic, mode):
 
 
 def data_analysis(topic, mode):
-    mode_out_dir = os.path.join(output_dir, mode)
+    mode_out_dir = os.path.join(output_dir, COUNT_MODE.get(mode, mode))
     merged_data = pd.read_parquet(
         os.path.join(mode_out_dir, f"noun-verb-{topic}-merged.parquet"),
         engine="fastparquet",
@@ -194,7 +204,7 @@ def tf_idf(year, mode):
     """
     计算每个年份的TF-IDF值，并保存到文件中。
     """
-    mode_out_dir = os.path.join(output_dir, mode)
+    mode_out_dir = os.path.join(output_dir, COUNT_MODE.get(mode, mode))
     topic_dfs = []
     calc_ratio = 0.01
 

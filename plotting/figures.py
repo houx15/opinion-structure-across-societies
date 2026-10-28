@@ -53,6 +53,7 @@ from common.topics import (
     TWITTER_TOPICS,
     US_SURVEY_TOPICS,
     WEIBO_TOPICS,
+    WVS_US_TOPICS,
 )
 
 
@@ -75,12 +76,16 @@ RESTRICTED_TOPICS: Dict[str, Sequence[Union[str, int]]] = {
     "en_evs": EU_SURVEY_TOPICS,
     "en_evs_media": EU_SURVEY_TOPICS,
     "eu_nen_evs": EU_SURVEY_TOPICS,
+    # robustness only: U.S. survey from WVS wave 7 (robustness/wvs_us.py)
+    "wvs_us": WVS_US_TOPICS,
     # social media
     "twitter": TWITTER_TOPICS,
     "weibo": WEIBO_TOPICS,
     "eutwitter": EUTWITTER_TOPICS,
     "entwitter": EUTWITTER_TOPICS,
     "eu_nentwitter": EUTWITTER_TOPICS,
+    # robustness only: U.S. Twitter/X users on the European topic set
+    "twitter_euset": EUTWITTER_TOPICS,
 }
 
 
@@ -95,7 +100,7 @@ from common.paths import (
 )
 
 
-SOCIAL_SOURCES = {"twitter", "weibo", "eutwitter", "entwitter", "eu_nentwitter"}
+SOCIAL_SOURCES = {"twitter", "weibo", "eutwitter", "entwitter", "eu_nentwitter", "twitter_euset"}
 
 
 # For each source, the (LGBT, environment-like) topic pair anchoring the case
@@ -204,6 +209,17 @@ OFFLINE_ONLINE_TOPIC_MAP: Dict[str, Dict[Union[str, int], Union[str, int]]] = {
     },
 }
 
+# Survey sources whose topics map to Twitter/X codes differently from their
+# region's entry above. Robustness only: WVS wave 7 U.S. items (robustness/
+# wvs_us.py), paired online with U.S. users on the European topic set.
+OFFLINE_ONLINE_TOPIC_MAP_BY_SURVEY: Dict[str, Dict[str, str]] = {
+    "wvs_us": {
+        "Abortion": "abo", "LGBT": "sxo", "DeathPenalty": "dpp", "Prostitution": "swe",
+        "Egalitarian": "ubi", "UnemplyAid": "minwage", "WHO": "vac", "Press": "soc",
+        "Environment": "clc",
+    },
+}
+
 
 # Short, reader-friendly names for every topic id we plot. Used by the Fig 2
 # LOESS callouts so labels read "Abortion x Death Pen" instead of raw codes.
@@ -270,6 +286,7 @@ _SPECTRAL_STEM_OVERRIDE: Dict[str, str] = {
     "eutwitter": "twitter-eu",
     "entwitter": "twitter-en",
     "eu_nentwitter": "twitter-eu_nen",
+    "twitter_euset": "twitter-us_euset",  # robustness only
 }
 
 
@@ -1558,7 +1575,8 @@ class Plotter:
         side (US ANES column vs. EU EVS column). Pairs of such concepts are
         what the tutorial row chooses between.
         """
-        us_off_by_social = {v: k for k, v in OFFLINE_ONLINE_TOPIC_MAP["US"].items()}
+        us_map = OFFLINE_ONLINE_TOPIC_MAP_BY_SURVEY.get(self.us_survey, OFFLINE_ONLINE_TOPIC_MAP["US"])
+        us_off_by_social = {v: k for k, v in us_map.items()}
         eu_off_by_social = {v: k for k, v in OFFLINE_ONLINE_TOPIC_MAP["EU"].items()}
         shared = sorted(set(us_off_by_social) & set(eu_off_by_social))
         pairs: List[Dict[str, object]] = []
@@ -2892,6 +2910,23 @@ TASKS: List[Dict] = [
         "figures": [2, 3], "social_year": "2021",
     },
     {
+        # Same instrument offline: the U.S. survey source is WVS wave 7 (USA,
+        # 2017) on items mirroring EVS, and the U.S. platform source uses the
+        # European topic set (sex-work legalization in place of gun control,
+        # which WVS lacks). ROBUSTNESS ONLY - the main U.S. sources are ANES and
+        # U.S. Twitter/X with gun control (robustness/wvs_us.py).
+        "name": "robust_12_wvs_us",
+        "regions": [
+            RegionSpec("US", "wvs_us", "twitter_euset",
+                       survey_display="WVS (US)", social_display="Twitter (US, EU topics)"),
+            RegionSpec("CN", "wvs", "weibo", survey_display="WVS (CN)", social_display="Weibo (CN)"),
+            RegionSpec("EU", "evs_resample2", "eutwitter",
+                       survey_display="EVS (EU)", social_display="Twitter (EU)"),
+        ],
+        "embedding_type": "gpt",
+        "figures": [2, 3],
+    },
+    {
         # Survey topic similarity from the uncapped selected keywords (before
         # the anchor / fragment / top-5 rules of cap_survey_keywords).
         "name": "robust_11_survey_selected",
@@ -2960,6 +2995,15 @@ def run_task(
         name, figure_folder=figure_folder, date_prefix=date_prefix,
         n_bootstrap=n_bootstrap,
     ))
+    # Robustness sources computed on the clusters (e.g. twitter_euset) may not
+    # exist yet; skip the task with a message instead of failing a full run.
+    missing_corr = [
+        src for r in plotter.regions for src in (r.survey, r.social)
+        if not (CORRELATION_DIR / f"network_analysis_{src}.csv").exists()
+    ]
+    if missing_corr:
+        print(f"[figures] skipped {name}: no pairwise correlations for {missing_corr} in {CORRELATION_DIR}")
+        return {}
     # Variant spectra (results/corr) are computed on the clusters; skip the
     # task with a message instead of failing a full run before they exist.
     if plotter.spectral_matrix != "cov":

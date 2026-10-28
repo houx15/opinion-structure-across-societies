@@ -90,6 +90,7 @@ DISTANCE_SPACES = ("spectral", "raw", "bagged")
 
 from config import cfg
 from common.paths import CSR_DIR, SURVEY_DIR, dimension_results_dir, report_dir
+from common.topics import WVS_US_TOPICS
 
 # Per-year results (<stem>-<year>.csr-none.json, -loadings.json), the
 # <stem>-none-summary.json read by the figures, and run logs.
@@ -99,8 +100,13 @@ SURVEY_STEMS = [
     "anes", "anes_media", "wvs", "wvs_media",
     "evs", "evs_media", "evs_resample2", "evs_media_resample2",
     "en_evs", "en_evs_media", "eu_nen_evs",
+    "wvs_us",  # robustness only (robustness/wvs_us.py)
 ]
-TWITTER_MODES = ["us", "eu", "en", "eu_nen"]
+TWITTER_MODES = ["us", "eu", "en", "eu_nen", "us_euset"]
+# ROBUSTNESS ONLY: us_euset = U.S. users on the European topic set (sex work
+# in place of gun control), read from the U.S. opinion folder, written to
+# csr/twitter-us_euset (robustness/wvs_us.py).
+TWITTER_OPINION_MODE = {"us_euset": "us"}
 
 original_data_map = {stem: str(SURVEY_DIR / f"{stem}.dta") for stem in SURVEY_STEMS}
 # Cleaned social-media opinions (cleaning stage, on the clusters):
@@ -134,6 +140,7 @@ _DATASET_TOPICS: Dict[str, list] = {
     "en_evs": eu_survey_using_topics,
     "en_evs_media": eu_survey_using_topics,
     "eu_nen_evs": eu_survey_using_topics,
+    "wvs_us": WVS_US_TOPICS,
     "weibo": weibo_using_topics,
 }
 
@@ -142,6 +149,7 @@ _TWITTER_TOPICS_BY_MODE: Dict[str, list] = {
     "eu": eu_twitter_using_topics,
     "en": eu_twitter_using_topics,
     "eu_nen": eu_twitter_using_topics,
+    "us_euset": eu_twitter_using_topics,
 }
 
 
@@ -418,13 +426,14 @@ def convert_and_save_twitter_data(mode="us"):
             - year 列
             - average 列（所有 topic 的平均值）
     """
-    twitter_data_dir = Path(original_data_map["twitter"]) / mode
+    twitter_data_dir = Path(original_data_map["twitter"]) / TWITTER_OPINION_MODE.get(mode, mode)
     years = list(range(2016, 2024))
     mode_available_topic_map = {
         "us": twitter_using_topics,
         "eu": eu_twitter_using_topics,
         "en": eu_twitter_using_topics,
         "eu_nen": eu_twitter_using_topics,
+        "us_euset": eu_twitter_using_topics,
     }
     available_topics = mode_available_topic_map[mode]
     all_year_dfs = []
@@ -572,6 +581,8 @@ def transform_data(surveys=True, social=False) -> None:
 
     if social:
         for mode in TWITTER_MODES:
+            if mode in TWITTER_OPINION_MODE:  # robustness modes: transform_twitter --mode <mode>
+                continue
             convert_and_save_twitter_data(mode=mode)
         convert_and_save_weibo_data()
     print("All data transformed and saved.")
@@ -807,6 +818,7 @@ if __name__ == "__main__":
     fire.Fire(
         {
             "transform": transform_data,
+            "transform_twitter": convert_and_save_twitter_data,
             "calculate": calculate,
             "calculate_all": calculate_all,
         }
