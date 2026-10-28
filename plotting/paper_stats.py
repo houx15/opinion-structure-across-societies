@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
-from scipy.stats import skew
+from scipy.stats import skew, spearmanr
 
 from analysis.correlation import semantic_adjustment as sa
 from analysis.correlation.pattern_agreement import repairing_test
@@ -524,9 +524,11 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
                 if r is ref and label == "reweighted":
                     continue
                 fit = sa.weighted_ols(x, y, weights)
+                rho = spearmanr(x, y) if weights is None else None
                 rows_ols.append([
                     r.code, medium, label, f"{fit['intercept']:.3f}", f"{fit['slope']:+.3f}", f"{fit['se']:.3f}",
-                    f"{fit['p']:.3f}", f"{fit['r2']:.3f}", str(len(x)),
+                    f"{fit['p']:.3f}", f"{fit['r2']:.3f}",
+                    f"{rho.statistic:+.2f}" if rho else "", f"{rho.pvalue:.2f}" if rho else "", str(len(x)),
                 ])
     lines += _part(
         f"PART 11. Reweighting in detail (supplementary Figs 2s, OLS and LOESS versions)",
@@ -539,6 +541,8 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
             "|r| = intercept + slope * similarity (Figs 2s e-h, OLS version), statsmodels WLS: equal weights",
             "  (raw pairs) or the Part 9 weights (reweighted); slope SE and two-sided p from the t distribution",
             "  (WLS treats the weights as known); weighted R^2.",
+            "Spearman rho of |r| and similarity over each source's pairs (raw pairs only; scipy.stats.spearmanr,",
+            "  two-sided p) - the rank correlations quoted in the main text.",
             f"The LOESS version draws a local-linear fit (tricube kernel over the nearest {plotter.loess_frac:.0%} of",
             "  the pairs, kernel times the pair weights, no robustness iterations) in place of the lines;",
             "  descriptive only, no numbers reported.",
@@ -547,7 +551,8 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
         + _table(["Country", "Medium", "Mean", "SD", "Min", "Q25", "Median", "Q75", "Max",
                   "Reweighted mean", "Reweighted SD", "ESS"], rows_sim)
         + ["", "OLS |r| ~ similarity, raw and reweighted pairs:"]
-        + _table(["Country", "Medium", "Pairs used", "Intercept", "Slope", "SE", "p", "R^2", "N"], rows_ols),
+        + _table(["Country", "Medium", "Pairs used", "Intercept", "Slope", "SE", "p", "R^2", "Spearman rho", "p",
+                  "N"], rows_ols),
     )
 
     # Part 12 - topic-specific agreement between the U.S. and European sources

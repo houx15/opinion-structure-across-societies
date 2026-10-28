@@ -2,8 +2,16 @@
 
 ## What is in the repository
 
-The repository ships the precomputed results needed to reproduce every figure
-(`python -m plotting.figures main`, `python -m robustness.run_robustness`):
+Only this README and `reference/` (topic definitions, the survey codebook,
+model-performance tables) are tracked. Everything else in this folder is
+git-ignored and stays on the machines that produce it; none of it is part of
+the repository or its history. `scripts/import_legacy_data.py` fills the folder
+from the original working directory. File formats are the ones the original
+pipeline wrote; nothing was converted.
+
+To redraw the figures (`python -m plotting.figures main`,
+`python -m robustness.run_robustness`) the following precomputed inputs must be
+present here; they are available from the authors on request:
 
 - `correlation/`: pairwise topic correlations of every source, and
   `case_study_lgbt_env.json`, the aggregate stand-in for the Fig 2 case-study
@@ -15,10 +23,11 @@ The repository ships the precomputed results needed to reproduce every figure
 - `tf_idf/`: social-media TF-IDF tables (word counts per topic and year) and the
   survey keyword tables;
 - `dimension/results/`: effective dimensionality (PR, eRank), bootstrap
-  intervals and eigenvectors for every source;
-- `reference/`: topic definitions, the survey codebook, and model-performance tables.
+  intervals and eigenvectors for every source.
 
-Not in the repository:
+Needed only to recompute correlations, dimensions or similarities from scratch
+(and for the survey sample sizes in the statistics report; tests that read them
+are skipped when absent):
 
 - individual-level data (`opinions/`, `dimension/csr/`) and the recoded survey
   files (`survey/`). Social-media user-level opinions are available from the
@@ -29,18 +38,16 @@ Not in the repository:
 - the word-embedding cache `embedding/cached_embedding.pkl` (89 MB), which is
   rebuilt by `analysis.semantic.semantic_similarity` from the OpenAI API.
 
-Without these, figures are drawn from the shipped results; the only steps that
-need them are recomputing correlations, dimensions or similarities from scratch,
-and the survey sample sizes in the statistics report. Tests that read them are
-skipped. `scripts/import_legacy_data.py` fills this folder from the original
-working directory. File formats are the ones the original pipeline wrote;
-nothing was converted.
-
 `<src>` names: surveys `anes`, `anes_media`, `wvs`, `wvs_media`, `evs`,
 `evs_media`, `evs_resample2`, `evs_media_resample2`, `en_evs`, `en_evs_media`,
 `eu_nen_evs`; social media `twitter` (US), `eutwitter` (Europe), `entwitter`
 (Great Britain), `eu_nentwitter` (Europe without GB), `weibo`.
 Main analysis: `anes`, `wvs`, `evs_resample2`, `twitter`, `weibo`, `eutwitter`.
+Robustness only (task `robust_12_wvs_us`, same survey instrument offline):
+`wvs_us` (WVS wave 7 USA, built by `robustness/wvs_us.py`) and the eight-topic
+sources `wvs_us8`, `wvs_8`, `evs_resample2_8`, `twitter_8`, `weibo_8`,
+`eutwitter_8`, which read their parent's correlation and similarity files and
+have their own spectral results (`robustness/topics8.py`).
 
 | folder | files | produced by | precomputed? |
 |---|---|---|---|
