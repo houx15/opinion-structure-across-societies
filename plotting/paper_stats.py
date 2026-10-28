@@ -24,6 +24,7 @@ import numpy as np
 from scipy.stats import skew
 
 from analysis.correlation import semantic_adjustment as sa
+from analysis.correlation.pattern_agreement import repairing_test
 from common.paths import display
 from plotting import figures as v4
 
@@ -546,6 +547,50 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
         + ["", "OLS |r| ~ similarity, raw and reweighted pairs:"]
         + _table(["Country", "Medium", "Pairs used", "Intercept", "Slope", "SE", "p", "R^2", "N"], rows_ols),
     )
+
+    # Part 12 - topic-specific agreement between the U.S. and European sources
+    if {"US", "EU"} <= codes:
+        concepts = plotter._us_eu_concept_pairs()
+        shared = sorted({c for e in concepts for c in e["social_codes"]})
+        us_off = {e["social_codes"][0]: e["us_offline"][0] for e in concepts}
+        us_off.update({e["social_codes"][1]: e["us_offline"][1] for e in concepts})
+        eu_off = {e["social_codes"][0]: e["eu_offline"][0] for e in concepts}
+        eu_off.update({e["social_codes"][1]: e["eu_offline"][1] for e in concepts})
+
+        def pair_values(src, rename=None):
+            df = v4.load_pairwise_correlation(src, year=plotter.correlation_year(src))
+            back = {v: k for k, v in (rename or {}).items()}
+            return {frozenset((back.get(str(a), str(a)), back.get(str(b), str(b)))): float(r)
+                    for a, b, r in zip(df["tid1"], df["tid2"], df["pearson"])}
+
+        rows = []
+        for medium, us_src, eu_src, us_map, eu_map in (
+            ("Survey", plotter.us_survey, plotter.eu_survey, us_off, eu_off),
+            ("Social media", plotter.twitter, plotter.eutwitter, None, None),
+        ):
+            res = repairing_test(pair_values(us_src, us_map), pair_values(eu_src, eu_map), shared,
+                                 n_perm=5000, seed=SEED)
+            rows.append([
+                medium, f"{us_src} / {eu_src}", str(res["n_pairs"]), f"{res['diff']:.3f}",
+                f"{res['diff_random']:.3f}", f"{res['p_diff']:.3f}", f"{res['corr']:.2f}",
+                f"{res['corr_random']:.2f}", f"{res['p_corr']:.3f}",
+            ])
+        lines += _part(
+            "PART 12. Topic-specific agreement of U.S. and European pair correlations (random re-pairing)",
+            ["Same 36-pair |r| values as Part 2; the 8 topic concepts shared by the U.S. and European sources",
+             "(figures.OFFLINE_ONLINE_TOPIC_MAP: Twitter/X codes; ANES and EVS items mapped to them) -> 28 pairs."],
+            [
+                "For each medium, the 28 concept pairs' |r| in the U.S. source vs the European source:",
+                "  mean |difference| and the Pearson correlation of the two patterns (matched).",
+                "Random re-pairing: relabel the European concepts by a random permutation of the 8 concepts and",
+                f"  recompute both quantities; 5,000 permutations, numpy seed {SEED}. p = share of permutations at least",
+                "  as close as the matched pairing (difference <= matched; correlation >= matched).",
+                "If the sources were alike only in level (all pairs compressed to a common value), random re-pairing",
+                "  would agree as well as the matched pairing.",
+            ],
+            _table(["Medium", "Sources", "Pairs", "Mean |diff|", "Random mean |diff|", "p",
+                    "Pattern r", "Random pattern r", "p"], rows),
+        )
 
     # Appendix - every pair
     lines += ["", RULE, "APPENDIX. |r| of every topic pair (for re-verification)", RULE]
