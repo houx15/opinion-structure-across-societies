@@ -36,12 +36,12 @@ def test_eight_topic_sources_share_concepts_and_leave_main_untouched():
     assert all(len(v) == 8 for v in TOPICS_8.values())
     # U.S. survey and both Twitter/X sources cover the same eight concepts
     us_codes = set(OFFLINE_ONLINE_TOPIC_MAP_BY_SURVEY["wvs_us8"].values())
-    assert us_codes == set(TOPICS_8["twitter_8"]) == set(TOPICS_8["eutwitter_8"])
+    assert us_codes == set(TOPICS_8["twitter_8"]) == set(TOPICS_8["entwitter_8"])
     # China drops attitudes toward the U.S. in both media
     assert "Foreign" not in TOPICS_8["wvs_8"] and 0 not in TOPICS_8["weibo_8"]
     assert OFFLINE_ONLINE_TOPIC_MAP["CN"]["Foreign"] == 0
     # the main sources keep their nine topics
-    assert "gun" in RESTRICTED_TOPICS["twitter"] and "swe" in RESTRICTED_TOPICS["eutwitter"]
+    assert "gun" in RESTRICTED_TOPICS["twitter"] and "swe" in RESTRICTED_TOPICS["entwitter"]
     assert len(RESTRICTED_TOPICS["wvs"]) == len(RESTRICTED_TOPICS["anes"]) == 9
 
 
@@ -49,7 +49,7 @@ def test_eight_topic_spectra_drop_the_right_column():
     from robustness import topics8
 
     assert topics8.keep_columns("twitter-us_8") == [0, 2, 3, 4, 5, 6, 7, 8]   # gun is column 1
-    assert topics8.keep_columns("twitter-eu_8") == [0, 2, 3, 4, 5, 6, 7, 8]   # swe is column 1
+    assert topics8.keep_columns("twitter-en_8") == [0, 2, 3, 4, 5, 6, 7, 8]   # swe is column 1
     assert topics8.keep_columns("weibo_8") == list(range(8))                  # topic 0 is last
     assert topics8.keep_columns("wvs_8") == list(range(8))                    # Foreign is last
 

@@ -36,11 +36,9 @@ SEED = 0
 SAMPLE_SIZE_SOURCES: Dict[str, str] = {
     "ANES (US survey)": "anes",
     "WVS (CN survey)": "wvs",
-    "EVS (EU survey, resampled)": "evs_resample2",
-    "EVS (EU survey, no replacement)": "evs",
-    "EVS (UK / England survey)": "en_evs",
+    "EVS (GB survey)": "en_evs",
     "Twitter (US)": "twitter",
-    "Twitter (EU)": "eutwitter",
+    "Twitter (GB)": "entwitter",
     "Weibo (CN)": "weibo",
 }
 
@@ -164,25 +162,25 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
 
     # Part 1 - example pair (Fig 2a, b)
     codes = {r.code for r in regions}
-    pair = plotter._select_tutorial_pair() if {"US", "EU"} <= codes else None
+    pair = plotter._select_tutorial_pair() if {"US", "GB"} <= codes else None
     if pair is not None:
         usa, usb = pair["us_offline"]
-        eua, eub = pair["eu_offline"]
+        gba, gbb = pair["gb_offline"]
         sca, scb = pair["social_codes"]
         rows = [
             ["US", "Survey", plotter.us_survey, f"{usa} x {usb}", f"{pair['us_off']:+.3f}", f"{abs(pair['us_off']):.3f}"],
-            ["EU", "Survey", plotter.eu_survey, f"{eua} x {eub}", f"{pair['eu_off']:+.3f}", f"{abs(pair['eu_off']):.3f}"],
+            ["GB", "Survey", plotter.gb_survey, f"{gba} x {gbb}", f"{pair['gb_off']:+.3f}", f"{abs(pair['gb_off']):.3f}"],
             ["US", "Social media", plotter.twitter, f"{sca} x {scb}", f"{pair['us_on']:+.3f}", f"{abs(pair['us_on']):.3f}"],
-            ["EU", "Social media", plotter.eutwitter, f"{sca} x {scb}", f"{pair['eu_on']:+.3f}", f"{abs(pair['eu_on']):.3f}"],
+            ["GB", "Social media", plotter.gbtwitter, f"{sca} x {scb}", f"{pair['gb_on']:+.3f}", f"{abs(pair['gb_on']):.3f}"],
         ]
         lines += _part(
             "PART 1. Example topic pair (Fig 2a, b)",
-            [csv(plotter.us_survey), csv(plotter.eu_survey), csv(plotter.twitter), csv(plotter.eutwitter),
+            [csv(plotter.us_survey), csv(plotter.gb_survey), csv(plotter.twitter), csv(plotter.gbtwitter),
              'year == "average"; topic matching via figures.OFFLINE_ONLINE_TOPIC_MAP.'],
             [
-                "Candidates: every pair of concepts present in both the US and EU topic sets.",
+                "Candidates: every pair of concepts present in both the US and GB topic sets.",
                 "For each, look up signed r in the 4 sources; score = d_off / (d_on + 0.05), where",
-                "d_off = | |r_US,survey| - |r_EU,survey| |, d_on = same for social media.",
+                "d_off = | |r_US,survey| - |r_GB,survey| |, d_on = same for social media.",
                 "The highest-scoring pair is the one drawn in Fig 2a, b (Plotter._select_tutorial_pair).",
                 "Figure legends show |r| to 3 decimals.",
             ],
@@ -555,14 +553,14 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
                   "N"], rows_ols),
     )
 
-    # Part 12 - topic-specific agreement between the U.S. and European sources
-    if {"US", "EU"} <= codes:
-        concepts = plotter._us_eu_concept_pairs()
+    # Part 12 - topic-specific agreement between the U.S. and British sources
+    if {"US", "GB"} <= codes:
+        concepts = plotter._us_gb_concept_pairs()
         shared = sorted({c for e in concepts for c in e["social_codes"]})
         us_off = {e["social_codes"][0]: e["us_offline"][0] for e in concepts}
         us_off.update({e["social_codes"][1]: e["us_offline"][1] for e in concepts})
-        eu_off = {e["social_codes"][0]: e["eu_offline"][0] for e in concepts}
-        eu_off.update({e["social_codes"][1]: e["eu_offline"][1] for e in concepts})
+        gb_off = {e["social_codes"][0]: e["gb_offline"][0] for e in concepts}
+        gb_off.update({e["social_codes"][1]: e["gb_offline"][1] for e in concepts})
 
         def pair_values(src, rename=None):
             df = v4.load_pairwise_correlation(src, year=plotter.correlation_year(src))
@@ -571,26 +569,26 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
                     for a, b, r in zip(df["tid1"], df["tid2"], df["pearson"])}
 
         rows = []
-        for medium, us_src, eu_src, us_map, eu_map in (
-            ("Survey", plotter.us_survey, plotter.eu_survey, us_off, eu_off),
-            ("Social media", plotter.twitter, plotter.eutwitter, None, None),
+        for medium, us_src, gb_src, us_map, gb_map in (
+            ("Survey", plotter.us_survey, plotter.gb_survey, us_off, gb_off),
+            ("Social media", plotter.twitter, plotter.gbtwitter, None, None),
         ):
-            res = repairing_test(pair_values(us_src, us_map), pair_values(eu_src, eu_map), shared,
+            res = repairing_test(pair_values(us_src, us_map), pair_values(gb_src, gb_map), shared,
                                  n_perm=5000, seed=SEED)
             rows.append([
-                medium, f"{us_src} / {eu_src}", str(res["n_pairs"]), f"{res['diff']:.3f}",
+                medium, f"{us_src} / {gb_src}", str(res["n_pairs"]), f"{res['diff']:.3f}",
                 f"{res['diff_random']:.3f}", f"{res['p_diff']:.3f}", f"{res['corr']:.2f}",
                 f"{res['corr_random']:.2f}", f"{res['p_corr']:.3f}",
             ])
         lines += _part(
-            "PART 12. Topic-specific agreement of U.S. and European pair correlations (random re-pairing)",
-            [f"Same {n_pairs}-pair |r| values as Part 2; the {len(shared)} topic concepts shared by the U.S. and European",
+            "PART 12. Topic-specific agreement of U.S. and British pair correlations (random re-pairing)",
+            [f"Same {n_pairs}-pair |r| values as Part 2; the {len(shared)} topic concepts shared by the U.S. and British",
              "sources (figures.OFFLINE_ONLINE_TOPIC_MAP: Twitter/X codes; survey items mapped to them)",
              f"-> {len(shared) * (len(shared) - 1) // 2} pairs."],
             [
-                f"For each medium, the {len(shared) * (len(shared) - 1) // 2} concept pairs' |r| in the U.S. source vs the European source:",
+                f"For each medium, the {len(shared) * (len(shared) - 1) // 2} concept pairs' |r| in the U.S. source vs the British source:",
                 "  mean |difference| and the Pearson correlation of the two patterns (matched).",
-                f"Random re-pairing: relabel the European concepts by a random permutation of the {len(shared)} concepts and",
+                f"Random re-pairing: relabel the British concepts by a random permutation of the {len(shared)} concepts and",
                 f"  recompute both quantities; 5,000 permutations, numpy seed {SEED}. p = share of permutations at least",
                 "  as close as the matched pairing (difference <= matched; correlation >= matched).",
                 "If the sources were alike only in level (all pairs compressed to a common value), random re-pairing",

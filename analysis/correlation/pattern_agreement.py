@@ -1,6 +1,6 @@
 """Is the agreement between two societies' topic-pair correlations topic-specific?
 
-U.S. and European sources share eight topic concepts (stats Part 12, SI).
+U.S. and British sources share eight topic concepts (stats Part 12, SI).
 For each medium we compare the two societies' |r| over the 28 concept pairs:
 mean absolute difference and the correlation of the two patterns. A random
 re-pairing relabels one society's concepts by a random permutation, which

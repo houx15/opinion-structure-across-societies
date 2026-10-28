@@ -1,12 +1,12 @@
 # Opinion structure across societies
 
 Code for comparing how opinions on nine policy topics hang together in
-national surveys and on social media in the United States, Europe and China:
+national surveys and on social media in the United States, Great Britain and China:
 
 | region | survey | social media |
 |---|---|---|
 | US | ANES | Twitter, users located in the US |
-| Europe | EVS (resampled with replacement; `evs` = without) | Twitter, users located in Europe |
+| GB | EVS, respondents in Great Britain (`en_evs`) | Twitter, users located in Great Britain (`entwitter`) |
 | China | WVS | Weibo |
 
 For each source we measure (1) the pairwise correlation of opinions across
@@ -95,8 +95,9 @@ python scripts/import_legacy_data.py /path/to/opinion_correlation [--csr_root /p
 3. **Plotting** (`plotting/`): `figures`, `paper_stats` (plain-text numbers
    for the paper, written with every figure), `graphical_abstract`.
 4. **Robustness** (`robustness/`): `run_robustness` (survey media users only,
-   EVS without replacement, Great Britain only, LOWESS span, word2vec,
-   GB vs. rest of Europe, curated / uncapped selected / full-question survey keywords),
+   word2vec, curated / uncapped selected / full-question survey keywords,
+   correlation-matrix spectra, a single social-media year, WVS wave 7 for the
+   U.S. survey on eight topics), `topic_subsets`, `random_topicsets`,
    `run_word2vec.sh`, `embedding_subspace_analysis`, `centroid_rank_check`,
    `missingness_sensitivity` (simulation: PR / eRank under varying sample
    size, missingness and true dimensionality).
@@ -114,7 +115,7 @@ paper, with its source files and calculation), `outputs/reports/<YYYYMMDD>_<anal
 * Survey microdata: from ANES, EVS and WVS under their terms of use.
 * Posts: raw tweets and Weibo posts (people's own words) are not shared.
 * Available from the authors on request: the regional user id lists (Twitter
-  users located in the US / Europe / Great Britain) and the user x topic
+  users located in the US / Great Britain) and the user x topic
   opinion matrices (cleaned opinions, csr matrices).
 * In this repository: `data/reference/` (topic definitions, opinion scales,
   keywords, survey codebook) and the code for every step.

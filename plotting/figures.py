@@ -48,8 +48,8 @@ from analysis.correlation.semantic_adjustment import (
 )
 from common.topics import (
     CN_SURVEY_TOPICS,
-    EU_SURVEY_TOPICS,
-    EUTWITTER_TOPICS,
+    GB_SURVEY_TOPICS,
+    GBTWITTER_TOPICS,
     TWITTER_TOPICS,
     US_SURVEY_TOPICS,
     WEIBO_TOPICS,
@@ -61,7 +61,7 @@ from common.topics import (
 # -- Topic sets (mirrors plot_prod_v3) ---------------------------------------
 
 # The nine analysed topics per source are defined in common/topics.py:
-# US/CN/EU_SURVEY_TOPICS, TWITTER_TOPICS, EUTWITTER_TOPICS, WEIBO_TOPICS.
+# US/CN/GB_SURVEY_TOPICS, TWITTER_TOPICS, GBTWITTER_TOPICS, WEIBO_TOPICS.
 
 
 RESTRICTED_TOPICS: Dict[str, Sequence[Union[str, int]]] = {
@@ -70,21 +70,17 @@ RESTRICTED_TOPICS: Dict[str, Sequence[Union[str, int]]] = {
     "anes_media": US_SURVEY_TOPICS,
     "wvs": CN_SURVEY_TOPICS,
     "wvs_media": CN_SURVEY_TOPICS,
-    "evs": EU_SURVEY_TOPICS,
-    "evs_media": EU_SURVEY_TOPICS,
-    "evs_resample2": EU_SURVEY_TOPICS,
-    "evs_media_resample2": EU_SURVEY_TOPICS,
-    "en_evs": EU_SURVEY_TOPICS,
-    "en_evs_media": EU_SURVEY_TOPICS,
-    "eu_nen_evs": EU_SURVEY_TOPICS,
+    # Great Britain: EVS respondents in GB (en_evs*.dta hold the full EVS
+    # file; every stage keeps country == "Great Britain") and Twitter/X
+    # users located in GB.
+    "en_evs": GB_SURVEY_TOPICS,
+    "en_evs_media": GB_SURVEY_TOPICS,
     # robustness only: U.S. survey from WVS wave 7 (robustness/wvs_us.py)
     "wvs_us": WVS_US_TOPICS,
     # social media
     "twitter": TWITTER_TOPICS,
     "weibo": WEIBO_TOPICS,
-    "eutwitter": EUTWITTER_TOPICS,
-    "entwitter": EUTWITTER_TOPICS,
-    "eu_nentwitter": EUTWITTER_TOPICS,
+    "entwitter": GBTWITTER_TOPICS,
     # robustness only (task robust_12_wvs_us): every source on eight topics
     **TOPICS_8,
 }
@@ -93,8 +89,8 @@ RESTRICTED_TOPICS: Dict[str, Sequence[Union[str, int]]] = {
 # the parent's pairwise-correlation and similarity files (restricted to their
 # own topics) and have their own spectral results (robustness/topics8.py).
 ROBUSTNESS_PARENT: Dict[str, str] = {
-    "wvs_us8": "wvs_us", "wvs_8": "wvs", "evs_resample2_8": "evs_resample2",
-    "twitter_8": "twitter", "weibo_8": "weibo", "eutwitter_8": "eutwitter",
+    "wvs_us8": "wvs_us", "wvs_8": "wvs", "en_evs_8": "en_evs",
+    "twitter_8": "twitter", "weibo_8": "weibo", "entwitter_8": "entwitter",
 }
 
 
@@ -114,8 +110,7 @@ from common.paths import (
 )
 
 
-SOCIAL_SOURCES = {"twitter", "weibo", "eutwitter", "entwitter", "eu_nentwitter",
-                  "twitter_8", "weibo_8", "eutwitter_8"}
+SOCIAL_SOURCES = {"twitter", "weibo", "entwitter", "twitter_8", "weibo_8", "entwitter_8"}
 
 
 # For each source, the (LGBT, environment-like) topic pair anchoring the case
@@ -127,18 +122,11 @@ CASE_STUDY_TOPICS: Dict[str, Tuple[str, str]] = {
     "anes_media": ("LGBT", "Climate"),
     "wvs": ("LGBT", "Environment"),
     "wvs_media": ("LGBT", "Environment"),
-    "evs": ("LGBT", "Environment"),
-    "evs_media": ("LGBT", "Environment"),
-    "evs_resample2": ("LGBT", "Environment"),
-    "evs_media_resample2": ("LGBT", "Environment"),
     "en_evs": ("LGBT", "Environment"),
     "en_evs_media": ("LGBT", "Environment"),
-    "eu_nen_evs": ("LGBT", "Environment"),
     "twitter": ("LGBT", "Environment"),
     "weibo": ("LGBT", "Environment"),
-    "eutwitter": ("LGBT", "Environment"),
     "entwitter": ("LGBT", "Environment"),
-    "eu_nentwitter": ("LGBT", "Environment"),
 }
 
 # Topic family ordering per country (cultural-moral -> economic-welfare ->
@@ -155,21 +143,15 @@ _TOPIC_FAMILY_ORDER: Dict[str, List[str]] = {
         "Econ", "Work",                                           # economic-welfare
         "Corrup", "Environment", "Foreign",                       # governance-regulatory
     ],
-    "evs_resample2": [
+    "en_evs": [
         "LGBT", "Abortion", "DeathPenalty", "Prostitution",       # cultural-moral
         "Egalitarian", "HealthCare", "UnemplyAid",                # economic-welfare
         "Environment", "SocialMedia",                             # governance-regulatory
     ],
 }
-# All EU-survey variants share the topic ordering of evs_resample2.
-_TOPIC_FAMILY_ORDER["en_evs"] = _TOPIC_FAMILY_ORDER["evs_resample2"]
-_TOPIC_FAMILY_ORDER["evs"] = _TOPIC_FAMILY_ORDER["evs_resample2"]
 _TOPIC_FAMILY_ORDER["anes_media"] = _TOPIC_FAMILY_ORDER["anes"]
 _TOPIC_FAMILY_ORDER["wvs_media"] = _TOPIC_FAMILY_ORDER["wvs"]
-_TOPIC_FAMILY_ORDER["evs_media"] = _TOPIC_FAMILY_ORDER["evs_resample2"]
-_TOPIC_FAMILY_ORDER["evs_media_resample2"] = _TOPIC_FAMILY_ORDER["evs_resample2"]
 _TOPIC_FAMILY_ORDER["en_evs_media"] = _TOPIC_FAMILY_ORDER["en_evs"]
-_TOPIC_FAMILY_ORDER["eu_nen_evs"] = _TOPIC_FAMILY_ORDER["evs_resample2"]
 
 
 def topic_family_order(src: str) -> List[str]:
@@ -181,7 +163,7 @@ def topic_family_order(src: str) -> List[str]:
 # researcher. Each entry maps an offline (survey) topic id to its online
 # (social-media) counterpart. The mapping is positional: each row of the
 # country's 9 topics is paired with the same row of the social-media
-# platform's 9 topics. Not every pairing is a clean conceptual match — EU is
+# platform's 9 topics. Not every pairing is a clean conceptual match — GB is
 # the loosest, where some EVS topics (Prostitution, HealthCare, UnemplyAid,
 # Egalitarian) don't have an exact Twitter equivalent and are mapped to the
 # closest Twitter slot. Keep this in mind before treating offline and online
@@ -209,7 +191,7 @@ OFFLINE_ONLINE_TOPIC_MAP: Dict[str, Dict[Union[str, int], Union[str, int]]] = {
         "Work": 14,
         "Foreign": 0,
     },
-    "EU": {
+    "GB": {
         # Conceptual bridges (HealthCare ↔ vac, UnemplyAid ↔ minwage,
         # Egalitarian ↔ ubi) are loose mappings, not exact equivalences.
         "Abortion": "abo",
@@ -247,10 +229,10 @@ _TOPIC_LABEL: Dict[Union[str, int], str] = {
     "Corrup": "Corrupt", "GenderEqual": "Gender Eq", "Marriage": "Marriage",
     "Childbearing": "Child", "Environment": "Env", "Econ": "Economy",
     "Work": "Work", "Foreign": "Foreign",
-    # EU (EVS) — overlap with the survey block above.
+    # GB (EVS) — overlap with the survey block above.
     "SocialMedia": "Social Med", "Egalitarian": "Egal",
     "Prostitution": "Prostitution", "HealthCare": "Health", "UnemplyAid": "Unempl",
-    # Twitter codes (US set + eu-only "swe")
+    # Twitter codes (US set + GB-only "swe")
     "abo": "Abortion", "gun": "Gun", "clc": "Climate", "sxo": "LGBT",
     "vac": "Vaccine", "dpp": "Death Pen", "soc": "Social Med",
     "minwage": "Min Wage", "ubi": "UBI",
@@ -279,17 +261,10 @@ _CASE_STUDY_TIDS: Dict[str, frozenset] = {
     "anes_media": frozenset({"LGBT", "Climate"}),
     "wvs": frozenset({"LGBT", "Environment"}),
     "wvs_media": frozenset({"LGBT", "Environment"}),
-    "evs": frozenset({"LGBT", "Environment"}),
-    "evs_media": frozenset({"LGBT", "Environment"}),
-    "evs_resample2": frozenset({"LGBT", "Environment"}),
-    "evs_media_resample2": frozenset({"LGBT", "Environment"}),
     "en_evs": frozenset({"LGBT", "Environment"}),
     "en_evs_media": frozenset({"LGBT", "Environment"}),
-    "eu_nen_evs": frozenset({"LGBT", "Environment"}),
     "twitter": frozenset({"sxo", "clc"}),
-    "eutwitter": frozenset({"sxo", "clc"}),
     "entwitter": frozenset({"sxo", "clc"}),
-    "eu_nentwitter": frozenset({"sxo", "clc"}),
     "weibo": frozenset({10, 13}),
 }
 
@@ -298,11 +273,9 @@ _CASE_STUDY_TIDS: Dict[str, frozenset] = {
 # Surveys use their own name; twitter platforms split by region.
 _SPECTRAL_STEM_OVERRIDE: Dict[str, str] = {
     "twitter": "twitter-us",
-    "eutwitter": "twitter-eu",
     "entwitter": "twitter-en",
-    "eu_nentwitter": "twitter-eu_nen",
     "twitter_8": "twitter-us_8",  # robustness only
-    "eutwitter_8": "twitter-eu_8",  # robustness only
+    "entwitter_8": "twitter-en_8",  # robustness only
 }
 
 
@@ -793,20 +766,16 @@ def bootstrap_lowess_ci(
 # Colors and styles mirror plot_prod_v3.
 _WEIBO_COLOR = "#ff7333"        # red — China
 _TWITTER_COLOR = "#207de6"      # deeper blue — United States (text readability)
-_EUTWITTER_COLOR = "#54457F"    # purple — Europe (full / continental)
-_ENTWITTER_COLOR = "#2A9D8F"    # teal — English-speaking Europe (when split from EU_NEN)
+_GBTWITTER_COLOR = "#54457F"    # purple — Great Britain
 _SURVEY_LINESTYLE = "solid"
 _MEDIA_LINESTYLE = "dashed"
 
 
-# Defaults for the country-color lookup. The 4-region task adds EN as teal
-# alongside the existing US / CN / EU palette.
+# Defaults for the country-color lookup.
 _DEFAULT_COUNTRY_COLOR: Dict[str, str] = {
     "US": _TWITTER_COLOR,
     "CN": _WEIBO_COLOR,
-    "EU": _EUTWITTER_COLOR,
-    "EN": _ENTWITTER_COLOR,
-    "EU_NEN": _EUTWITTER_COLOR,
+    "GB": _GBTWITTER_COLOR,
 }
 
 # Visual amplification for the Fig 1 case-study ellipses. Each standardized
@@ -823,9 +792,9 @@ class RegionSpec:
 
     Each spec carries the offline (survey) and online (social media) sources
     plus a stable country code used for color lookup and axis ticks. The 3
-    standard regions (US / CN / EU) are built automatically by Plotter when no
-    explicit ``regions`` list is supplied; the 4-region eu_nen robustness task
-    passes its own list.
+    standard regions (US / CN / GB) are built automatically by Plotter when no
+    explicit ``regions`` list is supplied; robustness tasks may pass their
+    own list.
     """
 
     code: str
@@ -1236,10 +1205,10 @@ class Plotter:
         self,
         us_survey: str = "anes",
         cn_survey: str = "wvs",
-        eu_survey: str = "evs_resample2",
+        gb_survey: str = "en_evs",
         twitter_src: str = "twitter",
         weibo_src: str = "weibo",
-        eutwitter_src: str = "eutwitter",
+        gbtwitter_src: str = "entwitter",
         embedding_type: str = "gpt",
         figure_folder: Union[str, Path] = FIGURE_DIR,
         date_prefix: Optional[str] = None,
@@ -1273,7 +1242,6 @@ class Plotter:
         self.date_prefix = date_prefix or datetime.now().strftime("%Y%m%d")
 
         if regions is None:
-            eu_is_english_survey = "en" in eu_survey
             regions = [
                 RegionSpec(
                     code="US", survey=us_survey, social=twitter_src,
@@ -1284,14 +1252,8 @@ class Plotter:
                     survey_display="WVS (CN)", social_display="Weibo (CN)",
                 ),
                 RegionSpec(
-                    code="EU", survey=eu_survey, social=eutwitter_src,
-                    survey_display=(
-                        "EVS (EN)" if eu_is_english_survey else "EVS (EU)"
-                    ),
-                    social_display=(
-                        "Twitter (EN)" if eutwitter_src != "eutwitter"
-                        else "Twitter (EU)"
-                    ),
+                    code="GB", survey=gb_survey, social=gbtwitter_src,
+                    survey_display="EVS (GB)", social_display="Twitter (GB)",
                 ),
             ]
         self.regions: List[RegionSpec] = list(regions)
@@ -1311,15 +1273,15 @@ class Plotter:
             self.source_display[r.social] = r.social_display or r.social
 
         # Back-compat single-source attributes (look up by code). Custom
-        # region lists without a US/CN/EU slot leave the matching attribute as
+        # region lists without a US/CN/GB slot leave the matching attribute as
         # whatever the constructor kwarg supplied.
         by_code = {r.code: r for r in self.regions}
         self.us_survey = by_code["US"].survey if "US" in by_code else us_survey
         self.cn_survey = by_code["CN"].survey if "CN" in by_code else cn_survey
-        self.eu_survey = by_code["EU"].survey if "EU" in by_code else eu_survey
+        self.gb_survey = by_code["GB"].survey if "GB" in by_code else gb_survey
         self.twitter = by_code["US"].social if "US" in by_code else twitter_src
         self.weibo = by_code["CN"].social if "CN" in by_code else weibo_src
-        self.eutwitter = by_code["EU"].social if "EU" in by_code else eutwitter_src
+        self.gbtwitter = by_code["GB"].social if "GB" in by_code else gbtwitter_src
 
     # -- output paths --------------------------------------------------------
 
@@ -1584,32 +1546,32 @@ class Plotter:
 
     # -- Tutorial pair selection (Fig 2 row 1) -------------------------------
 
-    def _us_eu_concept_pairs(self) -> List[Dict[str, object]]:
-        """All US/EU topic pairs that share a common Twitter social code.
+    def _us_gb_concept_pairs(self) -> List[Dict[str, object]]:
+        """All US/GB topic pairs that share a common Twitter social code.
 
         Each entry maps one social code to the offline topic name on each
-        side (US ANES column vs. EU EVS column). Pairs of such concepts are
+        side (US ANES column vs. GB EVS column). Pairs of such concepts are
         what the tutorial row chooses between.
         """
         us_map = OFFLINE_ONLINE_TOPIC_MAP_BY_SURVEY.get(self.us_survey, OFFLINE_ONLINE_TOPIC_MAP["US"])
         us_off_by_social = {v: k for k, v in us_map.items()}
-        eu_off_by_social = {v: k for k, v in OFFLINE_ONLINE_TOPIC_MAP["EU"].items()}
-        shared = sorted(set(us_off_by_social) & set(eu_off_by_social))
+        gb_off_by_social = {v: k for k, v in OFFLINE_ONLINE_TOPIC_MAP["GB"].items()}
+        shared = sorted(set(us_off_by_social) & set(gb_off_by_social))
         pairs: List[Dict[str, object]] = []
         for i, sc1 in enumerate(shared):
             for sc2 in shared[i + 1:]:
                 pairs.append({
                     "social_codes": (sc1, sc2),
                     "us_offline": (us_off_by_social[sc1], us_off_by_social[sc2]),
-                    "eu_offline": (eu_off_by_social[sc1], eu_off_by_social[sc2]),
+                    "gb_offline": (gb_off_by_social[sc1], gb_off_by_social[sc2]),
                 })
         return pairs
 
     def _select_tutorial_pair(self) -> Optional[Dict[str, object]]:
         """Pick the topic pair best demonstrating "different offline, similar online".
 
-        Loads the four pairwise-correlation CSVs (US survey, EU survey, US
-        Twitter, EU Twitter), computes signed r for every concept-aligned
+        Loads the four pairwise-correlation CSVs (US survey, GB survey, US
+        Twitter, GB Twitter), computes signed r for every concept-aligned
         pair, and ranks by ``Δoff / (Δon + 0.05)`` — a ratio that rewards a
         big offline gap while penalising any online gap, so the headline
         narrative ("online |r| matches, offline does not") reads cleanly.
@@ -1618,30 +1580,30 @@ class Plotter:
         """
         try:
             corr_us_off = load_pairwise_correlation(self.us_survey)
-            corr_eu_off = load_pairwise_correlation(self.eu_survey)
+            corr_gb_off = load_pairwise_correlation(self.gb_survey)
             corr_us_on = load_pairwise_correlation(self.twitter)
-            corr_eu_on = load_pairwise_correlation(self.eutwitter)
+            corr_gb_on = load_pairwise_correlation(self.gbtwitter)
         except FileNotFoundError:
             return None
 
         candidates: List[Dict[str, object]] = []
-        for entry in self._us_eu_concept_pairs():
+        for entry in self._us_gb_concept_pairs():
             sc1, sc2 = entry["social_codes"]
             usa, usb = entry["us_offline"]
-            eua, eub = entry["eu_offline"]
+            gba, gbb = entry["gb_offline"]
             us_off = signed_r_from_pairwise(corr_us_off, usa, usb)
-            eu_off = signed_r_from_pairwise(corr_eu_off, eua, eub)
+            gb_off = signed_r_from_pairwise(corr_gb_off, gba, gbb)
             us_on = signed_r_from_pairwise(corr_us_on, sc1, sc2)
-            eu_on = signed_r_from_pairwise(corr_eu_on, sc1, sc2)
-            if any(not np.isfinite(v) for v in (us_off, eu_off, us_on, eu_on)):
+            gb_on = signed_r_from_pairwise(corr_gb_on, sc1, sc2)
+            if any(not np.isfinite(v) for v in (us_off, gb_off, us_on, gb_on)):
                 continue
-            delta_off = abs(abs(us_off) - abs(eu_off))
-            delta_on = abs(abs(us_on) - abs(eu_on))
+            delta_off = abs(abs(us_off) - abs(gb_off))
+            delta_on = abs(abs(us_on) - abs(gb_on))
             score = delta_off / (delta_on + 0.05)
             candidates.append({
                 **entry,
-                "us_off": us_off, "eu_off": eu_off,
-                "us_on": us_on, "eu_on": eu_on,
+                "us_off": us_off, "gb_off": gb_off,
+                "us_on": us_on, "gb_on": gb_on,
                 "delta_off": delta_off, "delta_on": delta_on,
                 "score": score,
             })
@@ -1658,7 +1620,7 @@ class Plotter:
         pair: Dict[str, object],
         panel_label: str,
     ) -> None:
-        """Two-region (US, EU) standardized scatter + OLS regression line.
+        """Two-region (US, GB) standardized scatter + OLS regression line.
 
         ``kind`` is ``"offline"`` (survey r's) or ``"online"`` (social r's).
         For each region, we synthesize a 2D Gaussian sample whose theoretical
@@ -1674,12 +1636,12 @@ class Plotter:
         if kind == "offline":
             rows = [
                 ("US", float(pair["us_off"])),
-                ("EU", float(pair["eu_off"])),
+                ("GB", float(pair["gb_off"])),
             ]
         elif kind == "online":
             rows = [
                 ("US", float(pair["us_on"])),
-                ("EU", float(pair["eu_on"])),
+                ("GB", float(pair["gb_on"])),
             ]
         else:
             raise ValueError(f"unknown kind: {kind}")
@@ -1712,9 +1674,9 @@ class Plotter:
         ax.axvline(0, color="#dddddd", lw=0.8, zorder=0)
 
         usa, usb = pair["us_offline"]
-        eua, eub = pair["eu_offline"]
-        x_label = usa if usa == eua else f"{usa} / {eua}"
-        y_label = usb if usb == eub else f"{usb} / {eub}"
+        gba, gbb = pair["gb_offline"]
+        x_label = usa if usa == gba else f"{usa} / {gba}"
+        y_label = usb if usb == gbb else f"{usb} / {gbb}"
         ax.set_xlabel(x_label, fontsize=10)
         ax.set_ylabel(y_label, fontsize=10)
         ax.set_title(panel_label, fontsize=12, fontweight="bold")
@@ -2283,7 +2245,7 @@ class Plotter:
         With ``pedagogical`` (the default, used by the main figure), 2 rows x
         4 columns:
             Row 1 (tutorial): standardized correlation ellipse for the
-                selected US/EU pair, offline and online (a, b); plus two word
+                selected US/GB pair, offline and online (a, b); plus two word
                 Venns anchoring 'semantic similarity = 0.X' in concrete
                 US-Twitter TF-IDF keywords (c = low, d = high).
             Row 2 (generalization, three panels): per-country half-violin of
@@ -2309,7 +2271,7 @@ class Plotter:
 
             # Row 1: tutorial — two scatter+regression panels + two word Venns.
             # The regression panels use the algorithmically-selected pair
-            # (most similar online, most different offline between US and EU).
+            # (most similar online, most different offline between US and GB).
             pair = self._select_tutorial_pair()
             ax_reg_off = fig.add_subplot(gs[0, 0])
             ax_reg_on = fig.add_subplot(gs[0, 1])
@@ -2596,7 +2558,7 @@ class Plotter:
         ("1D (line)", (1.0, 0.005, 0.005), "line"),
     )
     # Sequential colormap clearly outside the country palette (US blue / CN
-    # red / EU purple). YlGn goes yellow -> dark green.
+    # red / GB purple). YlGn goes yellow -> dark green.
     _TOY_CMAP = "YlGn"
     _TOY_SAMPLE_SIZE = 500
     _TOY_AXIS_BOUND = 2.6
@@ -2828,8 +2790,8 @@ class Plotter:
 TASKS: List[Dict] = [
     {
         "name": "main",
-        "us_survey": "anes", "cn_survey": "wvs", "eu_survey": "evs_resample2",
-        "eutwitter_src": "eutwitter", "embedding_type": "gpt",
+        "us_survey": "anes", "cn_survey": "wvs", "gb_survey": "en_evs",
+        "gbtwitter_src": "entwitter", "embedding_type": "gpt",
         "figures": [2, 3],
     },
     {
@@ -2839,79 +2801,42 @@ TASKS: List[Dict] = [
         # with LOESS (span 0.4) curves; and the reweighting restricted to the
         # common similarity support (robustness).
         "name": "supp_semantic",
-        "us_survey": "anes", "cn_survey": "wvs", "eu_survey": "evs_resample2",
-        "eutwitter_src": "eutwitter", "embedding_type": "gpt",
+        "us_survey": "anes", "cn_survey": "wvs", "gb_survey": "en_evs",
+        "gbtwitter_src": "entwitter", "embedding_type": "gpt",
         "figures": ["2s_ols", "2s_loess", "2s_support"],
     },
     {
         "name": "robust_1_media",
-        "us_survey": "anes_media", "cn_survey": "wvs_media",
-        "eu_survey": "evs_media_resample2",
-        "eutwitter_src": "eutwitter", "embedding_type": "gpt",
-        "figures": [2, 3],
-    },
-    {
-        "name": "robust_2_noputback",
-        "us_survey": "anes", "cn_survey": "wvs", "eu_survey": "evs",
-        "eutwitter_src": "eutwitter", "embedding_type": "gpt",
-        "figures": [2, 3],
-    },
-    {
-        "name": "robust_3_england",
-        "us_survey": "anes", "cn_survey": "wvs", "eu_survey": "en_evs",
-        "eutwitter_src": "entwitter", "embedding_type": "gpt",
+        "us_survey": "anes_media", "cn_survey": "wvs_media", "gb_survey": "en_evs_media",
+        "gbtwitter_src": "entwitter", "embedding_type": "gpt",
         "figures": [2, 3],
     },
     {
         "name": "robust_5_word2vec",
-        "us_survey": "anes", "cn_survey": "wvs", "eu_survey": "evs_resample2",
-        "eutwitter_src": "eutwitter", "embedding_type": "dictionary",
+        "us_survey": "anes", "cn_survey": "wvs", "gb_survey": "en_evs",
+        "gbtwitter_src": "entwitter", "embedding_type": "dictionary",
         "figures": [2],
     },
     {
         # Survey topic similarity from the hand-curated keyword lists.
         "name": "robust_7_survey_curated",
-        "us_survey": "anes", "cn_survey": "wvs", "eu_survey": "evs_resample2",
-        "eutwitter_src": "eutwitter", "embedding_type": "gpt_curated",
+        "us_survey": "anes", "cn_survey": "wvs", "gb_survey": "en_evs",
+        "gbtwitter_src": "entwitter", "embedding_type": "gpt_curated",
         "figures": [2],
     },
     {
         # Survey topic similarity from embeddings of the full question text.
         "name": "robust_8_survey_question",
-        "us_survey": "anes", "cn_survey": "wvs", "eu_survey": "evs_resample2",
-        "eutwitter_src": "eutwitter", "embedding_type": "gpt_question",
+        "us_survey": "anes", "cn_survey": "wvs", "gb_survey": "en_evs",
+        "gbtwitter_src": "entwitter", "embedding_type": "gpt_question",
         "figures": [2],
-    },
-    {
-        # 4-region eu_nen variant: side-by-side US / CN / EN / EU-NEN.
-        "name": "robust_6_eu_nen",
-        "regions": [
-            RegionSpec(
-                "US", "anes", "twitter",
-                survey_display="ANES (US)", social_display="Twitter (US)",
-            ),
-            RegionSpec(
-                "CN", "wvs", "weibo",
-                survey_display="WVS (CN)", social_display="Weibo (CN)",
-            ),
-            RegionSpec(
-                "EN", "en_evs", "entwitter",
-                survey_display="EVS (EN)", social_display="Twitter (EN)",
-            ),
-            RegionSpec(
-                "EU_NEN", "eu_nen_evs", "eu_nentwitter",
-                survey_display="EVS (EU-NEN)", social_display="Twitter (EU-NEN)",
-            ),
-        ],
-        "embedding_type": "gpt",
-        "figures": [2, 3],
     },
     {
         # Fig 3 from the pairwise-available correlation matrix: every topic
         # weighted equally, whatever its variance.
         "name": "robust_9_correlation",
-        "us_survey": "anes", "cn_survey": "wvs", "eu_survey": "evs_resample2",
-        "eutwitter_src": "eutwitter", "embedding_type": "gpt",
+        "us_survey": "anes", "cn_survey": "wvs", "gb_survey": "en_evs",
+        "gbtwitter_src": "entwitter", "embedding_type": "gpt",
         "figures": [3], "spectral_matrix": "corr",
     },
     {
@@ -2921,14 +2846,14 @@ TASKS: List[Dict] = [
         # Weibo's 2021 matrix instead of the mean of 2016-2023 (Twitter/X is
         # 2021 in the main analysis already).
         "name": "robust_10_annual",
-        "us_survey": "anes", "cn_survey": "wvs", "eu_survey": "evs_resample2",
-        "eutwitter_src": "eutwitter", "embedding_type": "gpt",
+        "us_survey": "anes", "cn_survey": "wvs", "gb_survey": "en_evs",
+        "gbtwitter_src": "entwitter", "embedding_type": "gpt",
         "figures": [2, 3], "social_year": "2021",
     },
     {
         # Same instrument offline: the U.S. survey source is WVS wave 7 (USA,
         # 2017) on items mirroring EVS. Every source on eight topics (common.
-        # topics.TOPICS_8: no U.S. gun control, no European prostitution / sex
+        # topics.TOPICS_8: no U.S. gun control, no British prostitution / sex
         # work, no Chinese attitudes toward the U.S.). ROBUSTNESS ONLY - the
         # main analysis keeps ANES and nine topics per source.
         "name": "robust_12_wvs_us",
@@ -2936,8 +2861,8 @@ TASKS: List[Dict] = [
             RegionSpec("US", "wvs_us8", "twitter_8",
                        survey_display="WVS (US)", social_display="Twitter (US)"),
             RegionSpec("CN", "wvs_8", "weibo_8", survey_display="WVS (CN)", social_display="Weibo (CN)"),
-            RegionSpec("EU", "evs_resample2_8", "eutwitter_8",
-                       survey_display="EVS (EU)", social_display="Twitter (EU)"),
+            RegionSpec("GB", "en_evs_8", "entwitter_8",
+                       survey_display="EVS (GB)", social_display="Twitter (GB)"),
         ],
         "embedding_type": "gpt",
         "figures": [2, 3],
@@ -2946,8 +2871,8 @@ TASKS: List[Dict] = [
         # Survey topic similarity from the uncapped selected keywords (before
         # the anchor / fragment / top-5 rules of cap_survey_keywords).
         "name": "robust_11_survey_selected",
-        "us_survey": "anes", "cn_survey": "wvs", "eu_survey": "evs_resample2",
-        "eutwitter_src": "eutwitter", "embedding_type": "gpt_selected",
+        "us_survey": "anes", "cn_survey": "wvs", "gb_survey": "en_evs",
+        "gbtwitter_src": "entwitter", "embedding_type": "gpt_selected",
         "figures": [2],
     },
 ]
@@ -2986,10 +2911,10 @@ def task_plotter_kwargs(
         plotter_kwargs.update(
             us_survey=task["us_survey"],
             cn_survey=task["cn_survey"],
-            eu_survey=task["eu_survey"],
+            gb_survey=task["gb_survey"],
             twitter_src="twitter",
             weibo_src="weibo",
-            eutwitter_src=task["eutwitter_src"],
+            gbtwitter_src=task["gbtwitter_src"],
         )
     return plotter_kwargs
 

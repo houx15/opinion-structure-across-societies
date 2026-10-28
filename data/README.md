@@ -42,11 +42,15 @@ are skipped when absent):
 `evs_media`, `evs_resample2`, `evs_media_resample2`, `en_evs`, `en_evs_media`,
 `eu_nen_evs`; social media `twitter` (US), `eutwitter` (Europe), `entwitter`
 (Great Britain), `eu_nentwitter` (Europe without GB), `weibo`.
-Main analysis: `anes`, `wvs`, `evs_resample2`, `twitter`, `weibo`, `eutwitter`.
+Main analysis (United States, China, Great Britain): `anes`, `wvs`, `en_evs`,
+`twitter`, `weibo`, `entwitter`. `en_evs*.dta` hold the full EVS file; every
+stage keeps `country == "Great Britain"` (1,788 respondents). The European
+sources (`evs*`, `eutwitter`, `eu_nen*`) are no longer used by the paper; the
+analysis stage can still compute them.
 Robustness only (task `robust_12_wvs_us`, same survey instrument offline):
 `wvs_us` (WVS wave 7 USA, built by `robustness/wvs_us.py`) and the eight-topic
-sources `wvs_us8`, `wvs_8`, `evs_resample2_8`, `twitter_8`, `weibo_8`,
-`eutwitter_8`, which read their parent's correlation and similarity files and
+sources `wvs_us8`, `wvs_8`, `en_evs_8`, `twitter_8`, `weibo_8`,
+`entwitter_8`, which read their parent's correlation and similarity files and
 have their own spectral results (`robustness/topics8.py`).
 
 | folder | files | produced by | precomputed? |

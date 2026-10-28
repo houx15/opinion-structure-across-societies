@@ -4,12 +4,12 @@ ROBUSTNESS ONLY. The main U.S. sources stay ANES and U.S. Twitter/X with gun
 control; nothing here changes them.
 
 Offline, the U.S. source is WVS wave 7 (USA, fieldwork April-May 2017, the
-only WVS-7 U.S. survey) on items mirroring the European EVS topics, so the
-United States, China (WVS) and Europe (EVS, which shares the WVS core) are
-measured with one questionnaire family. Gun control has no WVS item, so the
+only WVS-7 U.S. survey) on items mirroring the British EVS topics, so the
+United States, China (WVS) and Great Britain (EVS, which shares the WVS
+core) are measured with one questionnaire family. Gun control has no WVS item, so the
 check uses eight topics in every source (common.topics.TOPICS_8): this file's
 nine items without Prostitution (source ``wvs_us8``), U.S. Twitter/X without
-gun control, and Europe and China without the topic that has no counterpart
+gun control, and Great Britain and China without the topic that has no counterpart
 (prostitution / sex work; attitudes toward the U.S.). Spectra of the
 eight-topic sources: robustness/topics8.py.
 

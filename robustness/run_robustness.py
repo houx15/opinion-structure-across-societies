@@ -7,16 +7,14 @@ the task definitions live in plotting/figures.py (TASKS).
 
 | task                       | what changes                                           | inputs                                           |
 |----------------------------|--------------------------------------------------------|--------------------------------------------------|
-| robust_1_media             | survey respondents who use social media                | anes_media, wvs_media, evs_media_resample2       |
-| robust_2_noputback         | EVS resampled without replacement                      | evs (instead of evs_resample2)                   |
-| robust_3_england           | Great Britain only (EVS + Twitter users located in GB) | en_evs, entwitter                                |
+| robust_1_media             | survey respondents who use social media                | anes_media, wvs_media, en_evs_media              |
 | robust_5_word2vec          | word2vec instead of OpenAI embeddings                  | dictionary similarities (run_word2vec.sh)        |
-| robust_6_eu_nen            | Europe split into GB and the rest of Europe            | en_evs + entwitter, eu_nen_evs + eu_nentwitter   |
 | robust_7_survey_curated    | hand-curated survey keywords                           | similarity_curated column                        |
 | robust_8_survey_question   | survey topic = embedding of the full question text     | similarity_question column                       |
 | robust_9_correlation       | Fig 3 from the correlation instead of covariance matrix | data/dimension/results/corr/ (calculate_all / spectral_bootstrap --matrix corr) |
 | robust_10_annual           | Figs 2, 3 from social-media opinions of 2021 instead of pooled over years | year == 2021 rows of the correlation files; <stem>-2021.csr-none.json (+ spectral_bootstrap run weibo --year 2021) |
 | robust_11_survey_selected  | survey keywords before the top-5 cap (all selected keywords) | similarity column                            |
+| robust_12_wvs_us           | U.S. survey from WVS wave 7; every source on eight topics | wvs_us8 ... entwitter_8 (wvs_us.py, topics8.py) |
 
 Other robustness analyses in this folder:
     embedding_subspace_analysis.py   ngram-level semantic subspace diagnostics
@@ -25,7 +23,7 @@ Other robustness analyses in this folder:
 
 Usage (from the repository root):
     python -m robustness.run_robustness              # every task above
-    python -m robustness.run_robustness robust_3_england
+    python -m robustness.run_robustness robust_5_word2vec
 """
 
 from typing import Optional

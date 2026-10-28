@@ -10,7 +10,7 @@ Conventions that differ from plotting.figures (per the GA spec):
     - Sans-serif typography (Arial/Helvetica), not Times New Roman.
     - No in-figure titles, legends, captions, or panel labels.
     - Transparent background, tight margins.
-    - US blue / CN orange / EU purple, solid (offline) / dashed (online).
+    - US blue / CN orange / GB purple, solid (offline) / dashed (online).
 
 Row 2 (2A/2B/2C) is a *schematic* methodology illustration built on a small
 synthetic user x topic matrix — it is pedagogical, not a finding, so it carries
@@ -41,18 +41,18 @@ from plotting import figures as P
 OUTPUT_DIR = FIGURE_DIR / f"{date_prefix()}_graphical_abstract_panels"
 
 # Country palette — reused verbatim from plotting.figures so the GA matches the
-# paper's figures (US blue, CN orange, EU purple).
+# paper's figures (US blue, CN orange, GB purple).
 COLOR = {
     "US": P._TWITTER_COLOR,    # blue   #207de6
     "CN": P._WEIBO_COLOR,      # orange #ff7333
-    "EU": P._EUTWITTER_COLOR,  # purple #54457F
+    "GB": P._GBTWITTER_COLOR,  # purple #54457F
 }
 
 # Offline (survey) / online (social) source per country for the main analysis.
 REGION_SOURCES: Dict[str, Tuple[str, str]] = {
     "US": ("anes", "twitter"),
     "CN": ("wvs", "weibo"),
-    "EU": ("evs_resample2", "eutwitter"),
+    "GB": ("en_evs", "entwitter"),
 }
 
 _DASH = P.Plotter._MEDIA_DASH_PATTERN  # (0, (4, 2)) — the online dash pattern

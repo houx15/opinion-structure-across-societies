@@ -17,7 +17,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from common.paths import CSR_DIR, EMBEDDING_DIR, OPINION_DIR
+from common.paths import CSR_DIR, EMBEDDING_DIR, OPINION_DIR, SURVEY_DIR
 
 # Inputs that are not in the repository (individual-level data, the embedding
 # cache); tests that read them are skipped when they are absent.
@@ -231,7 +231,6 @@ def test_export_writes_parquet_with_expected_filename(fake_weibo_root, tmp_path)
     [
         ("anes", {"Abortion", "Gun", "Climate", "LGBT", "VACC", "DeathPenalty", "Media", "MinimumWage", "UBI"}),
         ("wvs", {"Corrup", "GenderEqual", "Marriage", "Childbearing", "LGBT", "Environment", "Econ", "Work", "Foreign"}),
-        ("evs_resample2", {"LGBT", "Abortion", "DeathPenalty", "SocialMedia", "Egalitarian", "Environment", "Prostitution", "HealthCare", "UnemplyAid"}),
         ("en_evs", {"LGBT", "Abortion", "DeathPenalty", "SocialMedia", "Egalitarian", "Environment", "Prostitution", "HealthCare", "UnemplyAid"}),
     ],
 )
@@ -251,23 +250,21 @@ def test_individual_opinion_parquet_schema(src, expected_topics):
 
 
 def test_en_evs_individual_opinion_is_filtered_to_great_britain():
-    """en_evs prep must restrict to Great Britain (smaller than full evs_resample2)."""
+    """en_evs.dta holds the full EVS file; the prepared GB source keeps only
+    respondents in Great Britain."""
     en_path = OPINION_DIR / "individual_opinion_en_evs.parquet"
-    eu_path = OPINION_DIR / "individual_opinion_evs_resample2.parquet"
-    if not en_path.exists() or not eu_path.exists():
-        pytest.skip("prep parquets not present; run prepare_survey_individual_data.py")
-    n_en = len(pd.read_parquet(en_path))
-    n_eu = len(pd.read_parquet(eu_path))
-    assert 0 < n_en < n_eu, (
-        f"en_evs ({n_en}) should be smaller than evs_resample2 ({n_eu})"
-    )
+    dta = SURVEY_DIR / "en_evs.dta"
+    if not en_path.exists() or not dta.exists():
+        pytest.skip("prep parquet / survey file not present")
+    n_gb = int((pd.read_stata(dta, columns=["country"])["country"] == "Great Britain").sum())
+    assert len(pd.read_parquet(en_path)) == n_gb
 
 
 # -- v4 data loaders ---------------------------------------------------------
 
 
-SURVEY_SOURCES = ["anes", "wvs", "evs_resample2", "en_evs"]
-SOCIAL_SOURCES = ["twitter", "weibo", "eutwitter"]
+SURVEY_SOURCES = ["anes", "wvs", "en_evs"]
+SOCIAL_SOURCES = ["twitter", "weibo", "entwitter"]
 ALL_PAIRWISE_SOURCES = SURVEY_SOURCES + SOCIAL_SOURCES
 
 
@@ -356,7 +353,7 @@ def test_load_semantic_similarity_dictionary_returns_a_single_similarity_column(
     )
 
 
-@pytest.mark.parametrize("src", ["anes", "wvs", "evs_resample2", "twitter", "weibo", "eutwitter"])
+@pytest.mark.parametrize("src", ["anes", "wvs", "en_evs", "twitter", "weibo", "entwitter"])
 def test_load_spectral_summary_has_pr_and_erank(src):
     """Spectral loader returns dict with PR and eRank lists of floats."""
     import plotting.figures as v4
@@ -542,7 +539,6 @@ def test_bootstrap_lowess_ci_returns_arrays_of_same_length():
     [
         ("anes", ("LGBT", "Climate")),
         ("wvs", ("LGBT", "Environment")),
-        ("evs_resample2", ("LGBT", "Environment")),
         ("en_evs", ("LGBT", "Environment")),
     ],
 )
@@ -562,12 +558,12 @@ def test_get_case_study_pair_survey_returns_lgbt_and_env_columns(src, expected_x
 def test_case_study_correlations_match_reported_values_for_surveys():
     """Computed |r| from individual data should match the spec's anchor numbers.
 
-    Spec: US |r|=0.574, CN |r|=0.006, EU |r|=0.303 for the offline case.
+    Spec: US |r|=0.574, CN |r|=0.006, GB |r|=0.294 for the offline case.
     We compare loosely (within 0.03) since the spec is rounded to 3dp.
     """
     import plotting.figures as v4
 
-    pairs = {"anes": 0.574, "wvs": 0.006, "evs_resample2": 0.303}
+    pairs = {"anes": 0.574, "wvs": 0.006, "en_evs": 0.294}
     for src, expected in pairs.items():
         df = v4.get_case_study_pair(src)
         abs_r, _ = v4.compute_abs_pearson(df["x"], df["y"])
@@ -799,10 +795,10 @@ def test_make_fig2_row2_word_overlap_word_size_scales_with_tf_idf(tmp_figure_fol
 
 
 def test_offline_online_topic_map_covers_all_three_countries():
-    """The researcher-supplied offline↔online topic map must cover US, CN, EU."""
+    """The researcher-supplied offline↔online topic map must cover US, CN, GB."""
     import plotting.figures as v4
 
-    assert set(v4.OFFLINE_ONLINE_TOPIC_MAP) == {"US", "CN", "EU"}
+    assert set(v4.OFFLINE_ONLINE_TOPIC_MAP) == {"US", "CN", "GB"}
     for country, mapping in v4.OFFLINE_ONLINE_TOPIC_MAP.items():
         assert len(mapping) == 9, f"{country}: expected 9 topic pairs, got {len(mapping)}"
 
@@ -811,8 +807,8 @@ def test_offline_online_topic_map_codomain_matches_restricted_topics():
     """Every online side of the mapping must appear in the platform's restricted set."""
     import plotting.figures as v4
 
-    survey_for_country = {"US": "anes", "CN": "wvs", "EU": "evs_resample2"}
-    platform_for_country = {"US": "twitter", "CN": "weibo", "EU": "eutwitter"}
+    survey_for_country = {"US": "anes", "CN": "wvs", "GB": "en_evs"}
+    platform_for_country = {"US": "twitter", "CN": "weibo", "GB": "entwitter"}
     for country, mapping in v4.OFFLINE_ONLINE_TOPIC_MAP.items():
         offline_topics = set(v4.RESTRICTED_TOPICS[survey_for_country[country]])
         online_topics = set(v4.RESTRICTED_TOPICS[platform_for_country[country]])
@@ -859,7 +855,7 @@ def test_topic_family_ordering_is_consistent_per_country():
     """Each country has its 9 topics partitioned into 3 families (Table 1)."""
     import plotting.figures as v4
 
-    for src in ("anes", "wvs", "evs_resample2"):
+    for src in ("anes", "wvs", "en_evs"):
         ordering = v4.topic_family_order(src)
         expected_topics = set(v4.RESTRICTED_TOPICS[src])
         assert set(ordering) == expected_topics, (
@@ -981,7 +977,7 @@ def test_make_fig3_dash_plot_legend_has_no_medium_handles(tmp_figure_folder):
         assert "Survey" not in labels and "Social media" not in labels, (
             f"legend should not list Survey/Social media (axis tells us), got {labels}"
         )
-        assert set(labels) == {"US", "CN", "EU"}
+        assert set(labels) == {"US", "CN", "GB"}
     plt.close(fig)
 
 
@@ -989,17 +985,19 @@ def test_make_fig3_dash_plot_legend_has_no_medium_handles(tmp_figure_folder):
 
 
 def test_task_list_covers_main_plus_robustness_variants():
-    """main + Fig 2s supplement + media + noputback + england + word2vec + 4-region eu_nen."""
+    """main + Fig 2s supplement + robustness variants; no EU-only checks."""
     import plotting.figures as v4
 
     names = [t["name"] for t in v4.TASKS]
     assert "main" in names
     assert "robust_1_media" in names
-    assert "robust_2_noputback" in names
-    assert "robust_3_england" in names
     assert "supp_semantic" in names
     assert "robust_5_word2vec" in names
-    assert "robust_6_eu_nen" in names
+    for gone in ("robust_2_noputback", "robust_3_england", "robust_6_eu_nen"):
+        assert gone not in names
+    plotter = v4.Plotter(**v4.task_plotter_kwargs("main"))
+    assert [(r.code, r.survey, r.social) for r in plotter.regions] == [
+        ("US", "anes", "twitter"), ("CN", "wvs", "weibo"), ("GB", "en_evs", "entwitter")]
 
 
 def test_run_task_supp_semantic_writes_ols_and_loess_figures(tmp_figure_folder):
@@ -1026,48 +1024,6 @@ def test_run_task_supp_semantic_writes_ols_and_loess_figures(tmp_figure_folder):
     plt.close(fig)
     with pytest.raises(ValueError):
         plotter.build_fig2s("spline")
-
-# -- v4 N-region (4-region eu_nen variant) ----------------------------------
-
-
-def _four_region_plotter(folder):
-    """Build the Plotter used by the eu_nen 4-region robustness task."""
-    import plotting.figures as v4
-
-    return v4.Plotter(
-        regions=[
-            v4.RegionSpec("US", "anes", "twitter"),
-            v4.RegionSpec("CN", "wvs", "weibo"),
-            v4.RegionSpec("EN", "en_evs", "entwitter"),
-            v4.RegionSpec("EU_NEN", "eu_nen_evs", "eu_nentwitter"),
-        ],
-        figure_folder=str(folder), date_prefix="20260513",
-        n_bootstrap=20,
-    )
-
-
-def test_plotter_accepts_regions_list_with_four_entries(tmp_figure_folder):
-    """Plotter(regions=[...]) overrides the default 3-region setup."""
-    plotter = _four_region_plotter(tmp_figure_folder)
-    codes = [r.code for r in plotter.regions]
-    assert codes == ["US", "CN", "EN", "EU_NEN"]
-
-
-def test_fig3_with_four_regions_dash_plot_has_eight_dashes(tmp_figure_folder):
-    """PR / eRank panels each carry 4 regions × 2 media = 8 dashes."""
-    import matplotlib.pyplot as plt
-    plotter = _four_region_plotter(tmp_figure_folder)
-    fig = plotter.build_fig3()
-    for ax in fig.axes[6:8]:
-        horizontal_lines = [
-            line for line in ax.get_lines()
-            if len(line.get_xdata()) == 2 and line.get_ydata()[0] == line.get_ydata()[1]
-        ]
-        assert len(horizontal_lines) == 8, (
-            f"4-region PR/eRank panel should have 8 dashes, got {len(horizontal_lines)}"
-        )
-    plt.close(fig)
-
 
 @requires_embedding_cache
 def test_prepare_word_overlap_writes_json_with_expected_schema(tmp_path):
@@ -1199,7 +1155,7 @@ def test_semantic_weights_reproduce_the_adjusted_means(tmp_figure_folder):
 
     plotter = v4.Plotter(figure_folder=str(tmp_figure_folder), n_bootstrap=10)
     res = plotter.semantic_adjustment()
-    for src in ("anes", "wvs", "evs_resample2", "twitter", "weibo", "eutwitter"):
+    for src in ("anes", "wvs", "en_evs", "twitter", "weibo", "entwitter"):
         w = plotter.semantic_weights(src)
         assert w.sum() == pytest.approx(1.0)
         assert w @ plotter.semantic_pairs(src)[1] == pytest.approx(res["adjusted"][src])
@@ -1249,7 +1205,7 @@ def test_run_task_sets_pedagogical_only_for_main(tmp_figure_folder, monkeypatch)
                 date_prefix="20260513", n_bootstrap=10)
     assert captured["pedagogical"] is True
 
-    v4.run_task("robust_3_england", figure_folder=str(tmp_figure_folder),
+    v4.run_task("robust_5_word2vec", figure_folder=str(tmp_figure_folder),
                 date_prefix="20260513", n_bootstrap=10)
     assert captured["pedagogical"] is False
 
@@ -1324,7 +1280,7 @@ def test_common_support_keeps_only_shared_range_and_matches_reference_mean(tmp_f
 
     plotter = v4.Plotter(figure_folder=str(tmp_figure_folder), n_bootstrap=10)
     res = plotter.semantic_adjustment("support")
-    for src in ("anes", "wvs", "evs_resample2", "twitter", "weibo", "eutwitter"):
+    for src in ("anes", "wvs", "en_evs", "twitter", "weibo", "entwitter"):
         lo, hi = plotter.semantic_support(src)
         x, y = plotter.semantic_pairs(src, support=True)
         assert x.min() >= lo and x.max() <= hi

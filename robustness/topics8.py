@@ -15,7 +15,7 @@ Sources whose parent matrices are not on this machine are skipped, so the
 same command runs locally (surveys) and on the clusters (social media):
 
     python -m robustness.topics8 spectral
-    python -m robustness.topics8 spectral --stems twitter-us_8,twitter-eu_8,weibo_8
+    python -m robustness.topics8 spectral --stems twitter-us_8,twitter-en_8,weibo_8
 """
 
 from __future__ import annotations
@@ -37,10 +37,10 @@ from common.topics import TOPICS_8
 STEMS: Dict[str, Tuple[str, str, str]] = {
     "wvs_us8": ("wvs_us8", "wvs_us", "us"),
     "wvs_8": ("wvs_8", "wvs", "us"),
-    "evs_resample2_8": ("evs_resample2_8", "evs_resample2", "us"),
+    "en_evs_8": ("en_evs_8", "en_evs", "us"),
     "twitter-us_8": ("twitter_8", "twitter", "us"),
     "weibo_8": ("weibo_8", "weibo", "us"),
-    "twitter-eu_8": ("eutwitter_8", "twitter", "eu"),
+    "twitter-en_8": ("entwitter_8", "twitter", "en"),
 }
 
 

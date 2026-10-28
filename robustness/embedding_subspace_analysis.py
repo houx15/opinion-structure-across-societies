@@ -9,7 +9,7 @@ text-embedding-3-small cache used by the rest of the pipeline
 (``data/embedding/cached_embedding.pkl``) and works on the full ngram matrix.
 
 Ngram provenance mirrors the reproducible pipeline:
-* Social (twitter, weibo, eutwitter/entwitter/eu_nentwitter):
+* Social (twitter, weibo, entwitter):
   ``data/tf_idf/tf_idf_<src>/tf-idf-<topic>-merged.parquet`` (weibo uses
   ``<topic>_merged_tf_idf.parquet`` with Noun/Frequency column names).
   Ngrams: top ``top_k`` rows sorted by TF-IDF (same as
@@ -61,7 +61,7 @@ from common.paths import EMBEDDING_DIR, TF_IDF_DIR, report_dir
 from plotting.figures import RESTRICTED_TOPICS, SOCIAL_SOURCES, _pretty_topic
 
 
-FORMAL_SOURCES: List[str] = ["anes", "evs", "wvs", "twitter", "eutwitter", "weibo"]
+FORMAL_SOURCES: List[str] = ["anes", "en_evs", "wvs", "twitter", "entwitter", "weibo"]
 
 _CACHE_PATH = EMBEDDING_DIR / "cached_embedding.pkl"
 _TFIDF_DIR = TF_IDF_DIR
@@ -69,8 +69,8 @@ _TFIDF_DIR = TF_IDF_DIR
 # Survey source -> curated-keyword region (semantic_similarity.SURVEY_REGIONS).
 _SURVEY_REGION: Dict[str, str] = {
     **{s: "us" for s in ("anes", "anes_media")},
-    **{s: "europe" for s in ("evs", "evs_media", "evs_resample2", "evs_media_resample2",
-                             "en_evs", "en_evs_media", "eu_nen_evs")},
+    # GB uses the EVS keyword tables (file names keep the region key "europe").
+    **{s: "europe" for s in ("en_evs", "en_evs_media")},
     **{s: "china" for s in ("wvs", "wvs_media")},
 }
 
@@ -182,7 +182,7 @@ def _social_topic_ngrams(
     """Top-``top_k`` TF-IDF ngrams for one (social src, topic).
 
     Returns DataFrame with columns ``word`` and ``count`` (both harmonized
-    across weibo vs twitter/eutwitter schemas), already sorted by TF-IDF desc.
+    across weibo vs twitter/entwitter schemas), already sorted by TF-IDF desc.
     """
     tf_idf_folder = _TFIDF_DIR / f"tf_idf_{src}"
     if src == "weibo":

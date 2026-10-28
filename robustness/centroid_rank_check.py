@@ -33,10 +33,10 @@ import pandas as pd
 from common.paths import EMBEDDING_DIR, FIGURE_DIR, STATS_DIR, date_prefix, display, report_dir
 
 
-SOURCES: List[str] = ["anes", "evs", "wvs", "twitter", "eutwitter", "weibo"]
+SOURCES: List[str] = ["anes", "en_evs", "wvs", "twitter", "entwitter", "weibo"]
 SOURCE_LABEL: Dict[str, str] = {
-    "anes": "ANES", "evs": "EVS", "wvs": "WVS",
-    "twitter": "Twitter", "eutwitter": "EU Twitter", "weibo": "Weibo",
+    "anes": "ANES", "en_evs": "EVS (GB)", "wvs": "WVS",
+    "twitter": "Twitter", "entwitter": "GB Twitter", "weibo": "Weibo",
 }
 CENTROID_DIR = EMBEDDING_DIR / "topic_centroids"
 RANK_TOL = 1e-10
@@ -154,10 +154,10 @@ def main() -> None:
 
 SOURCE_COLOR: Dict[str, str] = {                 # region colors from plotting.figures
     "anes": "#207de6", "twitter": "#207de6",
-    "evs": "#54457F", "eutwitter": "#54457F",
+    "en_evs": "#54457F", "entwitter": "#54457F",
     "wvs": "#ff7333", "weibo": "#ff7333",
 }
-SURVEYS = {"anes", "evs", "wvs"}
+SURVEYS = {"anes", "en_evs", "wvs"}
 MEDIA_DASH = (0, (4, 2))                          # social media = dashed, as in plotting.figures
 
 

@@ -17,17 +17,17 @@ CN_SURVEY_TOPICS: List[str] = [
     "Corrup", "GenderEqual", "Marriage", "Childbearing", "LGBT",
     "Environment", "Econ", "Work", "Foreign",
 ]
-EU_SURVEY_TOPICS: List[str] = [
+GB_SURVEY_TOPICS: List[str] = [
     "LGBT", "Abortion", "DeathPenalty", "SocialMedia", "Egalitarian",
     "Environment", "Prostitution", "HealthCare", "UnemplyAid",
 ]
 TWITTER_TOPICS: List[str] = [
     "abo", "gun", "clc", "sxo", "vac", "dpp", "soc", "minwage", "ubi",
 ]
-# All EU-twitter variants (eutwitter / entwitter / eu_nentwitter) substitute
-# "swe" (sexual work legalization) for "gun" because the EVS survey measures
-# Prostitution, not gun control.
-EUTWITTER_TOPICS: List[str] = [
+# Great Britain: Twitter/X users located in GB substitute "swe" (sexual work
+# legalization) for "gun" because the EVS survey measures Prostitution, not
+# gun control.
+GBTWITTER_TOPICS: List[str] = [
     "abo", "swe", "clc", "sxo", "vac", "dpp", "soc", "minwage", "ubi",
 ]
 WEIBO_TOPICS: List[int] = [7, 9, 11, 12, 10, 13, 15, 14, 0]
@@ -47,7 +47,7 @@ WVS_US_TOPICS: List[str] = [
 
 # ROBUSTNESS ONLY (task robust_12_wvs_us): every source on eight topics, so
 # that the U.S. survey can be the WVS wave 7 U.S. file. Dropped: U.S. gun
-# control (no WVS item) and its survey slot; European prostitution / sex-work
+# control (no WVS item) and its survey slot; British prostitution / sex-work
 # legalization (no U.S. counterpart); Chinese attitudes toward the U.S. and
 # its survey item (job priority for natives over immigrants), the topic least
 # comparable with the other societies. Each robustness source reads its
@@ -55,14 +55,14 @@ WVS_US_TOPICS: List[str] = [
 TOPICS_8: Dict[str, List[Union[str, int]]] = {
     "wvs_us8": [t for t in WVS_US_TOPICS if t != "Prostitution"],
     "wvs_8": [t for t in CN_SURVEY_TOPICS if t != "Foreign"],
-    "evs_resample2_8": [t for t in EU_SURVEY_TOPICS if t != "Prostitution"],
+    "en_evs_8": [t for t in GB_SURVEY_TOPICS if t != "Prostitution"],
     "twitter_8": [t for t in TWITTER_TOPICS if t != "gun"],
     "weibo_8": [t for t in WEIBO_TOPICS if t != 0],
-    "eutwitter_8": [t for t in EUTWITTER_TOPICS if t != "swe"],
+    "entwitter_8": [t for t in GBTWITTER_TOPICS if t != "swe"],
 }
 
 ANALYSED_SOCIAL_TOPICS: Dict[str, List[str]] = {
-    "twitter": list(dict.fromkeys(TWITTER_TOPICS + EUTWITTER_TOPICS)),   # 10 codes
+    "twitter": list(dict.fromkeys(TWITTER_TOPICS + GBTWITTER_TOPICS)),   # 10 codes
     "weibo": [str(t) for t in WEIBO_TOPICS],
 }
 
