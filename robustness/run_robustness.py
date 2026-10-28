@@ -35,7 +35,7 @@ import fire
 from plotting import figures
 
 
-def main(task: Optional[str] = None, n_bootstrap: int = 1000) -> None:
+def main(task: Optional[str] = None, n_bootstrap: int = 2000) -> None:
     names = [task] if task else figures.task_names("robustness")
     for name in names:
         print(f"[robustness] {name}")

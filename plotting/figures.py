@@ -1211,7 +1211,7 @@ class Plotter:
         figure_folder: Union[str, Path] = FIGURE_DIR,
         date_prefix: Optional[str] = None,
         loess_frac: float = 0.4,
-        n_bootstrap: int = 1000,
+        n_bootstrap: int = 2000,
         regions: Optional[Sequence[RegionSpec]] = None,
         pedagogical: bool = True,
         spectral_matrix: str = "cov",
@@ -2913,7 +2913,7 @@ def task_plotter_kwargs(
     name: str,
     figure_folder: Union[str, Path] = FIGURE_DIR,
     date_prefix: Optional[str] = None,
-    n_bootstrap: int = 1000,
+    n_bootstrap: int = 2000,
 ) -> Dict:
     """Plotter keyword arguments for one task in TASKS."""
     task = _task_by_name(name)
@@ -2947,7 +2947,7 @@ def run_task(
     name: str,
     figure_folder: Union[str, Path] = FIGURE_DIR,
     date_prefix: Optional[str] = None,
-    n_bootstrap: int = 1000,
+    n_bootstrap: int = 2000,
     write_stats: bool = True,
 ) -> Dict[Union[int, str], Path]:
     """Run one task by name and return {fig_num: output_path}.
@@ -3006,7 +3006,7 @@ def run_all_tasks(
     group: str = "all",
     figure_folder: Union[str, Path] = FIGURE_DIR,
     date_prefix: Optional[str] = None,
-    n_bootstrap: int = 1000,
+    n_bootstrap: int = 2000,
 ) -> Dict[str, Dict[Union[int, str], Path]]:
     """Run every task of ``group`` and return {task_name: {fig_num: output_path}}."""
     out: Dict[str, Dict[Union[int, str], Path]] = {}
