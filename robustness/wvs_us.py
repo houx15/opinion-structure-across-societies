@@ -7,9 +7,11 @@ Offline, the U.S. source is WVS wave 7 (USA, fieldwork April-May 2017, the
 only WVS-7 U.S. survey) on items mirroring the European EVS topics, so the
 United States, China (WVS) and Europe (EVS, which shares the WVS core) are
 measured with one questionnaire family. Gun control has no WVS item, so the
-U.S. topic set is the European one, with sex-work legalization (prostitution)
-in its place; online, the matching source is U.S. Twitter/X users on that
-same topic set (``twitter_euset``, mode ``us_euset``).
+check uses eight topics in every source (common.topics.TOPICS_8): this file's
+nine items without Prostitution (source ``wvs_us8``), U.S. Twitter/X without
+gun control, and Europe and China without the topic that has no counterpart
+(prostitution / sex work; attitudes toward the U.S.). Spectra of the
+eight-topic sources: robustness/topics8.py.
 
 WVS-7 USA items (common/topics.WVS_US_TOPICS), coded as in the main analysis
 (SI "Topic measures"; validated by rebuilding the stored China file exactly,
@@ -33,20 +35,12 @@ Semantic similarity reuses existing keyword centroids: the EVS topic for the
 identical items (WHO uses EVS health-care system), the WVS China topic for
 Environment, and ANES news media for Press.
 
-Local steps (``python -m robustness.wvs_us local --raw <WVS-7 csv>``):
-build data/survey/wvs_us.dta, pairwise correlations, topic similarities,
-respondent x topic matrix, PR / eRank and their bootstrap.
-
-Cluster steps for the online source (user-level opinions live there):
-    python -m analysis.correlation.twitter_correlation run --mode us_euset --shuffle_times 0
-    python -m analysis.semantic.tfidf_twitter topic_pipe swe us_euset   # U.S. sex-work word counts
-    python -m analysis.semantic.tfidf_twitter tf_idf us_euset           # -> data/tf_idf/tf_idf_twitter_euset
-    python -m analysis.dimension.dimension_pipeline transform_twitter --mode us_euset
-    python -m analysis.dimension.dimension_pipeline calculate twitter --mode us_euset
-    python -m analysis.dimension.spectral_bootstrap run twitter-us_euset
-then, with the TF-IDF tables copied back,
-    python -m analysis.semantic.semantic_similarity process_all --embedding_type gpt --src_types twitter_euset
-and finally ``python -m plotting.figures task robust_12_wvs_us``.
+Steps (``python -m robustness.wvs_us local --raw <WVS-7 csv>``): build
+data/survey/wvs_us.dta, its pairwise correlations and topic similarities (read
+by wvs_us8, restricted to its eight topics), and the nine-topic matrix whose
+eight-topic subset robustness/topics8.py analyses; then
+``python -m robustness.topics8 spectral`` and
+``python -m plotting.figures task robust_12_wvs_us``.
 """
 
 from __future__ import annotations
@@ -168,10 +162,9 @@ def similarity() -> Path:
 
 
 def local(raw: str) -> None:
-    """All local steps for the offline source."""
+    """Build the source, its correlations, similarities and nine-topic matrix."""
     from analysis.correlation.survey_correlation import process_survey
     from analysis.dimension import dimension_pipeline as dp
-    from analysis.dimension import spectral_bootstrap as sb
     from common.paths import CORRELATION_DIR
 
     print("China rebuild check:", validate_china(raw))
@@ -181,8 +174,6 @@ def local(raw: str) -> None:
     out = dp.csr_folder(SRC)
     out.mkdir(parents=True, exist_ok=True)
     dp.convert_and_save_survey_data(str(path), out, WVS_US_TOPICS)
-    dp.calculate(SRC)
-    sb.run(SRC)
 
 
 if __name__ == "__main__":

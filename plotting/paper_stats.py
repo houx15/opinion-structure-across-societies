@@ -28,7 +28,6 @@ from analysis.correlation.pattern_agreement import repairing_test
 from common.paths import display
 from plotting import figures as v4
 
-N_TOPICS = 9
 DEFAULT_N_BOOT = 2000
 SEED = 0
 
@@ -121,19 +120,21 @@ def _ci(lo: float, hi: float, d: int = 3) -> str:
 def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: str = "") -> str:
     regions = plotter.regions
     rng = np.random.default_rng(SEED)
-    csv = lambda src: display(v4.CORRELATION_DIR / f"network_analysis_{src}.csv")
+    csv = lambda src: display(v4.CORRELATION_DIR / f"network_analysis_{v4.parent_source(src)}.csv")
+    n_topics = len(v4.RESTRICTED_TOPICS[regions[0].survey])
+    n_pairs = n_topics * (n_topics - 1) // 2
     pair_source = [
         f"{csv(getattr(r, attr))}  ({r.code} {medium.lower()})"
         for medium, attr in MEDIA for r in regions
     ] + [
         ('Rows with year == "average" (each user pooled over all years)' if plotter.social_year == "average"
          else f'Social media: rows with year == "{plotter.social_year}" (opinions of that year only); surveys: "average"')
-        + "; only the 9 topics of each source",
-        "(figures.RESTRICTED_TOPICS) -> 36 topic pairs. |r| = abs(\"Correlation (Pearson)\").",
+        + f"; only the {n_topics} topics of each source",
+        f"(figures.RESTRICTED_TOPICS) -> {n_pairs} topic pairs. |r| = abs(\"Correlation (Pearson)\").",
         "Loaded with figures.load_pairwise_correlation (same as Fig 2).",
     ]
     boot_note = (
-        f"95% CI: percentile bootstrap, {n_boot:,} resamples of the 36 topic pairs "
+        f"95% CI: percentile bootstrap, {n_boot:,} resamples of the {n_pairs} topic pairs "
         f"(with replacement), each source resampled independently; numpy seed {SEED}."
     )
 
@@ -205,7 +206,7 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
         "PART 2. Pairwise |r| per source: mean, CI, median, skewness (Fig 2e, f)",
         pair_source,
         [
-            "Over the 36 pair |r| values of each source:",
+            f"Over the {n_pairs} pair |r| values of each source:",
             "mean; median; SD (ddof=1); min; max;",
             "skewness = bias-corrected sample skewness, scipy.stats.skew(bias=False).",
             boot_note + " CI is of the mean.",
@@ -229,7 +230,7 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
                 ])
         lines += _part(
             "PART 3. Ratio of mean |r|, US to other societies",
-            ["Same 36-pair |r| values as Part 2."],
+            [f"Same {n_pairs}-pair |r| values as Part 2."],
             [
                 "ratio = mean|r|(US) / mean|r|(other), within the same medium.",
                 boot_note + " In each resample the ratio of the two resampled means is taken.",
@@ -258,7 +259,7 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
     lo, hi = q(boot_disp["Survey"] / boot_disp["Social media"])
     lines += _part(
         "PART 4. Cross-societal dispersion and range of mean |r|",
-        ["Same 36-pair |r| values as Part 2."],
+        [f"Same {n_pairs}-pair |r| values as Part 2."],
         [
             "Fisher z of each pair: z = arctanh(|r|).",
             "Dispersion (per medium) = population SD (ddof=0; the societies are fixed cases) across",
@@ -281,7 +282,7 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
                      f"{eta:.3f} ({100 * eta:.1f}%)"])
     lines += _part(
         "PART 5. Variance decomposition: share of variation due to society (eta^2)",
-        ["Same 36-pair |r| values as Part 2."],
+        [f"Same {n_pairs}-pair |r| values as Part 2."],
         [
             "Pool the Fisher z = arctanh(|r|) of all pairs of one medium across societies.",
             "eta^2 = SS_between / SS_total with society as the grouping factor:",
@@ -304,6 +305,7 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
                 continue
             summ = v4.load_spectral_summary(src, plotter.spectral_matrix, year)
             pr, er = float(np.mean(summ["PR"])), float(np.mean(summ["eRank"]))
+            k = len(v4.RESTRICTED_TOPICS[src])
             sources.append(display(path))
             boot = v4.load_spectral_bootstrap(src, plotter.spectral_matrix, year)
             if boot is None:
@@ -311,10 +313,10 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
             else:
                 sources.append(f"bootstrap of {src}" + (f" ({year})" if year else ""))
                 pr_ci = f"[{boot['PR_lo']:.3f}, {boot['PR_hi']:.3f}]"
-                norm_ci = f"[{boot['PR_lo'] / N_TOPICS:.3f}, {boot['PR_hi'] / N_TOPICS:.3f}]"
+                norm_ci = f"[{boot['PR_lo'] / k:.3f}, {boot['PR_hi'] / k:.3f}]"
                 er_ci = f"[{boot['eRank_lo']:.3f}, {boot['eRank_hi']:.3f}]"
             rows.append([r.code, medium, src, str(len(summ["PR"])), f"{pr:.3f}", pr_ci,
-                         f"{pr / N_TOPICS:.3f}", norm_ci, f"{er:.3f}", er_ci])
+                         f"{pr / k:.3f}", norm_ci, f"{er:.3f}", er_ci])
     lines += _part(
         "PART 6. Dimensionality: participation ratio and exponential rank (Fig 3)",
         sources + ["Keys \"PR\" and \"eRank\" (one entry per year in the source)."],
@@ -326,10 +328,10 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
              if plotter.social_year == "average" else
              f"Social media: the {plotter.social_year} matrix only (<stem>-{plotter.social_year}.csr-none.json; "
              f"bootstrap <stem>-none-{plotter.social_year}-bootstrap.json, or the main file if it covers only that year)."),
-            f"Normalized PR = PR / {N_TOPICS} (number of topics).",
+            f"Normalized PR = PR / K, K = number of topics of the source ({n_topics} here).",
             "95% CI: percentile bootstrap from spectral_bootstrap.py (rows = respondents / users",
             "resampled with replacement within each file; PR and eRank recomputed in each resample;",
-            f"these are the Fig 3 error bars). Normalized CI = CI / {N_TOPICS}.",
+            f"these are the Fig 3 error bars). Normalized CI = CI / K.",
         ],
         _table(["Country", "Medium", "Source", "Entries", "PR", "PR 95% CI", "PR/9", "PR/9 95% CI",
                 "eRank", "eRank 95% CI"], rows),
@@ -342,9 +344,9 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
             n = tables[(r.code, medium)]["intersection"].to_numpy(int)
             rows.append([r.code, medium, getattr(r, attr), f"{n.min():,}", f"{int(np.median(n)):,}", f"{n.max():,}"])
     lines += _part(
-        "PART 7. Pairwise-complete overlap counts across the 36 pairs",
+        f"PART 7. Pairwise-complete overlap counts across the {n_pairs} pairs",
         [s for s in pair_source] + ['Column "Intersection" = respondents/users with both topics observed.'],
-        ["Minimum, median, maximum of Intersection over the 36 pairs of each source."],
+        [f"Minimum, median, maximum of Intersection over the {n_pairs} pairs of each source."],
         _table(["Country", "Medium", "Source", "Minimum", "Median", "Maximum"], rows),
     )
 
@@ -426,18 +428,18 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
         f"PART 9. Mean |r| with semantic similarity held fixed at the {ref.code} distribution (Fig 2G)",
         sem_sources,
         [
-            f"Within each medium, reweight every other society's 36 pairs so their semantic similarities are",
+            f"Within each medium, reweight every other society's {n_pairs} pairs so their semantic similarities are",
             f"distributed like the {ref.code} pairs' (DiNardo-Fortin-Lemieux reweighting):",
             f"  weight_j = f_{ref.code}(sim_j) / f_other(sim_j), both densities Gaussian KDEs (Scott bandwidth),",
             "  weights normalised to sum to 1; adjusted mean |r| = sum_j weight_j * |r|_j.",
             f"The {ref.code} value is its raw mean (it is the reference). ESS = Kish effective number of pairs",
-            "  (sum w)^2 / sum w^2, out of 36: how far the weights are from uniform.",
+            f"  (sum w)^2 / sum w^2, out of {n_pairs}: how far the weights are from uniform.",
             sem_boot_note,
             f"Gap decomposition: raw gap = mean|r|({ref.code}) - mean|r|(other) =",
             "  similarity mix (adjusted - raw mean of the other society; what the gap would change by if the",
             f"  other society's topics were as similar as the {ref.code} topics, with sign) +",
             f"  society ({ref.code} - adjusted; the gap in |r| between topic pairs of equal similarity).",
-            f"Weighting, not matching: with 36 pairs per society, matching would let a few pairs stand in for many.",
+            f"Weighting, not matching: with {n_pairs} pairs per society, matching would let a few pairs stand in for many.",
             f"{ref.code} pairs beyond the other society's similarity range cannot be reproduced by any weighting, so",
             f"  the reweighted similarity distribution is close to, not identical with, the {ref.code} one (Part 11).",
             f"Sensitivity - quintile strata: {ref.code} similarity quintiles, each weighted by its {ref.code} share",
@@ -577,12 +579,13 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
             ])
         lines += _part(
             "PART 12. Topic-specific agreement of U.S. and European pair correlations (random re-pairing)",
-            ["Same 36-pair |r| values as Part 2; the 8 topic concepts shared by the U.S. and European sources",
-             "(figures.OFFLINE_ONLINE_TOPIC_MAP: Twitter/X codes; ANES and EVS items mapped to them) -> 28 pairs."],
+            [f"Same {n_pairs}-pair |r| values as Part 2; the {len(shared)} topic concepts shared by the U.S. and European",
+             "sources (figures.OFFLINE_ONLINE_TOPIC_MAP: Twitter/X codes; survey items mapped to them)",
+             f"-> {len(shared) * (len(shared) - 1) // 2} pairs."],
             [
-                "For each medium, the 28 concept pairs' |r| in the U.S. source vs the European source:",
+                f"For each medium, the {len(shared) * (len(shared) - 1) // 2} concept pairs' |r| in the U.S. source vs the European source:",
                 "  mean |difference| and the Pearson correlation of the two patterns (matched).",
-                "Random re-pairing: relabel the European concepts by a random permutation of the 8 concepts and",
+                f"Random re-pairing: relabel the European concepts by a random permutation of the {len(shared)} concepts and",
                 f"  recompute both quantities; 5,000 permutations, numpy seed {SEED}. p = share of permutations at least",
                 "  as close as the matched pairing (difference <= matched; correlation >= matched).",
                 "If the sources were alike only in level (all pairs compressed to a common value), random re-pairing",

@@ -53,6 +53,7 @@ from common.topics import (
     TWITTER_TOPICS,
     US_SURVEY_TOPICS,
     WEIBO_TOPICS,
+    TOPICS_8,
     WVS_US_TOPICS,
 )
 
@@ -84,9 +85,22 @@ RESTRICTED_TOPICS: Dict[str, Sequence[Union[str, int]]] = {
     "eutwitter": EUTWITTER_TOPICS,
     "entwitter": EUTWITTER_TOPICS,
     "eu_nentwitter": EUTWITTER_TOPICS,
-    # robustness only: U.S. Twitter/X users on the European topic set
-    "twitter_euset": EUTWITTER_TOPICS,
+    # robustness only (task robust_12_wvs_us): every source on eight topics
+    **TOPICS_8,
 }
+
+# Robustness sources that are a topic subset of an existing source: they read
+# the parent's pairwise-correlation and similarity files (restricted to their
+# own topics) and have their own spectral results (robustness/topics8.py).
+ROBUSTNESS_PARENT: Dict[str, str] = {
+    "wvs_us8": "wvs_us", "wvs_8": "wvs", "evs_resample2_8": "evs_resample2",
+    "twitter_8": "twitter", "weibo_8": "weibo", "eutwitter_8": "eutwitter",
+}
+
+
+def parent_source(src: str) -> str:
+    """The source whose correlation / similarity files ``src`` reads."""
+    return ROBUSTNESS_PARENT.get(src, src)
 
 
 from common.paths import (
@@ -100,7 +114,8 @@ from common.paths import (
 )
 
 
-SOCIAL_SOURCES = {"twitter", "weibo", "eutwitter", "entwitter", "eu_nentwitter", "twitter_euset"}
+SOCIAL_SOURCES = {"twitter", "weibo", "eutwitter", "entwitter", "eu_nentwitter",
+                  "twitter_8", "weibo_8", "eutwitter_8"}
 
 
 # For each source, the (LGBT, environment-like) topic pair anchoring the case
@@ -210,11 +225,11 @@ OFFLINE_ONLINE_TOPIC_MAP: Dict[str, Dict[Union[str, int], Union[str, int]]] = {
 }
 
 # Survey sources whose topics map to Twitter/X codes differently from their
-# region's entry above. Robustness only: WVS wave 7 U.S. items (robustness/
-# wvs_us.py), paired online with U.S. users on the European topic set.
+# region's entry above. Robustness only: WVS wave 7 U.S. items on eight topics
+# (robustness/wvs_us.py; task robust_12_wvs_us).
 OFFLINE_ONLINE_TOPIC_MAP_BY_SURVEY: Dict[str, Dict[str, str]] = {
-    "wvs_us": {
-        "Abortion": "abo", "LGBT": "sxo", "DeathPenalty": "dpp", "Prostitution": "swe",
+    "wvs_us8": {
+        "Abortion": "abo", "LGBT": "sxo", "DeathPenalty": "dpp",
         "Egalitarian": "ubi", "UnemplyAid": "minwage", "WHO": "vac", "Press": "soc",
         "Environment": "clc",
     },
@@ -286,7 +301,8 @@ _SPECTRAL_STEM_OVERRIDE: Dict[str, str] = {
     "eutwitter": "twitter-eu",
     "entwitter": "twitter-en",
     "eu_nentwitter": "twitter-eu_nen",
-    "twitter_euset": "twitter-us_euset",  # robustness only
+    "twitter_8": "twitter-us_8",  # robustness only
+    "eutwitter_8": "twitter-eu_8",  # robustness only
 }
 
 
@@ -304,7 +320,7 @@ def load_pairwise_correlation(src: str, year: str = "average") -> pd.DataFrame:
     and defaults to the pooled "average" year so consumers get one row per pair.
     Pass year=None to keep every year.
     """
-    csv_path = CORRELATION_DIR / f"network_analysis_{src}.csv"
+    csv_path = CORRELATION_DIR / f"network_analysis_{parent_source(src)}.csv"
     raw = pd.read_csv(csv_path)
 
     # Some social-media CSVs only have Topic1/Topic2; copy into tid1/tid2 for
@@ -366,12 +382,12 @@ def load_semantic_similarity(src: str, embedding_type: str = "gpt") -> pd.DataFr
 
     if src in SOCIAL_SOURCES:
         social_type = "dictionary" if embedding_type == "dictionary" else "gpt"
-        path = EMBEDDING_DIR / f"dynamic_embedding_{src}_{social_type}.csv"
+        path = EMBEDDING_DIR / f"dynamic_embedding_{parent_source(src)}_{social_type}.csv"
         raw = pd.read_csv(path)
         raw = raw[raw["year"].astype(str).isin(["merged", "average"])].copy()
         raw["similarity"] = raw["similarity"].astype(float)
     else:
-        path = EMBEDDING_DIR / f"{src}_topic_distance.csv"
+        path = EMBEDDING_DIR / f"{parent_source(src)}_topic_distance.csv"
         raw = pd.read_csv(path)
         sim_col = SURVEY_SIMILARITY_COLUMN[embedding_type]
         raw = raw[["topic_id1", "topic_id2", sim_col]].rename(columns={sim_col: "similarity"})
@@ -2911,16 +2927,16 @@ TASKS: List[Dict] = [
     },
     {
         # Same instrument offline: the U.S. survey source is WVS wave 7 (USA,
-        # 2017) on items mirroring EVS, and the U.S. platform source uses the
-        # European topic set (sex-work legalization in place of gun control,
-        # which WVS lacks). ROBUSTNESS ONLY - the main U.S. sources are ANES and
-        # U.S. Twitter/X with gun control (robustness/wvs_us.py).
+        # 2017) on items mirroring EVS. Every source on eight topics (common.
+        # topics.TOPICS_8: no U.S. gun control, no European prostitution / sex
+        # work, no Chinese attitudes toward the U.S.). ROBUSTNESS ONLY - the
+        # main analysis keeps ANES and nine topics per source.
         "name": "robust_12_wvs_us",
         "regions": [
-            RegionSpec("US", "wvs_us", "twitter_euset",
-                       survey_display="WVS (US)", social_display="Twitter (US, EU topics)"),
-            RegionSpec("CN", "wvs", "weibo", survey_display="WVS (CN)", social_display="Weibo (CN)"),
-            RegionSpec("EU", "evs_resample2", "eutwitter",
+            RegionSpec("US", "wvs_us8", "twitter_8",
+                       survey_display="WVS (US)", social_display="Twitter (US)"),
+            RegionSpec("CN", "wvs_8", "weibo_8", survey_display="WVS (CN)", social_display="Weibo (CN)"),
+            RegionSpec("EU", "evs_resample2_8", "eutwitter_8",
                        survey_display="EVS (EU)", social_display="Twitter (EU)"),
         ],
         "embedding_type": "gpt",
@@ -2995,11 +3011,10 @@ def run_task(
         name, figure_folder=figure_folder, date_prefix=date_prefix,
         n_bootstrap=n_bootstrap,
     ))
-    # Robustness sources computed on the clusters (e.g. twitter_euset) may not
-    # exist yet; skip the task with a message instead of failing a full run.
+    # Skip the task with a message when an input source is missing here.
     missing_corr = [
         src for r in plotter.regions for src in (r.survey, r.social)
-        if not (CORRELATION_DIR / f"network_analysis_{src}.csv").exists()
+        if not (CORRELATION_DIR / f"network_analysis_{parent_source(src)}.csv").exists()
     ]
     if missing_corr:
         print(f"[figures] skipped {name}: no pairwise correlations for {missing_corr} in {CORRELATION_DIR}")
@@ -3016,8 +3031,19 @@ def run_task(
             print(f"[figures] skipped {name}: no {plotter.spectral_matrix} results in {folder} for {missing} "
                   f"(run dimension_pipeline calculate_all / spectral_bootstrap all --matrix {plotter.spectral_matrix})")
             return {}
+    figures_to_make = list(task["figures"])
+    # Robustness spectra may be computed later (robustness/topics8.py, partly on
+    # the clusters): draw the other figures and leave Fig 3 out until they exist.
+    if 3 in figures_to_make:
+        missing_spec = [
+            src for r in plotter.regions for src in (r.survey, r.social)
+            if not spectral_summary_path(src, plotter.spectral_matrix).exists()
+        ]
+        if missing_spec:
+            print(f"[figures] {name}: Fig 3 skipped, no spectral results for {missing_spec}")
+            figures_to_make.remove(3)
     paths: Dict[Union[int, str], Path] = {}
-    for fig_num in task["figures"]:
+    for fig_num in figures_to_make:
         method = getattr(plotter, f"make_fig{fig_num}")
         paths[fig_num] = method(task_name=name)
     if write_stats:

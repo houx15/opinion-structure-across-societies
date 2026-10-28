@@ -30,26 +30,19 @@ from scipy.stats import norm, pearsonr
 from common.paths import CORRELATION_DIR
 from config import cfg
 
-# ROBUSTNESS ONLY: "us_euset" = U.S.-located users on the European topic set
-# (sex-work legalization in place of gun control), the online counterpart of
-# the WVS wave 7 U.S. survey source (robustness/wvs_us.py; task
-# robust_12_wvs_us). Separate output names; the main "us" mode is unchanged.
-MODES = {"us": "twitter", "eu": "eutwitter", "en": "entwitter", "eu_nen": "eu_nentwitter",
-         "us_euset": "twitter_euset"}
-# Located-user list of each mode (us_euset uses the U.S. users).
-USER_MODE = {"us_euset": "us"}
+MODES = {"us": "twitter", "eu": "eutwitter", "en": "entwitter", "eu_nen": "eu_nentwitter"}
 
 US_TOPICS = ["abo", "gun", "clc", "sxo", "vac", "soc", "dpp", "minwage", "ubi"]
 # Europe: sex-work legalization replaces gun control (EVS asks about prostitution).
 EU_TOPICS = ["abo", "swe", "clc", "sxo", "vac", "soc", "dpp", "minwage", "ubi"]
-TOPICS = {"us": US_TOPICS, "eu": EU_TOPICS, "en": EU_TOPICS, "eu_nen": EU_TOPICS, "us_euset": EU_TOPICS}
+TOPICS = {"us": US_TOPICS, "eu": EU_TOPICS, "en": EU_TOPICS, "eu_nen": EU_TOPICS}
 
 TARGET_YEARS = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, "average"]
 SHUFFLE_TIMES = 10000
 
 
 def load_keep_ids(mode):
-    path = os.path.join(cfg.LOCATION_DIR, f"{USER_MODE.get(mode, mode)}_user_ids.json")
+    path = os.path.join(cfg.LOCATION_DIR, f"{mode}_user_ids.json")
     with open(path, "r") as f:
         return set(int(x) for x in json.load(f))
 
@@ -119,10 +112,9 @@ def run(mode="us", shuffle_times=SHUFFLE_TIMES, source_folder=None, output_dir=N
             pearson_corr = pearson_p = shuffled_pearson = shuffled_pearson_std = None
             if len(intersection_set) > 1:  # correlation needs at least 2 users
                 pearson_corr, pearson_p = calculate_correlation(s1_filtered, s2_filtered)
-                if shuffle_times:  # 0 skips the shuffle baseline (robustness modes)
-                    shuffled_pearson, shuffled_pearson_std = calculate_shuffle_correlation(
-                        s1_filtered, s2_filtered, exp_times=shuffle_times
-                    )
+                shuffled_pearson, shuffled_pearson_std = calculate_shuffle_correlation(
+                    s1_filtered, s2_filtered, exp_times=shuffle_times
+                )
             print(f"[{mode}] {year} {topic1}-{topic2}: n={len(intersection_set)} r={pearson_corr}")
             final_result.append((
                 year, topic1, topic2, len(intersection_set), pearson_corr, pearson_p,
@@ -142,9 +134,7 @@ def run(mode="us", shuffle_times=SHUFFLE_TIMES, source_folder=None, output_dir=N
 
 
 def run_all(shuffle_times=SHUFFLE_TIMES):
-    """Main regions only; robustness modes (us_euset) are run explicitly:
-    ``run --mode us_euset --shuffle_times 0``."""
-    return [run(mode, shuffle_times=shuffle_times) for mode in MODES if mode not in USER_MODE]
+    return [run(mode, shuffle_times=shuffle_times) for mode in MODES]
 
 
 if __name__ == "__main__":

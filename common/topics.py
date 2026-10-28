@@ -38,12 +38,28 @@ WEIBO_TOPICS: List[int] = [7, 9, 11, 12, 10, 13, 15, 14, 0]
 # same item (Abortion ... UnemplyAid); "WHO" (confidence in the WHO, for
 # vaccine mandates) and "Press" (confidence in the press, for social media)
 # are substitutes; "Environment" is the WVS environment-vs-growth item used
-# for China. Its online counterpart is U.S. Twitter/X on the European topic
-# set (sex work in place of gun control, which has no WVS item).
+# for China. The robustness check uses it on eight topics (WVS_US_TOPICS
+# without Prostitution, see TOPICS_8).
 WVS_US_TOPICS: List[str] = [
     "Abortion", "LGBT", "DeathPenalty", "Prostitution", "Egalitarian",
     "UnemplyAid", "WHO", "Press", "Environment",
 ]
+
+# ROBUSTNESS ONLY (task robust_12_wvs_us): every source on eight topics, so
+# that the U.S. survey can be the WVS wave 7 U.S. file. Dropped: U.S. gun
+# control (no WVS item) and its survey slot; European prostitution / sex-work
+# legalization (no U.S. counterpart); Chinese attitudes toward the U.S. and
+# its survey item (job priority for natives over immigrants), the topic least
+# comparable with the other societies. Each robustness source reads its
+# parent's correlation and similarity files (plotting.figures.ROBUSTNESS_PARENT).
+TOPICS_8: Dict[str, List[Union[str, int]]] = {
+    "wvs_us8": [t for t in WVS_US_TOPICS if t != "Prostitution"],
+    "wvs_8": [t for t in CN_SURVEY_TOPICS if t != "Foreign"],
+    "evs_resample2_8": [t for t in EU_SURVEY_TOPICS if t != "Prostitution"],
+    "twitter_8": [t for t in TWITTER_TOPICS if t != "gun"],
+    "weibo_8": [t for t in WEIBO_TOPICS if t != 0],
+    "eutwitter_8": [t for t in EUTWITTER_TOPICS if t != "swe"],
+}
 
 ANALYSED_SOCIAL_TOPICS: Dict[str, List[str]] = {
     "twitter": list(dict.fromkeys(TWITTER_TOPICS + EUTWITTER_TOPICS)),   # 10 codes

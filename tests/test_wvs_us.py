@@ -28,16 +28,30 @@ def test_recoding_rules():
                                   [1, 5, 3, np.nan])
 
 
-def test_topic_set_mirrors_europe_without_gun():
-    from common.topics import WVS_US_TOPICS
-    from plotting.figures import OFFLINE_ONLINE_TOPIC_MAP_BY_SURVEY, RESTRICTED_TOPICS
+def test_eight_topic_sources_share_concepts_and_leave_main_untouched():
+    from common.topics import TOPICS_8, WVS_US_TOPICS
+    from plotting.figures import OFFLINE_ONLINE_TOPIC_MAP, OFFLINE_ONLINE_TOPIC_MAP_BY_SURVEY, RESTRICTED_TOPICS
 
     assert list(wvs_us.ITEMS) == WVS_US_TOPICS and len(WVS_US_TOPICS) == 9
-    codes = set(OFFLINE_ONLINE_TOPIC_MAP_BY_SURVEY["wvs_us"].values())
-    assert codes == set(RESTRICTED_TOPICS["twitter_euset"]) == set(RESTRICTED_TOPICS["eutwitter"])
-    assert "gun" not in codes
-    # the main U.S. platform source keeps gun control
-    assert "gun" in RESTRICTED_TOPICS["twitter"]
+    assert all(len(v) == 8 for v in TOPICS_8.values())
+    # U.S. survey and both Twitter/X sources cover the same eight concepts
+    us_codes = set(OFFLINE_ONLINE_TOPIC_MAP_BY_SURVEY["wvs_us8"].values())
+    assert us_codes == set(TOPICS_8["twitter_8"]) == set(TOPICS_8["eutwitter_8"])
+    # China drops attitudes toward the U.S. in both media
+    assert "Foreign" not in TOPICS_8["wvs_8"] and 0 not in TOPICS_8["weibo_8"]
+    assert OFFLINE_ONLINE_TOPIC_MAP["CN"]["Foreign"] == 0
+    # the main sources keep their nine topics
+    assert "gun" in RESTRICTED_TOPICS["twitter"] and "swe" in RESTRICTED_TOPICS["eutwitter"]
+    assert len(RESTRICTED_TOPICS["wvs"]) == len(RESTRICTED_TOPICS["anes"]) == 9
+
+
+def test_eight_topic_spectra_drop_the_right_column():
+    from robustness import topics8
+
+    assert topics8.keep_columns("twitter-us_8") == [0, 2, 3, 4, 5, 6, 7, 8]   # gun is column 1
+    assert topics8.keep_columns("twitter-eu_8") == [0, 2, 3, 4, 5, 6, 7, 8]   # swe is column 1
+    assert topics8.keep_columns("weibo_8") == list(range(8))                  # topic 0 is last
+    assert topics8.keep_columns("wvs_8") == list(range(8))                    # Foreign is last
 
 
 @requires_raw
@@ -45,9 +59,11 @@ def test_rules_rebuild_the_stored_china_file_exactly():
     assert all(v == 1.0 for v in wvs_us.validate_china(RAW).values())
 
 
-def test_robustness_task_skips_until_platform_source_exists(tmp_figure_folder):
+def test_robustness_task_runs_fig2_and_skips_fig3_without_social_spectra(tmp_figure_folder):
     import plotting.figures as v4
 
-    if (v4.CORRELATION_DIR / "network_analysis_twitter_euset.csv").exists():
-        pytest.skip("platform source present")
-    assert v4.run_task("robust_12_wvs_us", figure_folder=str(tmp_figure_folder), n_bootstrap=10) == {}
+    if (v4.dimension_results_dir("cov") / "twitter-us_8-none-summary.json").exists():
+        pytest.skip("social eight-topic spectra present")
+    paths = v4.run_task("robust_12_wvs_us", figure_folder=str(tmp_figure_folder), n_bootstrap=10,
+                        write_stats=False)
+    assert list(paths) == [2]
