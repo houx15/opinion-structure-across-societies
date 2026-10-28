@@ -40,6 +40,7 @@ from statsmodels.nonparametric.smoothers_lowess import lowess
 
 from analysis.correlation.semantic_adjustment import (
     adjusted_mean,
+    common_support,
     density_ratio_weights,
     shapley_r2,
     weighted_fit,
@@ -2094,15 +2095,36 @@ class Plotter:
         (the U.S.; the first region when there is no U.S.)."""
         return next((r for r in self.regions if r.code == "US"), self.regions[0])
 
-    def semantic_pairs(self, src: str) -> Tuple[np.ndarray, np.ndarray]:
-        """(similarity, |r|) per topic pair of ``src`` at this plotter's year."""
-        return similarity_pairs(src, self.embedding_type, self.correlation_year(src))
+    def semantic_pairs(self, src: str, support: bool = False) -> Tuple[np.ndarray, np.ndarray]:
+        """(similarity, |r|) per topic pair of ``src`` at this plotter's year;
+        with ``support`` only the pairs inside the medium's common support."""
+        x, y = similarity_pairs(src, self.embedding_type, self.correlation_year(src))
+        if support:
+            lo, hi = self.semantic_support(src)
+            keep = (x >= lo) & (x <= hi)
+            x, y = x[keep], y[keep]
+        return x, y
+
+    def _medium_sources(self, src: str) -> List[str]:
+        """All sources of ``src``'s medium, reference society first."""
+        attr = next(a for _, a in self.SEMANTIC_MEDIA if src in [getattr(r, a) for r in self.regions])
+        ref = self.semantic_reference()
+        return [getattr(ref, attr)] + [getattr(r, attr) for r in self.regions if r is not ref]
+
+    def semantic_support(self, src: str) -> Tuple[float, float]:
+        """Common support of ``src``'s medium: the similarity range every
+        society of that medium covers (robustness check of Fig 2G)."""
+        return common_support([self.semantic_pairs(s)[0] for s in self._medium_sources(src)])
 
     def semantic_adjustment(self, method: str = "kde") -> Dict[str, object]:
         """Similarity-adjusted mean |r| per source and the Shapley decomposition
         per medium, with percentile bootstrap intervals (cached per method).
 
-        ``method``: "kde" (main, Fig 2G: density-ratio reweighting) or
+        ``method``: "kde" (main, Fig 2G: density-ratio reweighting),
+        "support" (the same on the common support only: every society,
+        the reference included, keeps the pairs inside the similarity range
+        all societies of the medium cover; bounds fixed from the observed
+        pairs, resamples drawn from the kept pairs; Fig 2s support) or
         "strata" (quintile reweighting, sensitivity).
 
         Returns ``raw`` / ``adjusted`` {src: mean |r|}, ``adjusted_ci``
@@ -2123,13 +2145,14 @@ class Plotter:
         for medium, attr in self.SEMANTIC_MEDIA:
             sources = [getattr(r, attr) for r in self.regions]
             ref_src = getattr(ref, attr)
-            pairs = {src: self.semantic_pairs(src) for src in sources}
+            pairs = {src: self.semantic_pairs(src, support=method == "support") for src in sources}
+            weighting = "kde" if method == "support" else method
 
             def estimate(data):
                 xr = data[ref_src][0]
                 adj = {
                     src: (float(y.mean()) if src == ref_src
-                          else adjusted_mean(xr, x, y, method))
+                          else adjusted_mean(xr, x, y, weighting))
                     for src, (x, y) in data.items()
                 }
                 groups = np.concatenate([np.full(len(data[s][0]), i) for i, s in enumerate(sources)])
@@ -2163,17 +2186,20 @@ class Plotter:
         self._semantic_cache[method] = out
         return out
 
-    def _adjusted_mean_panel(self, ax) -> None:
+    def _adjusted_mean_panel(
+        self, ax, method: str = "kde", title: str = "Semantic similarity held fixed",
+    ) -> None:
         """Mean |r| per society and medium after reweighting each society's
-        topic pairs to the U.S. similarity distribution (Fig 2G)."""
-        res = self.semantic_adjustment()
+        topic pairs to the U.S. similarity distribution (Fig 2G; ``method``
+        "support" for the common-support robustness check)."""
+        res = self.semantic_adjustment(method)
         values = res["adjusted"]
         intervals = res["adjusted_ci"]
         hi = max(max(values.values()), max(h for _, h in intervals.values()))
         self._aligned_dash_plot(
             ax, values,
             y_label="Mean |r| at U.S. similarity",
-            title="Semantic similarity held fixed",
+            title=title,
             ylim=(0, max(0.45, np.ceil(hi * 1.1 / 0.05) * 0.05)),
             connect=True, range_span=True, intervals=intervals,
             legend_loc="upper right",
@@ -2310,38 +2336,41 @@ class Plotter:
 
     SUPP_FITS = {"ols": "OLS", "loess": "LOESS"}
 
-    def semantic_weights(self, src: str) -> np.ndarray:
+    def semantic_weights(self, src: str, support: bool = False) -> np.ndarray:
         """Fig 2G weights of ``src``'s pairs (sum 1): density-ratio weights to
-        the reference society of the same medium; equal for the reference."""
-        x, _ = self.semantic_pairs(src)
-        ref_src = next(
-            getattr(self.semantic_reference(), attr)
-            for _, attr in self.SEMANTIC_MEDIA
-            if src in [getattr(r, attr) for r in self.regions]
-        )
+        the reference society of the same medium; equal for the reference.
+        With ``support``, weights of the common-support pairs only."""
+        x, _ = self.semantic_pairs(src, support)
+        ref_src = self._medium_sources(src)[0]
         if src == ref_src:
             return np.full(len(x), 1 / len(x))
-        return density_ratio_weights(self.semantic_pairs(ref_src)[0], x)
+        return density_ratio_weights(self.semantic_pairs(ref_src, support)[0], x)
 
-    def _similarity_distribution_panel(self, ax, sources: Sequence[str], *, panel_label: str) -> None:
+    def _similarity_distribution_panel(
+        self, ax, sources: Sequence[str], *, panel_label: str, support: bool = False,
+    ) -> None:
         """Semantic-similarity density per society: raw (thin, dotted) and
-        after reweighting (thick); the reference society is shaded."""
+        after reweighting (thick); the reference society is shaded. With
+        ``support``, the common-support pairs only, bounds marked."""
         ref_code = self.semantic_reference().code
-        xs = np.concatenate([self.semantic_pairs(s)[0] for s in sources])
+        xs = np.concatenate([self.semantic_pairs(s, support)[0] for s in sources])
         pad = 0.15 * np.ptp(xs)
         grid = np.linspace(xs.min() - pad, xs.max() + pad, 300)
         for src in sources:
             code = self.source_country[src]
             color = self.country_color[code]
-            x, _ = self.semantic_pairs(src)
+            x, _ = self.semantic_pairs(src, support)
             raw = gaussian_kde(x)(grid)
             if code == ref_code:
                 ax.fill_between(grid, raw, color=color, alpha=0.18, linewidth=0)
                 ax.plot(grid, raw, color=color, linewidth=2.2, label=f"{code} (reference)")
                 continue
             ax.plot(grid, raw, color=color, linewidth=1.0, linestyle=(0, (2, 2)), label=f"{code} raw")
-            ax.plot(grid, gaussian_kde(x, weights=self.semantic_weights(src))(grid), color=color,
+            ax.plot(grid, gaussian_kde(x, weights=self.semantic_weights(src, support))(grid), color=color,
                     linewidth=2.2, label=f"{code} reweighted")
+        if support:
+            for bound in self.semantic_support(sources[0]):
+                ax.axvline(bound, color="0.5", linewidth=0.8, linestyle=(0, (1, 2)))
         ax.set_xlabel("Semantic similarity", fontsize=12)
         ax.set_ylabel("Density", fontsize=12, fontweight="bold")
         ax.set_title(panel_label, fontsize=12, fontweight="bold")
@@ -2446,6 +2475,37 @@ class Plotter:
     def _make_fig2s(self, fit: str, task_name: str) -> Path:
         fig = self.build_fig2s(fit)
         path = self._output_path(task_name, f"fig2s_{fit}")
+        fig.savefig(path, format="pdf", bbox_inches="tight")
+        plt.close(fig)
+        return path
+
+    def build_fig2s_support(self) -> Figure:
+        """Supplementary robustness figure for Fig 2G: the same reweighting on
+        the common support only. Similarity densities raw vs reweighted of
+        the kept pairs, bounds dotted (a offline, b online); mean |r| at the
+        U.S. similarity distribution within the support (c)."""
+        plt.rcParams["font.family"] = "Times New Roman"
+        fig = plt.figure(figsize=(17, 4.8))
+        gs = fig.add_gridspec(1, 3, wspace=0.28)
+        axes = [fig.add_subplot(gs[0, c]) for c in range(3)]
+        for ax, (sources, medium) in zip(axes, (
+            ([r.survey for r in self.regions], "offline"),
+            ([r.social for r in self.regions], "online"),
+        )):
+            lo, hi = self.semantic_support(sources[0])
+            self._similarity_distribution_panel(
+                ax, sources, support=True,
+                panel_label=f"Common support [{lo:.2f}, {hi:.2f}], {medium}",
+            )
+        self._adjusted_mean_panel(axes[2], method="support", title="Held fixed on the common support")
+        for ax, letter in zip(axes, "abc"):
+            self._label_panel(ax, letter)
+        return fig
+
+    def make_fig2s_support(self, task_name: str = "supp_semantic") -> Path:
+        """Save the common-support robustness figure; returns the PDF path."""
+        fig = self.build_fig2s_support()
+        path = self._output_path(task_name, "fig2s_support")
         fig.savefig(path, format="pdf", bbox_inches="tight")
         plt.close(fig)
         return path
@@ -2742,11 +2802,12 @@ TASKS: List[Dict] = [
         # Supplementary Figs 2s: Fig 2G's reweighting in detail - similarity
         # and |r| distributions before / after reweighting, |r| vs similarity
         # fits on raw and reweighted pairs; one figure with OLS lines, one
-        # with LOESS (span 0.4) curves.
+        # with LOESS (span 0.4) curves; and the reweighting restricted to the
+        # common similarity support (robustness).
         "name": "supp_semantic",
         "us_survey": "anes", "cn_survey": "wvs", "eu_survey": "evs_resample2",
         "eutwitter_src": "eutwitter", "embedding_type": "gpt",
-        "figures": ["2s_ols", "2s_loess"],
+        "figures": ["2s_ols", "2s_loess", "2s_support"],
     },
     {
         "name": "robust_1_media",

@@ -405,6 +405,22 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
                 r.code, medium, f"{sem['adjusted'][src]:.3f}", _ci(lo, hi),
                 f"{strata['adjusted'][src]:.3f}", _ci(lo_s, hi_s),
             ])
+    support = plotter.semantic_adjustment("support")
+    rows_sup = []
+    for medium, attr in MEDIA:
+        for r in regions:
+            src = getattr(r, attr)
+            lo_b, hi_b = plotter.semantic_support(src)
+            x, _ = plotter.semantic_pairs(src, support=True)
+            w = plotter.semantic_weights(src, support=True)
+            m_w = w @ x
+            lo, hi = support["adjusted_ci"][src]
+            rows_sup.append([
+                r.code, medium, f"[{lo_b:.3f}, {hi_b:.3f}]", f"{len(x)}/{len(plotter.semantic_pairs(src)[0])}",
+                f"{m_w:.3f}", f"{np.sqrt(w @ (x - m_w) ** 2):.3f}",
+                "" if r is ref else f"{sa.effective_sample_size(w):.1f}",
+                f"{sem['adjusted'][src]:.3f}", f"{support['adjusted'][src]:.3f}", _ci(lo, hi),
+            ])
     lines += _part(
         f"PART 9. Mean |r| with semantic similarity held fixed at the {ref.code} distribution (Fig 2G)",
         sem_sources,
@@ -425,6 +441,12 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
             f"  the reweighted similarity distribution is close to, not identical with, the {ref.code} one (Part 11).",
             f"Sensitivity - quintile strata: {ref.code} similarity quintiles, each weighted by its {ref.code} share",
             f"  (other pairs outside the {ref.code} range dropped); same bootstrap.",
+            "Robustness - common support (Fig 2s support): within each medium keep only the pairs whose similarity",
+            "  lies in the range every society covers [largest minimum, smallest maximum], for all societies",
+            f"  including the {ref.code}; then the same density-ratio reweighting to the kept {ref.code} pairs. The {ref.code}",
+            "  value is the mean |r| of its kept pairs. Bounds fixed from the observed pairs; bootstrap resamples",
+            "  drawn from the kept pairs. Reweighted mean / SD of similarity: weighted moments of the kept pairs",
+            f"  (the {ref.code} row gives the target).",
         ],
         _table(["Country", "Medium", "Source", "Mean sim", "Raw mean |r|", "Adjusted mean |r|", "95% CI",
                 "ESS"], rows_main)
@@ -432,7 +454,10 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
         + _table(["Comparison", "Medium", "Raw gap", "Similarity mix", "Society", "Society share"], rows_gap)
         + ["", "Sensitivity - adjusted mean |r| by method:"]
         + _table(["Country", "Medium", "Density ratio (main)", "95% CI", "Quintile strata", "95% CI"],
-                 rows_alt),
+                 rows_alt)
+        + ["", "Robustness - common support:"]
+        + _table(["Country", "Medium", "Support", "Pairs kept", "Reweighted sim mean", "Reweighted sim SD",
+                  "ESS", "Main adjusted |r|", "Common-support |r|", "95% CI"], rows_sup),
     )
 
     # Part 10 - Shapley decomposition (text only, no figure panel)

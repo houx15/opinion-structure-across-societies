@@ -102,3 +102,8 @@ def test_loess_recovers_a_smooth_curve_and_weights_shift_it():
 def test_weighted_fit_rejects_unknown_fit():
     with pytest.raises(ValueError):
         sa.weighted_fit(np.ones(3), np.ones(3), fit="spline")
+
+
+def test_common_support_is_the_overlap_of_all_ranges():
+    lo, hi = sa.common_support([np.array([0.1, 0.5]), np.array([0.2, 0.7]), np.array([0.15, 0.6])])
+    assert (lo, hi) == (0.2, 0.5)

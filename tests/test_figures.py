@@ -1004,7 +1004,7 @@ def test_task_list_covers_main_plus_robustness_variants():
 
 def test_run_task_supp_semantic_writes_ols_and_loess_figures(tmp_figure_folder):
     """The Fig 2G supplement writes two same-layout figures (OLS, LOESS),
-    2 rows x 4 panels each."""
+    2 rows x 4 panels each, plus the common-support robustness figure."""
     import plotting.figures as v4
     import matplotlib.pyplot as plt
 
@@ -1015,7 +1015,8 @@ def test_run_task_supp_semantic_writes_ols_and_loess_figures(tmp_figure_folder):
         n_bootstrap=20,
         write_stats=False,
     )
-    assert list(paths) == ["2s_ols", "2s_loess"]
+    assert list(paths) == ["2s_ols", "2s_loess", "2s_support"]
+    assert Path(paths["2s_support"]).name == "20260513_supp_semantic_results_fig2s_support.pdf"
     assert Path(paths["2s_ols"]).name == "20260513_supp_semantic_results_fig2s_ols.pdf"
     assert Path(paths["2s_loess"]).name == "20260513_supp_semantic_results_fig2s_loess.pdf"
     plotter = v4.Plotter(figure_folder=str(tmp_figure_folder), n_bootstrap=20)
@@ -1313,3 +1314,21 @@ def test_case_study_export_round_trips_through_fallback(tmp_path, monkeypatch):
     plotter = v4.Plotter.__new__(v4.Plotter)
     assert plotter._case_study_signed_r("anes") == pytest.approx(summary["r"])
     assert plotter._case_study_ellipse("anes") is not None
+
+
+def test_common_support_keeps_only_shared_range_and_matches_reference_mean(tmp_figure_folder):
+    """Common-support check: every kept pair lies inside the shared range, the
+    reference value is its kept pairs' mean, and the reweighted similarity
+    mean is close to the reference's."""
+    import plotting.figures as v4
+
+    plotter = v4.Plotter(figure_folder=str(tmp_figure_folder), n_bootstrap=10)
+    res = plotter.semantic_adjustment("support")
+    for src in ("anes", "wvs", "evs_resample2", "twitter", "weibo", "eutwitter"):
+        lo, hi = plotter.semantic_support(src)
+        x, y = plotter.semantic_pairs(src, support=True)
+        assert x.min() >= lo and x.max() <= hi
+        assert plotter.semantic_weights(src, support=True) @ y == pytest.approx(res["adjusted"][src])
+    xr = plotter.semantic_pairs("twitter", support=True)[0]
+    xw = plotter.semantic_pairs("weibo", support=True)[0]
+    assert plotter.semantic_weights("weibo", support=True) @ xw == pytest.approx(xr.mean(), abs=0.005)

@@ -16,7 +16,10 @@ paper_stats Parts 9-11):
    each weighted by its U.S. share; other pairs outside the U.S. range
    dropped). U.S. pairs beyond the other society's similarity range cannot be
    reproduced by any weighting, so the reweighted distribution is close to,
-   not identical with, the U.S. one.
+   not identical with, the U.S. one. The stricter robustness check first
+   restricts every society of a medium to the common support -- the
+   similarity range all of them cover (``common_support``) -- and then
+   reweights to the U.S. pairs inside it.
 
    The raw gap to the U.S. then splits into a part due to the different
    similarity mix (adjusted - raw) and a part due to different |r| at equal
@@ -43,6 +46,12 @@ from scipy.stats import gaussian_kde
 
 ADJUSTMENT_METHODS = ("kde", "strata")
 FITS = ("ols", "loess")
+
+
+def common_support(xs: Sequence[np.ndarray]) -> tuple:
+    """(lo, hi): the similarity range covered by every array in ``xs``
+    (largest minimum, smallest maximum)."""
+    return float(max(np.min(x) for x in xs)), float(min(np.max(x) for x in xs))
 
 
 def density_ratio_weights(x_ref: np.ndarray, x_other: np.ndarray) -> np.ndarray:
