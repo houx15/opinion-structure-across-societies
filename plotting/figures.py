@@ -2673,9 +2673,11 @@ class Plotter:
         "lower rank\nmore collapsed", "higher rank\nless collapsed",
     )
 
-    def _spectral_dash_panels(self, pr_ax, erank_ax) -> None:
+    def _spectral_dash_panels(self, pr_ax, erank_ax, normalize: bool = False) -> None:
         """PR and eRank (effective number of dimensions, out of K topics) by
-        society and medium (Fig 3 B, C).
+        society and medium (Fig 3 B, C). With ``normalize`` the values and
+        intervals are divided by K (PR/K, eRank/K), for comparing analyses
+        with different numbers of topics (SI comparison figure only).
 
         Each panel has its own y-range, fitted to that metric's values and
         intervals: eRank >= PR by construction (exponentials of the order-1
@@ -2683,8 +2685,9 @@ class Plotter:
         in pattern, not level, and a shared axis would invite the latter.
         """
         k = len(RESTRICTED_TOPICS[self.regions[0].survey])
+        scale = k if normalize else 1
         means = {
-            metric: self._spectral_means(metric, normalize=False)
+            metric: self._spectral_means(metric, normalize=normalize)
             for metric in ("PR", "eRank")
         }
         # Bootstrap intervals from spectral_bootstrap.py, where available.
@@ -2694,7 +2697,7 @@ class Plotter:
         }
         intervals = {
             metric: {
-                src: (b[f"{metric}_lo"], b[f"{metric}_hi"])
+                src: (b[f"{metric}_lo"] / scale, b[f"{metric}_hi"] / scale)
                 for src, b in boots.items() if b is not None
             }
             for metric in means
@@ -2705,16 +2708,19 @@ class Plotter:
             ]
             lo, hi = min(values), max(values)
             pad = 0.08 * (hi - lo)
-            return (np.floor((lo - pad) / 0.5) * 0.5, np.ceil((hi + pad) / 0.5) * 0.5)
+            step = 0.05 if normalize else 0.5
+            return (np.floor((lo - pad) / step) * step, np.ceil((hi + pad) / step) * step)
 
+        labels = ((f"PR/K (K = {k})", f"eRank/K (K = {k})") if normalize
+                  else (f"Effective dimensions (of K = {k})",) * 2)
         for ax, metric, y_label, title in (
-            (pr_ax, "PR", f"Effective dimensions (of K = {k})", "Participation ratio"),
-            (erank_ax, "eRank", f"Effective dimensions (of K = {k})", "Exponential rank"),
+            (pr_ax, "PR", labels[0], "Participation ratio"),
+            (erank_ax, "eRank", labels[1], "Exponential rank"),
         ):
             self._aligned_dash_plot(
                 ax, means[metric],
                 y_label=y_label, title=title, ylim=metric_ylim(metric),
-                decimals_fn=lambda src: 2, invert_y=True,
+                decimals_fn=lambda src: 3 if normalize else 2, invert_y=True,
                 connect=True, range_span=True,
                 direction_notes=self._SPECTRAL_DIRECTION_NOTES,
                 intervals=intervals[metric],

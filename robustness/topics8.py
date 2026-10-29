@@ -117,8 +117,9 @@ COMPARISON = (
 
 
 def comparison_figure(path: Optional[Path] = None) -> Path:
-    """PR (top row) and eRank (bottom row) of the three analyses side by side;
-    each row shares its y-range so the columns can be compared directly."""
+    """PR/K (top row) and eRank/K (bottom row) of the three analyses side by
+    side, normalized because the columns have nine or eight topics; each row
+    shares its y-range so the columns can be compared directly."""
     import matplotlib.pyplot as plt
 
     from common.paths import FIGURE_DIR, date_prefix
@@ -128,7 +129,7 @@ def comparison_figure(path: Optional[Path] = None) -> Path:
     fig, axes = plt.subplots(2, 3, figsize=(17, 10.5))
     for col, (task, heading) in enumerate(COMPARISON):
         plotter = v4.Plotter(**v4.task_plotter_kwargs(task))
-        plotter._spectral_dash_panels(axes[0, col], axes[1, col])
+        plotter._spectral_dash_panels(axes[0, col], axes[1, col], normalize=True)
         axes[0, col].set_title(f"{heading}\nParticipation ratio", fontsize=12, fontweight="bold")
         axes[1, col].set_title("Exponential rank", fontsize=12, fontweight="bold")
     for row in axes:
