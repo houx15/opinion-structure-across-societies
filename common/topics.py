@@ -45,8 +45,10 @@ WVS_US_TOPICS: List[str] = [
     "UnemplyAid", "WHO", "Press", "Environment",
 ]
 
-# ROBUSTNESS ONLY (task robust_12_wvs_us): every source on eight topics, so
-# that the U.S. survey can be the WVS wave 7 U.S. file. Dropped: U.S. gun
+# ROBUSTNESS ONLY (tasks robust_12_wvs_us, robust_13_topics8): every source on
+# eight topics, so that the U.S. survey can be the WVS wave 7 U.S. file
+# (robust_12) or ANES without gun control (robust_13, the main sources on the
+# same eight topics: separates the instrument from the topic set). Dropped: U.S. gun
 # control (no WVS item) and its survey slot; British prostitution / sex-work
 # legalization (no U.S. counterpart); Chinese attitudes toward the U.S. and
 # its survey item (job priority for natives over immigrants), the topic least
@@ -54,6 +56,7 @@ WVS_US_TOPICS: List[str] = [
 # parent's correlation and similarity files (plotting.figures.ROBUSTNESS_PARENT).
 TOPICS_8: Dict[str, List[Union[str, int]]] = {
     "wvs_us8": [t for t in WVS_US_TOPICS if t != "Prostitution"],
+    "anes_8": [t for t in US_SURVEY_TOPICS if t != "Gun"],
     "wvs_8": [t for t in CN_SURVEY_TOPICS if t != "Foreign"],
     "en_evs_8": [t for t in GB_SURVEY_TOPICS if t != "Prostitution"],
     "twitter_8": [t for t in TWITTER_TOPICS if t != "gun"],

@@ -15,6 +15,7 @@ the task definitions live in plotting/figures.py (TASKS).
 | robust_10_annual           | Figs 2, 3 from social-media opinions of 2021 instead of pooled over years | year == 2021 rows of the correlation files; <stem>-2021.csr-none.json (+ spectral_bootstrap run weibo --year 2021) |
 | robust_11_survey_selected  | survey keywords before the top-5 cap (all selected keywords) | similarity column                            |
 | robust_12_wvs_us           | U.S. survey from WVS wave 7; every source on eight topics | wvs_us8 ... entwitter_8 (wvs_us.py, topics8.py) |
+| robust_13_topics8          | main sources on the same eight topics (ANES without gun control) | anes_8 ... entwitter_8 (topics8.py)   |
 
 Other robustness analyses in this folder:
     embedding_subspace_analysis.py   ngram-level semantic subspace diagnostics

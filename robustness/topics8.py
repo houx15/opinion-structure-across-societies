@@ -1,4 +1,4 @@
-"""PR / eRank of the eight-topic robustness sources (task robust_12_wvs_us).
+"""PR / eRank of the eight-topic robustness sources (tasks robust_12_wvs_us, robust_13_topics8).
 
 ROBUSTNESS ONLY. Every source of the check uses eight topics
 (common.topics.TOPICS_8); its pairwise correlations and similarities are read
@@ -36,6 +36,7 @@ from common.topics import TOPICS_8
 # spectral stem -> (robustness source, parent dataset_type, parent mode)
 STEMS: Dict[str, Tuple[str, str, str]] = {
     "wvs_us8": ("wvs_us8", "wvs_us", "us"),
+    "anes_8": ("anes_8", "anes", "us"),
     "wvs_8": ("wvs_8", "wvs", "us"),
     "en_evs_8": ("en_evs_8", "en_evs", "us"),
     "twitter-us_8": ("twitter_8", "twitter", "us"),

@@ -37,6 +37,9 @@ def test_eight_topic_sources_share_concepts_and_leave_main_untouched():
     # U.S. survey and both Twitter/X sources cover the same eight concepts
     us_codes = set(OFFLINE_ONLINE_TOPIC_MAP_BY_SURVEY["wvs_us8"].values())
     assert us_codes == set(TOPICS_8["twitter_8"]) == set(TOPICS_8["entwitter_8"])
+    # robust_13: ANES without gun control covers the same eight concepts
+    assert set(OFFLINE_ONLINE_TOPIC_MAP_BY_SURVEY["anes_8"].values()) == us_codes
+    assert set(OFFLINE_ONLINE_TOPIC_MAP_BY_SURVEY["anes_8"]) == set(TOPICS_8["anes_8"])
     # China drops attitudes toward the U.S. in both media
     assert "Foreign" not in TOPICS_8["wvs_8"] and 0 not in TOPICS_8["weibo_8"]
     assert OFFLINE_ONLINE_TOPIC_MAP["CN"]["Foreign"] == 0
@@ -52,6 +55,7 @@ def test_eight_topic_spectra_drop_the_right_column():
     assert topics8.keep_columns("twitter-en_8") == [0, 2, 3, 4, 5, 6, 7, 8]   # swe is column 1
     assert topics8.keep_columns("weibo_8") == list(range(8))                  # topic 0 is last
     assert topics8.keep_columns("wvs_8") == list(range(8))                    # Foreign is last
+    assert topics8.keep_columns("anes_8") == [0, 2, 3, 4, 5, 6, 7, 8]          # Gun is column 1
 
 
 @requires_raw

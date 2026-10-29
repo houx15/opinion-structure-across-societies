@@ -89,7 +89,7 @@ RESTRICTED_TOPICS: Dict[str, Sequence[Union[str, int]]] = {
 # the parent's pairwise-correlation and similarity files (restricted to their
 # own topics) and have their own spectral results (robustness/topics8.py).
 ROBUSTNESS_PARENT: Dict[str, str] = {
-    "wvs_us8": "wvs_us", "wvs_8": "wvs", "en_evs_8": "en_evs",
+    "wvs_us8": "wvs_us", "anes_8": "anes", "wvs_8": "wvs", "en_evs_8": "en_evs",
     "twitter_8": "twitter", "weibo_8": "weibo", "entwitter_8": "entwitter",
 }
 
@@ -215,6 +215,8 @@ OFFLINE_ONLINE_TOPIC_MAP_BY_SURVEY: Dict[str, Dict[str, str]] = {
         "Egalitarian": "ubi", "UnemplyAid": "minwage", "WHO": "vac", "Press": "soc",
         "Environment": "clc",
     },
+    # robust_13_topics8: ANES without gun control.
+    "anes_8": {k: v for k, v in OFFLINE_ONLINE_TOPIC_MAP["US"].items() if k != "Gun"},
 }
 
 
@@ -2860,6 +2862,21 @@ TASKS: List[Dict] = [
         "regions": [
             RegionSpec("US", "wvs_us8", "twitter_8",
                        survey_display="WVS (US)", social_display="Twitter (US)"),
+            RegionSpec("CN", "wvs_8", "weibo_8", survey_display="WVS (CN)", social_display="Weibo (CN)"),
+            RegionSpec("GB", "en_evs_8", "entwitter_8",
+                       survey_display="EVS (GB)", social_display="Twitter (GB)"),
+        ],
+        "embedding_type": "gpt",
+        "figures": [2, 3],
+    },
+    {
+        # The main sources on the eight topics of robust_12_wvs_us (ANES
+        # without gun control). Against robust_12 only the U.S. survey
+        # instrument differs; against main only the topic set. ROBUSTNESS ONLY.
+        "name": "robust_13_topics8",
+        "regions": [
+            RegionSpec("US", "anes_8", "twitter_8",
+                       survey_display="ANES (US)", social_display="Twitter (US)"),
             RegionSpec("CN", "wvs_8", "weibo_8", survey_display="WVS (CN)", social_display="Weibo (CN)"),
             RegionSpec("GB", "en_evs_8", "entwitter_8",
                        survey_display="EVS (GB)", social_display="Twitter (GB)"),
