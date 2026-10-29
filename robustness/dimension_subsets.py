@@ -117,35 +117,69 @@ def summary(c: Dict[str, np.ndarray]) -> Dict[str, float]:
     }
 
 
-def figure(results: Dict[int, Dict[str, Dict[str, np.ndarray]]], path: Path,
-           full: Optional[Dict[str, Dict[str, float]]] = None) -> Path:
+def figure(plotter, one: Dict[str, Dict[str, Dict[str, np.ndarray]]],
+           full: Dict[str, Dict[str, Dict[str, np.ndarray]]], comb: Dict[str, Dict[str, np.ndarray]],
+           path: Path, label_shift: float = 0.075) -> Path:
+    """Rows PR, eRank. Left: the nine leave-one-topic-out estimates of every
+    source (dots) around its nine-topic estimate (bar), in the Fig 3 layout;
+    dots that move more than ``label_shift`` name the dropped topic. Right:
+    survey range minus social-media range over every combination of the
+    societies' drops; the dashed line is the nine-topic value."""
     import matplotlib.pyplot as plt
+    from plotting import figures as v4
 
     plt.rcParams["font.family"] = "Times New Roman"
-    n_rows = len(results)
-    fig, axes = plt.subplots(n_rows, 2, figsize=(11, 3.4 * n_rows), squeeze=False)
+    codes = [r.code for r in plotter.regions]
+    concepts = {r.code: list(v4.OFFLINE_ONLINE_TOPIC_MAP[r.code]) for r in plotter.regions}
+    color = plotter.country_color
     titles = {"PR": "Participation ratio", "eRank": "Exponential rank"}
-    for row, (n_drop, res) in enumerate(sorted(results.items())):
-        for col, met in enumerate(METRICS):
-            ax = axes[row, col]
-            c = res[met]
-            hi = max(c["survey"].max(), c["social"].max()) * 1.05
-            bins = np.linspace(0, hi, 60)
-            for key, color, label in (("survey", "0.25", "Surveys"), ("social", "#4a90d9", "Social media")):
-                ax.hist(c[key], bins=bins, color=color, alpha=0.65, label=label)
-                if full:
-                    ax.axvline(full[met][key], color=color, linewidth=1.6, linestyle=(0, (4, 2)))
-            k = 9 - n_drop
-            ax.set_xlabel(f"Cross-societal range of {met}/K (K = {k})", fontsize=11)
-            ax.set_ylabel("Topic combinations", fontsize=11)
-            ax.set_title(f"{titles[met]}, {n_drop} topic{'s' if n_drop > 1 else ''} dropped per society",
-                         fontsize=11, fontweight="bold")
-            ax.spines["top"].set_visible(False)
-            ax.spines["right"].set_visible(False)
-            if row == 0 and col == 0:
-                ax.legend(frameon=False, fontsize=10)
-    for ax, letter in zip(axes.ravel(), "ABCDEFGH"):
-        ax.text(-0.12, 1.06, letter, transform=ax.transAxes, fontsize=14, fontweight="bold", fontstyle="italic")
+    offsets = dict(zip(codes, (-0.14, 0.0, 0.14)))
+    rng = np.random.default_rng(0)
+    fig, axes = plt.subplots(2, 2, figsize=(12.5, 9.5), gridspec_kw={"width_ratios": [1.1, 1]})
+    for row, met in enumerate(METRICS):
+        ax = axes[row, 0]
+        for c in codes:
+            ends = []
+            for x0, medium, style in ((0, "Survey", "solid"), (1, "Social media", (0, (4, 2)))):
+                vals = one[c][medium][met]
+                f = full[c][medium][met][0]
+                xc = x0 + offsets[c]
+                xs = xc + rng.uniform(-0.035, 0.035, vals.size)
+                ax.scatter(xs, vals, s=18, color=color[c], alpha=0.6, edgecolors="none", zorder=2)
+                ax.plot([xc - 0.06, xc + 0.06], [f, f], color=color[c], lw=2.6, linestyle=style, zorder=3)
+                ends.append((xc, f))
+                for x, v, concept in zip(xs, vals, concepts[c]):
+                    if abs(v - f) > label_shift:
+                        ax.annotate(f"drop {v4._pretty_topic(concept)}", (x, v), xytext=(6, 0),
+                                    textcoords="offset points", fontsize=8, color=color[c], va="center")
+            ax.plot(*zip(*ends), color=color[c], lw=0.8, alpha=0.6, zorder=1)
+            ax.plot([], [], color=color[c], lw=2.6, label=c)
+        ax.set_xticks([0, 1], ["Offline\n(Surveys)", "Online\n(Social Media)"])
+        ax.set_xlim(-0.45, 1.6)
+        ax.invert_yaxis()
+        ax.set_ylabel(f"{met}/K (K = 8)", fontsize=11)
+        ax.set_title(f"{titles[met]}: each topic dropped in turn", fontsize=12, fontweight="bold")
+        ax.legend(frameon=False, fontsize=9, loc="lower right")
+
+        ax = axes[row, 1]
+        cm = comb[met]
+        diff = cm["survey"] - cm["social"]
+        full_diff = np.ptp([full[c]["Survey"][met][0] for c in codes]) - np.ptp(
+            [full[c]["Social media"][met][0] for c in codes])
+        ax.hist(diff, bins=40, color="0.45", alpha=0.75)
+        ax.axvline(0, color="0.2", lw=1)
+        ax.axvline(full_diff, color="#d62728", lw=1.6, linestyle=(0, (4, 2)), label="all nine topics")
+        ax.text(0.98, 0.97, f"{np.mean(diff > 0):.0%} of {diff.size} combinations > 0",
+                transform=ax.transAxes, ha="right", va="top", fontsize=10,
+                bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.9})
+        ax.set_xlabel(f"Survey range minus social-media range of {met}/K", fontsize=11)
+        ax.set_ylabel("Topic combinations", fontsize=11)
+        ax.set_title(f"{titles[met]}: narrowing from surveys to social media", fontsize=12, fontweight="bold")
+        ax.legend(frameon=False, fontsize=9, loc="upper left")
+    for ax, letter in zip(axes.ravel(), "ABCD"):
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.text(-0.12, 1.05, letter, transform=ax.transAxes, fontsize=14, fontweight="bold", fontstyle="italic")
     fig.tight_layout()
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, format="pdf", bbox_inches="tight")
@@ -167,15 +201,17 @@ def run(task: str = "main", drops: Tuple[int, ...] = (1, 2)) -> Path:
 
     plotter = v4.Plotter(**v4.task_plotter_kwargs(task))
     codes = [r.code for r in plotter.regions]
-    full = full_ranges(plotter)
-    print("nine topics (rebuilt):", full)
-    results = {}
+    full_values = subset_values(plotter, 0)
+    print("nine topics (rebuilt):", full_ranges(plotter))
+    results, one = {}, None
     for n in drops:
         values = subset_values(plotter, n)
+        one = values if n == 1 else one
         results[n] = combinations(values, codes)
         for met in METRICS:
             print(n, met, {k: round(v, 3) for k, v in summary(results[n][met]).items()})
-    return figure(results, FIGURE_DIR / f"{date_prefix()}_supp_dimension_subsets_fig.pdf", full)
+    return figure(plotter, one, full_values, results[1],
+                  FIGURE_DIR / f"{date_prefix()}_supp_dimension_subsets_fig.pdf")
 
 
 if __name__ == "__main__":
