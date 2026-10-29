@@ -107,7 +107,46 @@ def spectral(stems: Sequence[str] = tuple(STEMS), n_boot: int = sb.N_BOOT) -> Li
     return written
 
 
+# (task, column heading) of the SI comparison figure: the main analysis, the
+# main sources on eight topics, and the WVS for the United States on eight.
+COMPARISON = (
+    ("main", "ANES, nine topics (main analysis)"),
+    ("robust_13_topics8", "ANES, eight topics"),
+    ("robust_12_wvs_us", "WVS for the U.S., eight topics"),
+)
+
+
+def comparison_figure(path: Optional[Path] = None) -> Path:
+    """PR (top row) and eRank (bottom row) of the three analyses side by side;
+    each row shares its y-range so the columns can be compared directly."""
+    import matplotlib.pyplot as plt
+
+    from common.paths import FIGURE_DIR, date_prefix
+    from plotting import figures as v4
+
+    plt.rcParams["font.family"] = "Times New Roman"
+    fig, axes = plt.subplots(2, 3, figsize=(17, 10.5))
+    for col, (task, heading) in enumerate(COMPARISON):
+        plotter = v4.Plotter(**v4.task_plotter_kwargs(task))
+        plotter._spectral_dash_panels(axes[0, col], axes[1, col])
+        axes[0, col].set_title(f"{heading}\nParticipation ratio", fontsize=12, fontweight="bold")
+        axes[1, col].set_title("Exponential rank", fontsize=12, fontweight="bold")
+    for row in axes:
+        lo = min(min(ax.get_ylim()) for ax in row)
+        hi = max(max(ax.get_ylim()) for ax in row)
+        for ax in row:
+            ax.set_ylim(hi, lo)   # inverted: higher = fewer dimensions
+    for ax, letter in zip(axes.ravel(), "ABCDEF"):
+        ax.text(-0.12, 1.06, letter, transform=ax.transAxes, fontsize=14, fontweight="bold", fontstyle="italic")
+    fig.tight_layout()
+    path = Path(path) if path else FIGURE_DIR / f"{date_prefix()}_supp_topics8_dimension_fig.pdf"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, format="pdf", bbox_inches="tight")
+    plt.close(fig)
+    return path
+
+
 if __name__ == "__main__":
     import fire
 
-    fire.Fire({"spectral": spectral, "keep_columns": keep_columns})
+    fire.Fire({"spectral": spectral, "keep_columns": keep_columns, "figure": comparison_figure})
