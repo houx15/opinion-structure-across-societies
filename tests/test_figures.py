@@ -1317,12 +1317,25 @@ def test_tutorial_partner_is_gb_with_three_countries_and_cn_with_two():
     p = v4.Plotter(countries=v4.TWO_COUNTRIES)
     assert p._tutorial_partner() == "CN"
     pairs = p._tutorial_concept_pairs()
-    # LGBT and climate / environment are the only concepts both topic sets hold.
-    assert len(pairs) == 1
-    entry = pairs[0]
-    assert set(entry["us_offline"]) == {"LGBT", "Climate"}
+    # Five bridged concepts (two exact, three loose) -> C(5, 2) = 10 candidates,
+    # each mapping U.S. topics to Chinese survey topics and Weibo codes.
+    assert len(pairs) == 10
+    entry = next(e for e in pairs if set(e["us_offline"]) == {"LGBT", "Climate"})
     assert set(entry["p_offline"]) == {"LGBT", "Environment"}
     assert set(entry["p_social"]) == {10, 13}
+
+
+def test_two_country_tutorial_pair_is_climate_x_ubi():
+    """With real correlations, the selection rule picks climate x UBI /
+    environment x economy (survey |r| far apart, social |r| close)."""
+    import plotting.figures as v4
+
+    pair = v4.Plotter(countries=v4.TWO_COUNTRIES)._select_tutorial_pair()
+    if pair is None:
+        pytest.skip("pairwise correlation files not available")
+    assert set(pair["us_offline"]) == {"Climate", "UBI"}
+    assert set(pair["p_offline"]) == {"Environment", "Econ"}
+    assert pair["delta_off"] > 0.3 > 0.05 > pair["delta_on"]
 
 
 def test_task_kwargs_and_output_name_for_two_countries():

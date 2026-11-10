@@ -1578,10 +1578,14 @@ class Plotter:
                 })
         return pairs
 
-    # Concepts the U.S. shares with China, keyed by U.S. Twitter/X code: the
-    # Chinese survey topic (its Weibo code follows from OFFLINE_ONLINE_TOPIC_MAP).
-    # Only LGBT and climate / environment are common to both topic sets.
-    _US_CN_SHARED = {"sxo": "LGBT", "clc": "Environment"}
+    # Concepts bridged between the U.S. and China, keyed by U.S. Twitter/X code:
+    # the Chinese survey topic (its Weibo code follows from OFFLINE_ONLINE_TOPIC_MAP).
+    # Exact: LGBT, climate / environment (the only concepts both topic sets hold).
+    # Loose, as the U.S.-British bridges (stated in the SI): universal basic
+    # income ~ economy (household finances / economic conditions), minimum wage
+    # ~ employment worry, abortion ~ childbearing. Used only to choose the
+    # illustrative pair of Fig 2a, b; no estimate depends on them.
+    _US_CN_SHARED = {"sxo": "LGBT", "clc": "Environment", "ubi": "Econ", "minwage": "Work", "abo": "Childbearing"}
 
     def _tutorial_partner(self) -> Optional[str]:
         """Society compared with the U.S. in Fig 2a, b: Great Britain when it
@@ -1726,6 +1730,9 @@ class Plotter:
 
         usa, usb = pair["us_offline"]
         pa, pb = pair["p_offline"]
+        # Spell out the Chinese codes that are abbreviations ("Econ").
+        name = {"Econ": "Economy", "Work": "Employment"}.get
+        pa, pb = name(pa, pa), name(pb, pb)
         x_label = usa if usa == pa else f"{usa} / {pa}"
         y_label = usb if usb == pb else f"{usb} / {pb}"
         ax.set_xlabel(x_label, fontsize=10)
