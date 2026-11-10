@@ -50,21 +50,31 @@ def set_means(values: Dict[frozenset, float], k: int = K) -> np.ndarray:
 
 def analysis(plotter) -> Optional[Dict[str, object]]:
     """Per platform: random-set means and the matched mean; per platform pair:
-    gaps. None when fewer than two platforms hold extra topics."""
+    gaps. Platforms whose file holds only their nine analysed topics take part
+    with that single set (their matched mean) when fewer than two platforms
+    hold extra topics - e.g. the two-country version, where only Weibo does:
+    each random Weibo set is then compared with the matched U.S. platform
+    value. None when no platform holds extra topics."""
     from plotting import figures as v4
 
-    platforms = {}
+    platforms, single = {}, {}
     for r in plotter.regions:
         values = all_topic_values(v4.parent_source(r.social))
         n_topics = len({t for pair in values for t in pair})
-        if n_topics <= K:
-            continue
         matched = float(v4.load_pairwise_correlation(r.social)["correlation"].mean())
         survey = float(v4.load_pairwise_correlation(r.survey)["correlation"].mean())
-        platforms[r.code] = {"src": r.social, "n_topics": n_topics, "means": set_means(values),
-                             "matched": matched, "survey": survey}
-    if len(platforms) < 2:
+        entry = {"src": r.social, "n_topics": n_topics, "matched": matched, "survey": survey}
+        if n_topics <= K:
+            single[r.code] = {**entry, "means": np.array([matched])}
+        else:
+            platforms[r.code] = {**entry, "means": set_means(values)}
+    if not platforms:
         return None
+    if len(platforms) < 2:
+        if not single:
+            return None
+        platforms = {r.code: (platforms.get(r.code) or single[r.code]) for r in plotter.regions
+                     if r.code in platforms or r.code in single}
     gaps = {}
     for a, b in itertools.combinations(platforms, 2):
         g = np.abs(platforms[a]["means"][:, None] - platforms[b]["means"][None, :]).ravel()
@@ -83,9 +93,13 @@ def figure(res: Dict[str, object], path: Path, colors: Dict[str, str]) -> Path:
     fig, axes = plt.subplots(1, 2, figsize=(10, 3.6))
     ax = axes[0]
     for code, p in res["platforms"].items():
-        ax.hist(p["means"], bins=40, color=colors.get(code, "0.5"), alpha=0.55,
-                label=f"{code} platform ({p['n_topics']} topics)")
-        ax.axvline(p["matched"], color=colors.get(code, "0.5"), linewidth=1.8, linestyle=(0, (4, 2)))
+        if p["means"].size > 1:
+            ax.hist(p["means"], bins=40, color=colors.get(code, "0.5"), alpha=0.55,
+                    label=f"{code} platform ({p['n_topics']} topics)")
+            ax.axvline(p["matched"], color=colors.get(code, "0.5"), linewidth=1.8, linestyle=(0, (4, 2)))
+        else:   # only its nine analysed topics are labelled: one set
+            ax.axvline(p["matched"], color=colors.get(code, "0.5"), linewidth=1.8, linestyle=(0, (4, 2)),
+                       label=f"{code} platform (nine topics only)")
     ax.set_xlabel("Mean |r| of a nine-topic set", fontsize=11)
     ax.set_ylabel("Topic sets", fontsize=11)
     ax.set_title("Platform level depends on the topics", fontsize=11, fontweight="bold")
@@ -97,7 +111,11 @@ def figure(res: Dict[str, object], path: Path, colors: Dict[str, str]) -> Path:
         ax.axvline(g["survey"], color="0.15", linewidth=1.8, label="surveys")
     ax.set_xlabel("Gap in mean |r| between the two platforms", fontsize=11)
     ax.set_ylabel("Pairs of topic sets", fontsize=11)
-    ax.set_title("Unmatched topic sets do not converge", fontsize=11, fontweight="bold")
+    # With a single-set platform the gaps are to its fixed value, so the
+    # three-country conclusion ("do not converge") would not be the claim.
+    one_set = any(p["means"].size == 1 for p in res["platforms"].values())
+    ax.set_title("Random sets against the other platform's value" if one_set
+                 else "Unmatched topic sets do not converge", fontsize=11, fontweight="bold")
     ax.legend(frameon=False, fontsize=9)
     for ax, letter in zip(axes, "AB"):
         ax.spines["top"].set_visible(False)

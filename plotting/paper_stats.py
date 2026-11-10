@@ -274,6 +274,30 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
         + [f"Dispersion ratio (survey / social media) = "
            f"{disp['Survey'] / disp['Social media']:.3f}, 95% CI {_ci(lo, hi)}"],
     )
+    # Two societies: the dispersion is half the gap in mean z, so the
+    # dispersion ratio is the ratio of the two gaps; report the gaps directly.
+    if len(regions) == 2:
+        a_, b_ = regions[0].code, regions[1].code
+        rows, boot_gap, gaps = [], {}, {}
+        for medium, _ in MEDIA:
+            gaps[medium] = float(absr[(a_, medium)].mean() - absr[(b_, medium)].mean())
+            boot_gap[medium] = boot_mean[(a_, medium)] - boot_mean[(b_, medium)]
+            zgap = _fisher(absr[(a_, medium)]).mean() - _fisher(absr[(b_, medium)]).mean()
+            rows.append([medium, f"{gaps[medium]:.3f}", _ci(*q(boot_gap[medium])), f"{zgap:.3f}"])
+        diff = boot_gap["Survey"] - boot_gap["Social media"]
+        lines += _part(
+            f"PART 4b. Two societies: gap in mean |r| ({a_} - {b_}) per medium",
+            [f"Same {n_pairs}-pair |r| values as Part 2."],
+            [
+                f"Gap = mean |r|({a_}) - mean |r|({b_}) within a medium; with two societies the dispersion",
+                "  of Part 4 is half the gap in mean z and the dispersion ratio is the ratio of the z gaps.",
+                boot_note + " Gaps and their difference are recomputed in each resample.",
+            ],
+            _table(["Medium", "Gap in mean |r|", "95% CI", "Gap in mean z"], rows)
+            + [f"Survey gap minus social-media gap = {gaps['Survey'] - gaps['Social media']:.3f}, "
+               f"95% CI {_ci(*q(diff))}; share of resamples with a smaller social-media gap: "
+               f"{100 * np.mean(np.abs(boot_gap['Social media']) < np.abs(boot_gap['Survey'])):.1f}%"],
+        )
 
     # Part 5 - eta^2
     rows = []
@@ -655,6 +679,9 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
                 "Matched = the nine analysed topics (Part 2); surveys = the same societies' survey sources (Part 2).",
                 "The same labelling pipeline scored all topics, so a wide spread of random-set levels means the",
                 "  pipeline does not set the level by itself. Exhaustive enumeration, no sampling.",
+                "If only one platform's file holds extra topics, a platform labelled on its nine analysed topics",
+                "  only enters with that single set (its matched mean); each gap then compares a random set of",
+                "  the other platform with this fixed value.",
             ],
             _table(["Society", "Platform", "Topics", "Sets", "Min", "5%", "Median", "95%", "Max", "Matched"], rows)
             + ["", "Gap between platforms:"]
