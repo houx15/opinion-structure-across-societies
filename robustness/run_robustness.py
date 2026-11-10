@@ -25,6 +25,7 @@ Other robustness analyses in this folder:
 Usage (from the repository root):
     python -m robustness.run_robustness              # every task above
     python -m robustness.run_robustness robust_5_word2vec
+    python -m robustness.run_robustness --two_country   # United States and China only (<task>_2c)
 """
 
 from typing import Optional
@@ -34,11 +35,11 @@ import fire
 from plotting import figures
 
 
-def main(task: Optional[str] = None, n_bootstrap: int = 2000) -> None:
+def main(task: Optional[str] = None, n_bootstrap: int = 2000, two_country: bool = False) -> None:
     names = [task] if task else figures.task_names("robustness")
     for name in names:
         print(f"[robustness] {name}")
-        figures.run_task(name, n_bootstrap=n_bootstrap)
+        figures.run_task(name, n_bootstrap=n_bootstrap, two_country=two_country)
 
 
 if __name__ == "__main__":

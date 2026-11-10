@@ -92,11 +92,12 @@ def figure(d: Dict[str, np.ndarray], path: Path, full: Optional[Dict[str, float]
     return path
 
 
-def run(task: str = "main") -> Optional[Path]:
+def run(task: str = "main", two_country: bool = False) -> Optional[Path]:
     from common.paths import FIGURE_DIR, date_prefix
     from plotting import figures as v4
 
-    plotter = v4.Plotter(**v4.task_plotter_kwargs(task))
+    plotter = v4.Plotter(**v4.task_plotter_kwargs(task, countries=v4.TWO_COUNTRIES if two_country else None))
+    suffix = v4.TWO_COUNTRY_SUFFIX if two_country else ""
     means = subset_means(plotter)
     if means is None:
         print(f"[topic_subsets] {task}: topics not mapped; skipped")
@@ -107,7 +108,7 @@ def run(task: str = "main") -> Optional[Path]:
         full[medium] = float(np.std([np.mean(np.arctanh(np.clip(
             v4.load_pairwise_correlation(getattr(r, attr))["correlation"], 0, 1 - 1e-12))) for r in plotter.regions]))
     print(summary(d))
-    return figure(d, FIGURE_DIR / f"{date_prefix()}_supp_topic_subsets_fig.pdf", full)
+    return figure(d, FIGURE_DIR / f"{date_prefix()}_supp_topic_subsets{suffix}_fig.pdf", full)
 
 
 if __name__ == "__main__":

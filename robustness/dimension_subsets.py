@@ -19,6 +19,7 @@ Point estimates; no bootstrap. Stats Part 15 and the SI figure
 (``outputs/figures/<date>_supp_dimension_subsets_fig.pdf``).
 
     python -m robustness.dimension_subsets
+    python -m robustness.dimension_subsets --two_country   # United States and China only
 """
 
 from __future__ import annotations
@@ -133,7 +134,7 @@ def figure(plotter, one: Dict[str, Dict[str, Dict[str, np.ndarray]]],
     concepts = {r.code: list(v4.OFFLINE_ONLINE_TOPIC_MAP[r.code]) for r in plotter.regions}
     color = plotter.country_color
     titles = {"PR": "Participation ratio", "eRank": "Exponential rank"}
-    offsets = dict(zip(codes, (-0.14, 0.0, 0.14)))
+    offsets = dict(zip(codes, np.linspace(-0.14, 0.14, len(codes)) if len(codes) > 2 else (-0.08, 0.08)))
     rng = np.random.default_rng(0)
     fig, axes = plt.subplots(2, 2, figsize=(12.5, 9.5), gridspec_kw={"width_ratios": [1.1, 1]})
     for row, met in enumerate(METRICS):
@@ -195,11 +196,12 @@ def full_ranges(plotter) -> Dict[str, Dict[str, float]]:
                   for key, medium in (("survey", "Survey"), ("social", "Social media"))} for met in METRICS}
 
 
-def run(task: str = "main", drops: Tuple[int, ...] = (1, 2)) -> Path:
+def run(task: str = "main", drops: Tuple[int, ...] = (1, 2), two_country: bool = False) -> Path:
     from common.paths import FIGURE_DIR, date_prefix
     from plotting import figures as v4
 
-    plotter = v4.Plotter(**v4.task_plotter_kwargs(task))
+    plotter = v4.Plotter(**v4.task_plotter_kwargs(task, countries=v4.TWO_COUNTRIES if two_country else None))
+    suffix = v4.TWO_COUNTRY_SUFFIX if two_country else ""
     codes = [r.code for r in plotter.regions]
     full_values = subset_values(plotter, 0)
     print("nine topics (rebuilt):", full_ranges(plotter))
@@ -211,7 +213,7 @@ def run(task: str = "main", drops: Tuple[int, ...] = (1, 2)) -> Path:
         for met in METRICS:
             print(n, met, {k: round(v, 3) for k, v in summary(results[n][met]).items()})
     return figure(plotter, one, full_values, results[1],
-                  FIGURE_DIR / f"{date_prefix()}_supp_dimension_subsets_fig.pdf")
+                  FIGURE_DIR / f"{date_prefix()}_supp_dimension_subsets{suffix}_fig.pdf")
 
 
 if __name__ == "__main__":

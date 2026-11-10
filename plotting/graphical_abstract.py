@@ -19,6 +19,7 @@ no real-data dependency.
 Usage:
     python -m plotting.graphical_abstract            # all panels -> outputs/figures/<date>_graphical_abstract_panels/
     python -m plotting.graphical_abstract --only 1A,3C
+    python -m plotting.graphical_abstract --two_country   # US and CN only -> <date>_graphical_abstract_panels_2c/
 """
 
 from __future__ import annotations
@@ -701,8 +702,16 @@ PANELS = {
 }
 
 
-def main(only: Optional[str] = None) -> List[Path]:
-    """Build every panel (or a comma-separated subset via ``--only 1A,3C``)."""
+def main(only: Optional[str] = None, two_country: bool = False) -> List[Path]:
+    """Build every panel (or a comma-separated subset via ``--only 1A,3C``).
+    With ``two_country`` the data panels show the United States and China only
+    and the panels go to a separate ``*_2c`` folder."""
+    global OUTPUT_DIR
+    if two_country:
+        for code in list(REGION_SOURCES):
+            if code not in P.TWO_COUNTRIES:
+                del REGION_SOURCES[code]
+        OUTPUT_DIR = OUTPUT_DIR.with_name(OUTPUT_DIR.name + P.TWO_COUNTRY_SUFFIX)
     _apply_rc()
     selected = list(PANELS) if only is None else [s.strip() for s in str(only).split(",")]
     print(f"[graphical_abstract] building {len(selected)} panel(s) -> {OUTPUT_DIR}")

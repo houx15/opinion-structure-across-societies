@@ -97,7 +97,13 @@ def main() -> None:
                     help="table folder (default outputs/reports/<date>_centroid_rank_check)")
     ap.add_argument("--plot", action="store_true",
                     help="also write the SI figure (outputs/figures) and stats (outputs/stats)")
+    ap.add_argument("--two_country", action="store_true",
+                    help="United States and China only (outputs named *_2c)")
     args = ap.parse_args()
+    global SOURCES
+    if args.two_country:
+        SOURCES = [s for s in SOURCES if s not in GB_SOURCES]
+    suffix = "_2c" if args.two_country else ""
 
     summ, spec, sweep, pairs = [], [], [], []
     for src in SOURCES:
@@ -110,7 +116,7 @@ def main() -> None:
             .set_index("source").loc[SOURCES].reset_index())
     full_span = sweep_df[sweep_df["k"] == 8]          # best residual per target = k = 8
 
-    out = Path(args.out_dir) if args.out_dir else report_dir("centroid_rank_check")
+    out = Path(args.out_dir) if args.out_dir else report_dir("centroid_rank_check" + suffix)
     out.mkdir(parents=True, exist_ok=True)
     summ_df.to_csv(out / "rank_conditioning.csv", index=False)
     spec_df.to_csv(out / "singular_values.csv")
@@ -137,13 +143,13 @@ def main() -> None:
               f"  median residual = {med:.3f} ({np.degrees(np.arcsin(med)):.1f} deg)",
               f"  max kappa = {summ_df['kappa'].max():.2f}",
               "  sources whose most-expressible topic is > 36 deg from the span: "
-              + str(int((best['angle_deg'] > 36).sum())) + " of 6"]
+              + str(int((best['angle_deg'] > 36).sum())) + f" of {len(SOURCES)}"]
     report = "\n".join(lines)
     (out / "report.txt").write_text(report + "\n")
     print(report)
 
     if args.plot:
-        name = f"{date_prefix()}_supp_centroid_rank_results"
+        name = f"{date_prefix()}_supp_centroid_rank{suffix}_results"
         FIGURE_DIR.mkdir(parents=True, exist_ok=True)
         STATS_DIR.mkdir(parents=True, exist_ok=True)
         fig_path = FIGURE_DIR / f"{name}_fig.pdf"
@@ -158,6 +164,7 @@ SOURCE_COLOR: Dict[str, str] = {                 # region colors from plotting.f
     "wvs": "#ff7333", "weibo": "#ff7333",
 }
 SURVEYS = {"anes", "en_evs", "wvs"}
+GB_SOURCES = {"en_evs", "entwitter"}
 MEDIA_DASH = (0, (4, 2))                          # social media = dashed, as in plotting.figures
 
 
@@ -221,7 +228,7 @@ def plot(spec: pd.DataFrame, sweep: pd.DataFrame, pdf: Path) -> None:
 
     handles = [Line2D([], [], marker="o", markersize=5, label=SOURCE_LABEL[s], **_style(s))
                for s in SOURCES]
-    fig.legend(handles=handles, loc="lower center", ncol=6, frameon=False,
+    fig.legend(handles=handles, loc="lower center", ncol=len(SOURCES), frameon=False,
                bbox_to_anchor=(0.5, -0.04), fontsize=10, handlelength=3)
     fig.tight_layout(rect=(0, 0.05, 1, 1))
     fig.savefig(pdf, bbox_inches="tight")

@@ -162,25 +162,29 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
 
     # Part 1 - example pair (Fig 2a, b)
     codes = {r.code for r in regions}
-    pair = plotter._select_tutorial_pair() if {"US", "GB"} <= codes else None
+    pair = plotter._select_tutorial_pair()
     if pair is not None:
+        pc = str(pair["partner"])
+        p_reg = next(r for r in regions if r.code == pc)
         usa, usb = pair["us_offline"]
-        gba, gbb = pair["gb_offline"]
+        pa, pb = pair["p_offline"]
         sca, scb = pair["social_codes"]
+        psa, psb = pair["p_social"]
         rows = [
             ["US", "Survey", plotter.us_survey, f"{usa} x {usb}", f"{pair['us_off']:+.3f}", f"{abs(pair['us_off']):.3f}"],
-            ["GB", "Survey", plotter.gb_survey, f"{gba} x {gbb}", f"{pair['gb_off']:+.3f}", f"{abs(pair['gb_off']):.3f}"],
+            [pc, "Survey", p_reg.survey, f"{pa} x {pb}", f"{pair['p_off']:+.3f}", f"{abs(pair['p_off']):.3f}"],
             ["US", "Social media", plotter.twitter, f"{sca} x {scb}", f"{pair['us_on']:+.3f}", f"{abs(pair['us_on']):.3f}"],
-            ["GB", "Social media", plotter.gbtwitter, f"{sca} x {scb}", f"{pair['gb_on']:+.3f}", f"{abs(pair['gb_on']):.3f}"],
+            [pc, "Social media", p_reg.social, f"{psa} x {psb}", f"{pair['p_on']:+.3f}", f"{abs(pair['p_on']):.3f}"],
         ]
         lines += _part(
             "PART 1. Example topic pair (Fig 2a, b)",
-            [csv(plotter.us_survey), csv(plotter.gb_survey), csv(plotter.twitter), csv(plotter.gbtwitter),
-             'year == "average"; topic matching via figures.OFFLINE_ONLINE_TOPIC_MAP.'],
+            [csv(plotter.us_survey), csv(p_reg.survey), csv(plotter.twitter), csv(p_reg.social),
+             'year == "average"; topic matching via figures.OFFLINE_ONLINE_TOPIC_MAP'
+             + (" and Plotter._US_CN_SHARED." if pc == "CN" else ".")],
             [
-                "Candidates: every pair of concepts present in both the US and GB topic sets.",
-                "For each, look up signed r in the 4 sources; score = d_off / (d_on + 0.05), where",
-                "d_off = | |r_US,survey| - |r_GB,survey| |, d_on = same for social media.",
+                f"Candidates: every pair of concepts present in both the US and {pc} topic sets.",
+                f"For each, look up signed r in the 4 sources; score = d_off / (d_on + 0.05), where",
+                f"d_off = | |r_US,survey| - |r_{pc},survey| |, d_on = same for social media.",
                 "The highest-scoring pair is the one drawn in Fig 2a, b (Plotter._select_tutorial_pair).",
                 "Figure legends show |r| to 3 decimals.",
             ],

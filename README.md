@@ -34,6 +34,18 @@ tests/
 
 Run every module from the repository root, e.g. `python -m plotting.figures main`.
 
+**Two-country version.** Every figure producer also runs with the United States
+and China only: add `--two_country` (`plotting.figures main`,
+`robustness.run_robustness`, `robustness.topics8 figure`,
+`robustness.dimension_subsets`, `robustness.topic_subsets`,
+`robustness.random_topicsets`, `robustness.centroid_rank_check --plot`,
+`plotting.graphical_abstract`). Outputs carry `_2c` after the task name
+(e.g. `<date>_main_2c_results_fig2.pdf`), so the three-country files are kept.
+Without Great Britain, Fig 2a, b compares the U.S. with China on the only
+concept pair both topic sets hold (LGBT x climate / environment); the
+U.S.-British topic-agreement test (stats Part 12) and the random topic sets
+(needs two platforms with extra labelled topics) have no two-country version.
+
 ## Setup
 
 ```bash

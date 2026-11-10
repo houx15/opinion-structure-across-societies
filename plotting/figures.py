@@ -1220,6 +1220,7 @@ class Plotter:
         pedagogical: bool = True,
         spectral_matrix: str = "cov",
         social_year: str = "average",
+        countries: Optional[Sequence[str]] = None,
     ):
         self.embedding_type = embedding_type
         # semantic_adjustment results per method (bootstrap is the slow part).
@@ -1258,6 +1259,14 @@ class Plotter:
                     survey_display="EVS (GB)", social_display="Twitter (GB)",
                 ),
             ]
+        # ``countries`` keeps a subset of the regions (e.g. ("US", "CN") for
+        # the two-country version); None keeps every region.
+        if countries is not None:
+            keep = [c.strip() for c in (countries.split(",") if isinstance(countries, str) else countries)]
+            unknown = set(keep) - {r.code for r in regions}
+            if unknown:
+                raise ValueError(f"countries {sorted(unknown)} not among {[r.code for r in regions]}")
+            regions = [r for r in regions if r.code in keep]
         self.regions: List[RegionSpec] = list(regions)
 
         self.country_color: Dict[str, str] = {
@@ -1552,8 +1561,8 @@ class Plotter:
         """All US/GB topic pairs that share a common Twitter social code.
 
         Each entry maps one social code to the offline topic name on each
-        side (US ANES column vs. GB EVS column). Pairs of such concepts are
-        what the tutorial row chooses between.
+        side (US ANES column vs. GB EVS column). Used by the topic-specific
+        agreement test (paper_stats Part 12).
         """
         us_map = OFFLINE_ONLINE_TOPIC_MAP_BY_SURVEY.get(self.us_survey, OFFLINE_ONLINE_TOPIC_MAP["US"])
         us_off_by_social = {v: k for k, v in us_map.items()}
@@ -1569,45 +1578,84 @@ class Plotter:
                 })
         return pairs
 
+    # Concepts the U.S. shares with China, keyed by U.S. Twitter/X code: the
+    # Chinese survey topic (its Weibo code follows from OFFLINE_ONLINE_TOPIC_MAP).
+    # Only LGBT and climate / environment are common to both topic sets.
+    _US_CN_SHARED = {"sxo": "LGBT", "clc": "Environment"}
+
+    def _tutorial_partner(self) -> Optional[str]:
+        """Society compared with the U.S. in Fig 2a, b: Great Britain when it
+        is in the analysis (shared Twitter/X codes), China otherwise."""
+        codes = {r.code for r in self.regions}
+        if "US" not in codes:
+            return None
+        return next((c for c in ("GB", "CN") if c in codes), None)
+
+    def _tutorial_concept_pairs(self) -> List[Dict[str, object]]:
+        """Candidate pairs for Fig 2a, b: pairs of concepts present in the U.S.
+        and the partner society, with each source's topic codes."""
+        partner = self._tutorial_partner()
+        if partner is None:
+            return []
+        us_map = OFFLINE_ONLINE_TOPIC_MAP_BY_SURVEY.get(self.us_survey, OFFLINE_ONLINE_TOPIC_MAP["US"])
+        us_off_by_social = {v: k for k, v in us_map.items()}
+        if partner == "GB":
+            p_map = OFFLINE_ONLINE_TOPIC_MAP["GB"]
+            p_off_by_us_social = {v: k for k, v in p_map.items()}
+        else:
+            p_map = OFFLINE_ONLINE_TOPIC_MAP["CN"]
+            p_off_by_us_social = dict(self._US_CN_SHARED)
+        shared = sorted(set(us_off_by_social) & set(p_off_by_us_social))
+        pairs: List[Dict[str, object]] = []
+        for i, sc1 in enumerate(shared):
+            for sc2 in shared[i + 1:]:
+                p_off = (p_off_by_us_social[sc1], p_off_by_us_social[sc2])
+                pairs.append({
+                    "partner": partner,
+                    "social_codes": (sc1, sc2),
+                    "us_offline": (us_off_by_social[sc1], us_off_by_social[sc2]),
+                    "p_offline": p_off,
+                    "p_social": tuple(p_map[t] for t in p_off),
+                })
+        return pairs
+
     def _select_tutorial_pair(self) -> Optional[Dict[str, object]]:
         """Pick the topic pair best demonstrating "different offline, similar online".
 
-        Loads the four pairwise-correlation CSVs (US survey, GB survey, US
-        Twitter, GB Twitter), computes signed r for every concept-aligned
-        pair, and ranks by ``Δoff / (Δon + 0.05)`` — a ratio that rewards a
-        big offline gap while penalising any online gap, so the headline
-        narrative ("online |r| matches, offline does not") reads cleanly.
-        Pairs with any missing correlation are skipped. Returns ``None`` if
-        no pair has complete data.
+        Compares the U.S. with the partner society (``_tutorial_partner``):
+        loads the four pairwise-correlation CSVs (both surveys, both
+        platforms), computes signed r for every concept-aligned pair, and
+        ranks by ``Δoff / (Δon + 0.05)`` — a ratio that rewards a big offline
+        gap while penalising any online gap. Pairs with any missing
+        correlation are skipped. Returns ``None`` if no pair has complete data.
         """
+        partner = self._tutorial_partner()
+        if partner is None:
+            return None
+        p = next(r for r in self.regions if r.code == partner)
         try:
             corr_us_off = load_pairwise_correlation(self.us_survey)
-            corr_gb_off = load_pairwise_correlation(self.gb_survey)
+            corr_p_off = load_pairwise_correlation(p.survey)
             corr_us_on = load_pairwise_correlation(self.twitter)
-            corr_gb_on = load_pairwise_correlation(self.gbtwitter)
+            corr_p_on = load_pairwise_correlation(p.social)
         except FileNotFoundError:
             return None
 
         candidates: List[Dict[str, object]] = []
-        for entry in self._us_gb_concept_pairs():
-            sc1, sc2 = entry["social_codes"]
-            usa, usb = entry["us_offline"]
-            gba, gbb = entry["gb_offline"]
-            us_off = signed_r_from_pairwise(corr_us_off, usa, usb)
-            gb_off = signed_r_from_pairwise(corr_gb_off, gba, gbb)
-            us_on = signed_r_from_pairwise(corr_us_on, sc1, sc2)
-            gb_on = signed_r_from_pairwise(corr_gb_on, sc1, sc2)
-            if any(not np.isfinite(v) for v in (us_off, gb_off, us_on, gb_on)):
+        for entry in self._tutorial_concept_pairs():
+            us_off = signed_r_from_pairwise(corr_us_off, *entry["us_offline"])
+            p_off = signed_r_from_pairwise(corr_p_off, *entry["p_offline"])
+            us_on = signed_r_from_pairwise(corr_us_on, *entry["social_codes"])
+            p_on = signed_r_from_pairwise(corr_p_on, *entry["p_social"])
+            if any(not np.isfinite(v) for v in (us_off, p_off, us_on, p_on)):
                 continue
-            delta_off = abs(abs(us_off) - abs(gb_off))
-            delta_on = abs(abs(us_on) - abs(gb_on))
-            score = delta_off / (delta_on + 0.05)
+            delta_off = abs(abs(us_off) - abs(p_off))
+            delta_on = abs(abs(us_on) - abs(p_on))
             candidates.append({
                 **entry,
-                "us_off": us_off, "gb_off": gb_off,
-                "us_on": us_on, "gb_on": gb_on,
+                "us_off": us_off, "p_off": p_off, "us_on": us_on, "p_on": p_on,
                 "delta_off": delta_off, "delta_on": delta_on,
-                "score": score,
+                "score": delta_off / (delta_on + 0.05),
             })
         if not candidates:
             return None
@@ -1622,7 +1670,7 @@ class Plotter:
         pair: Dict[str, object],
         panel_label: str,
     ) -> None:
-        """Two-region (US, GB) standardized scatter + OLS regression line.
+        """Two-region (US, partner) standardized scatter + OLS regression line.
 
         ``kind`` is ``"offline"`` (survey r's) or ``"online"`` (social r's).
         For each region, we synthesize a 2D Gaussian sample whose theoretical
@@ -1635,15 +1683,16 @@ class Plotter:
         n_show = 400
         x_lim = 3.0
 
+        partner = str(pair["partner"])
         if kind == "offline":
             rows = [
                 ("US", float(pair["us_off"])),
-                ("GB", float(pair["gb_off"])),
+                (partner, float(pair["p_off"])),
             ]
         elif kind == "online":
             rows = [
                 ("US", float(pair["us_on"])),
-                ("GB", float(pair["gb_on"])),
+                (partner, float(pair["p_on"])),
             ]
         else:
             raise ValueError(f"unknown kind: {kind}")
@@ -1676,9 +1725,9 @@ class Plotter:
         ax.axvline(0, color="#dddddd", lw=0.8, zorder=0)
 
         usa, usb = pair["us_offline"]
-        gba, gbb = pair["gb_offline"]
-        x_label = usa if usa == gba else f"{usa} / {gba}"
-        y_label = usb if usb == gbb else f"{usb} / {gbb}"
+        pa, pb = pair["p_offline"]
+        x_label = usa if usa == pa else f"{usa} / {pa}"
+        y_label = usb if usb == pb else f"{usb} / {pb}"
         ax.set_xlabel(x_label, fontsize=10)
         ax.set_ylabel(y_label, fontsize=10)
         ax.set_title(panel_label, fontsize=12, fontweight="bold")
@@ -2247,7 +2296,7 @@ class Plotter:
         With ``pedagogical`` (the default, used by the main figure), 2 rows x
         4 columns:
             Row 1 (tutorial): standardized correlation ellipse for the
-                selected US/GB pair, offline and online (a, b); plus two word
+                selected U.S./partner pair (GB, or CN without GB), offline and online (a, b); plus two word
                 Venns anchoring 'semantic similarity = 0.X' in concrete
                 US-Twitter TF-IDF keywords (c = low, d = high).
             Row 2 (generalization, three panels): per-country half-violin of
@@ -2273,7 +2322,8 @@ class Plotter:
 
             # Row 1: tutorial — two scatter+regression panels + two word Venns.
             # The regression panels use the algorithmically-selected pair
-            # (most similar online, most different offline between US and GB).
+            # (most similar online, most different offline between the US and
+            # its partner society, _tutorial_partner).
             pair = self._select_tutorial_pair()
             ax_reg_off = fig.add_subplot(gs[0, 0])
             ax_reg_on = fig.add_subplot(gs[0, 1])
@@ -2913,8 +2963,10 @@ def task_plotter_kwargs(
     figure_folder: Union[str, Path] = FIGURE_DIR,
     date_prefix: Optional[str] = None,
     n_bootstrap: int = 2000,
+    countries: Optional[Sequence[str]] = None,
 ) -> Dict:
-    """Plotter keyword arguments for one task in TASKS."""
+    """Plotter keyword arguments for one task in TASKS; ``countries`` keeps a
+    subset of its regions (TWO_COUNTRIES for the two-country version)."""
     task = _task_by_name(name)
     plotter_kwargs: Dict = dict(
         embedding_type=task["embedding_type"],
@@ -2927,6 +2979,7 @@ def task_plotter_kwargs(
         pedagogical=task.get("pedagogical", name == "main"),
         spectral_matrix=task.get("spectral_matrix", "cov"),
         social_year=task.get("social_year", "average"),
+        countries=countries,
     )
     if "regions" in task:
         plotter_kwargs["regions"] = task["regions"]
@@ -2942,23 +2995,38 @@ def task_plotter_kwargs(
     return plotter_kwargs
 
 
+# Two-country version (United States and China only); its outputs carry the
+# task name plus TWO_COUNTRY_SUFFIX, so the three-country files stay in place.
+TWO_COUNTRIES = ("US", "CN")
+TWO_COUNTRY_SUFFIX = "_2c"
+
+
+def output_task_name(name: str, two_country: bool = False) -> str:
+    """Task name used in output file names (``main`` -> ``main_2c``)."""
+    return f"{name}{TWO_COUNTRY_SUFFIX}" if two_country else name
+
+
 def run_task(
     name: str,
     figure_folder: Union[str, Path] = FIGURE_DIR,
     date_prefix: Optional[str] = None,
     n_bootstrap: int = 2000,
     write_stats: bool = True,
+    two_country: bool = False,
 ) -> Dict[Union[int, str], Path]:
     """Run one task by name and return {fig_num: output_path}.
 
     With ``write_stats`` a plain-text statistics report for the task's
-    sources is written next to the figures (see paper_stats.py).
+    sources is written next to the figures (see paper_stats.py). With
+    ``two_country`` only the United States and China are analysed and the
+    outputs are named ``<task>_2c``.
     """
     task = _task_by_name(name)
     plotter = Plotter(**task_plotter_kwargs(
         name, figure_folder=figure_folder, date_prefix=date_prefix,
-        n_bootstrap=n_bootstrap,
+        n_bootstrap=n_bootstrap, countries=TWO_COUNTRIES if two_country else None,
     ))
+    out_name = output_task_name(name, two_country)
     # Skip the task with a message when an input source is missing here.
     missing_corr = [
         src for r in plotter.regions for src in (r.survey, r.social)
@@ -2993,13 +3061,13 @@ def run_task(
     paths: Dict[Union[int, str], Path] = {}
     for fig_num in figures_to_make:
         method = getattr(plotter, f"make_fig{fig_num}")
-        paths[fig_num] = method(task_name=name)
+        paths[fig_num] = method(task_name=out_name)
     if write_stats:
         from plotting import paper_stats  # imports this module; deferred to avoid a cycle
 
         STATS_DIR.mkdir(parents=True, exist_ok=True)
-        stats_path = STATS_DIR / plotter._output_path(name, "stats").with_suffix(".txt").name
-        paper_stats.write_report(plotter, stats_path, header=f"(task: {name})")
+        stats_path = STATS_DIR / plotter._output_path(out_name, "stats").with_suffix(".txt").name
+        paper_stats.write_report(plotter, stats_path, header=f"(task: {out_name})")
         print(f"[figures] stats written: {stats_path}")
     return paths
 
@@ -3025,6 +3093,7 @@ def run_all_tasks(
     figure_folder: Union[str, Path] = FIGURE_DIR,
     date_prefix: Optional[str] = None,
     n_bootstrap: int = 2000,
+    two_country: bool = False,
 ) -> Dict[str, Dict[Union[int, str], Path]]:
     """Run every task of ``group`` and return {task_name: {fig_num: output_path}}."""
     out: Dict[str, Dict[Union[int, str], Path]] = {}
@@ -3035,6 +3104,7 @@ def run_all_tasks(
             figure_folder=figure_folder,
             date_prefix=date_prefix,
             n_bootstrap=n_bootstrap,
+            two_country=two_country,
         )
     return out
 

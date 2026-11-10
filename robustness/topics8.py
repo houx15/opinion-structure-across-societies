@@ -116,10 +116,11 @@ COMPARISON = (
 )
 
 
-def comparison_figure(path: Optional[Path] = None) -> Path:
+def comparison_figure(path: Optional[Path] = None, two_country: bool = False) -> Path:
     """PR/K (top row) and eRank/K (bottom row) of the three analyses side by
     side, normalized because the columns have nine or eight topics; each row
-    shares its y-range so the columns can be compared directly."""
+    shares its y-range so the columns can be compared directly. With
+    ``two_country`` only the United States and China are drawn."""
     import matplotlib.pyplot as plt
 
     from common.paths import FIGURE_DIR, date_prefix
@@ -128,7 +129,7 @@ def comparison_figure(path: Optional[Path] = None) -> Path:
     plt.rcParams["font.family"] = "Times New Roman"
     fig, axes = plt.subplots(2, 3, figsize=(17, 10.5))
     for col, (task, heading) in enumerate(COMPARISON):
-        plotter = v4.Plotter(**v4.task_plotter_kwargs(task))
+        plotter = v4.Plotter(**v4.task_plotter_kwargs(task, countries=v4.TWO_COUNTRIES if two_country else None))
         plotter._spectral_dash_panels(axes[0, col], axes[1, col], normalize=True)
         axes[0, col].set_title(f"{heading}\nParticipation ratio", fontsize=12, fontweight="bold")
         axes[1, col].set_title("Exponential rank", fontsize=12, fontweight="bold")
@@ -140,7 +141,7 @@ def comparison_figure(path: Optional[Path] = None) -> Path:
     for ax, letter in zip(axes.ravel(), "ABCDEF"):
         ax.text(-0.12, 1.06, letter, transform=ax.transAxes, fontsize=14, fontweight="bold", fontstyle="italic")
     fig.tight_layout()
-    path = Path(path) if path else FIGURE_DIR / f"{date_prefix()}_supp_topics8_dimension_fig.pdf"
+    path = Path(path) if path else FIGURE_DIR / f"{date_prefix()}_supp_topics8_dimension{v4.TWO_COUNTRY_SUFFIX if two_country else ''}_fig.pdf"
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, format="pdf", bbox_inches="tight")
     plt.close(fig)

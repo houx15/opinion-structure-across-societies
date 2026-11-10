@@ -12,6 +12,7 @@ the same societies' surveys. Stats Part 14 and the SI figure
 (``outputs/figures/<date>_supp_random_topicsets_fig.pdf``).
 
     python -m robustness.random_topicsets
+    python -m robustness.random_topicsets --two_country   # United States and China only
 """
 
 from __future__ import annotations
@@ -108,11 +109,12 @@ def figure(res: Dict[str, object], path: Path, colors: Dict[str, str]) -> Path:
     return path
 
 
-def run(task: str = "main") -> Optional[Path]:
+def run(task: str = "main", two_country: bool = False) -> Optional[Path]:
     from common.paths import FIGURE_DIR, date_prefix
     from plotting import figures as v4
 
-    plotter = v4.Plotter(**v4.task_plotter_kwargs(task))
+    plotter = v4.Plotter(**v4.task_plotter_kwargs(task, countries=v4.TWO_COUNTRIES if two_country else None))
+    suffix = v4.TWO_COUNTRY_SUFFIX if two_country else ""
     res = analysis(plotter)
     if res is None:
         print("[random_topicsets] fewer than two platforms hold extra topics; skipped")
@@ -124,7 +126,7 @@ def run(task: str = "main") -> Optional[Path]:
     for pair, g in res["gaps"].items():
         print(pair, "median gap", round(float(np.median(g["gaps"])), 3), "matched", round(g["matched"], 3),
               "survey", round(g["survey"], 3), "share >= survey gap", round(float(np.mean(g["gaps"] >= g["survey"])), 3))
-    return figure(res, FIGURE_DIR / f"{date_prefix()}_supp_random_topicsets_fig.pdf", plotter.country_color)
+    return figure(res, FIGURE_DIR / f"{date_prefix()}_supp_random_topicsets{suffix}_fig.pdf", plotter.country_color)
 
 
 if __name__ == "__main__":

@@ -1288,3 +1288,47 @@ def test_common_support_keeps_only_shared_range_and_matches_reference_mean(tmp_f
     xr = plotter.semantic_pairs("twitter", support=True)[0]
     xw = plotter.semantic_pairs("weibo", support=True)[0]
     assert plotter.semantic_weights("weibo", support=True) @ xw == pytest.approx(xr.mean(), abs=0.005)
+
+
+# -- Two-country version (United States and China only) ----------------------
+
+
+def test_countries_filter_keeps_us_and_cn_only():
+    import plotting.figures as v4
+
+    p = v4.Plotter(countries=v4.TWO_COUNTRIES)
+    assert [r.code for r in p.regions] == ["US", "CN"]
+    assert set(p.country_color) == {"US", "CN"}
+    assert "en_evs" not in p.source_country and "entwitter" not in p.source_country
+
+
+def test_countries_filter_accepts_comma_string_and_rejects_unknown():
+    import plotting.figures as v4
+
+    assert [r.code for r in v4.Plotter(countries="US,CN").regions] == ["US", "CN"]
+    with pytest.raises(ValueError):
+        v4.Plotter(countries=("US", "FR"))
+
+
+def test_tutorial_partner_is_gb_with_three_countries_and_cn_with_two():
+    import plotting.figures as v4
+
+    assert v4.Plotter()._tutorial_partner() == "GB"
+    p = v4.Plotter(countries=v4.TWO_COUNTRIES)
+    assert p._tutorial_partner() == "CN"
+    pairs = p._tutorial_concept_pairs()
+    # LGBT and climate / environment are the only concepts both topic sets hold.
+    assert len(pairs) == 1
+    entry = pairs[0]
+    assert set(entry["us_offline"]) == {"LGBT", "Climate"}
+    assert set(entry["p_offline"]) == {"LGBT", "Environment"}
+    assert set(entry["p_social"]) == {10, 13}
+
+
+def test_task_kwargs_and_output_name_for_two_countries():
+    import plotting.figures as v4
+
+    kw = v4.task_plotter_kwargs("robust_13_topics8", countries=v4.TWO_COUNTRIES)
+    assert [r.code for r in v4.Plotter(**kw).regions] == ["US", "CN"]
+    assert v4.output_task_name("main", two_country=True) == "main_2c"
+    assert v4.output_task_name("main") == "main"
