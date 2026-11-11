@@ -1338,6 +1338,25 @@ def test_two_country_tutorial_pair_is_climate_x_ubi():
     assert pair["delta_off"] > 0.3 > 0.05 > pair["delta_on"]
 
 
+def test_two_country_pair_table_has_all_ten_pairs_by_survey_gap():
+    """Fig 2A,B (two countries) show every concept-aligned pair, not one
+    selected pair: ten rows, ordered by survey gap, labelled with both
+    concepts where they differ."""
+    import plotting.figures as v4
+
+    plotter = v4.Plotter(countries=v4.TWO_COUNTRIES)
+    rows = plotter.tutorial_pair_table()
+    if not rows:
+        pytest.skip("pairwise correlation files not available")
+    assert len(rows) == 10
+    gaps = [abs(r["us_off"]) - abs(r["p_off"]) for r in rows]
+    assert gaps == sorted(gaps, reverse=True)
+    assert all(g > 0 for g in gaps)
+    labels = [plotter._pair_label(r) for r in rows]
+    assert "Climate/Environment × UBI/Economy" in labels
+    assert "Climate/Environment × LGBT" in labels
+
+
 def test_task_kwargs_and_output_name_for_two_countries():
     import plotting.figures as v4
 

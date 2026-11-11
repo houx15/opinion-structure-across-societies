@@ -1645,6 +1645,30 @@ class Plotter:
         except FileNotFoundError:
             return None
 
+        candidates = self._tutorial_pair_values(corr_us_off, corr_p_off, corr_us_on, corr_p_on)
+        if not candidates:
+            return None
+        candidates.sort(key=lambda c: c["score"], reverse=True)
+        return candidates[0]
+
+    def tutorial_pair_table(self) -> List[Dict[str, object]]:
+        """Every concept-aligned U.S./partner pair with its four signed r's
+        (keys as in ``_select_tutorial_pair``), sorted by the survey gap
+        (largest first). Empty when the partner or a correlation file is
+        missing. The two-country Fig 2A,B show all of them."""
+        partner = self._tutorial_partner()
+        if partner is None:
+            return []
+        p = next(r for r in self.regions if r.code == partner)
+        try:
+            corr = [load_pairwise_correlation(s) for s in (self.us_survey, p.survey, self.twitter, p.social)]
+        except FileNotFoundError:
+            return []
+        rows = self._tutorial_pair_values(*corr)
+        rows.sort(key=lambda c: abs(c["us_off"]) - abs(c["p_off"]), reverse=True)
+        return rows
+
+    def _tutorial_pair_values(self, corr_us_off, corr_p_off, corr_us_on, corr_p_on) -> List[Dict[str, object]]:
         candidates: List[Dict[str, object]] = []
         for entry in self._tutorial_concept_pairs():
             us_off = signed_r_from_pairwise(corr_us_off, *entry["us_offline"])
@@ -1661,10 +1685,68 @@ class Plotter:
                 "delta_off": delta_off, "delta_on": delta_on,
                 "score": delta_off / (delta_on + 0.05),
             })
-        if not candidates:
+        return candidates
+
+    @staticmethod
+    def _pair_label(pair: Dict[str, object]) -> str:
+        """'Climate/Environment × UBI/Economy': U.S. concept, then the Chinese
+        one when it differs."""
+        name = {"Econ": "Economy", "Work": "Employment", "MinimumWage": "Minimum wage"}.get
+        sides = []
+        for u, c in zip(pair["us_offline"], pair["p_offline"]):
+            u, c = name(u, u), name(c, c)
+            sides.append(u if u == c else f"{u}/{c}")
+        return " \u00d7 ".join(sides)
+
+    def _pair_dumbbell_panel(self, ax, rows: List[Dict[str, object]], *, kind: str, panel_label: str,
+                             show_labels: bool, x_max: float) -> None:
+        """One row per concept-aligned pair: U.S. and partner |r| as dots
+        joined by a line (its length is the gap), plus the mean over pairs."""
+        partner = str(rows[0]["partner"])
+        us_key, p_key = ("us_off", "p_off") if kind == "offline" else ("us_on", "p_on")
+        us = np.array([abs(float(r[us_key])) for r in rows])
+        pa = np.array([abs(float(r[p_key])) for r in rows])
+        y = np.arange(len(rows))[::-1] + 1.4      # pairs top-down, mean row at 0
+        for vals_us, vals_p, yy, bold in [*zip(us, pa, y, [False] * len(rows)), (us.mean(), pa.mean(), 0.0, True)]:
+            ax.plot([vals_us, vals_p], [yy, yy], color="0.6" if not bold else "0.25", lw=1.2 if not bold else 2.0, zorder=1)
+            for v, code in ((vals_us, "US"), (vals_p, partner)):
+                ax.scatter(v, yy, s=46 if not bold else 80, color=self.country_color[code], zorder=3,
+                           edgecolors="white", linewidths=0.6)
+        ax.axhline(0.7, color="0.85", lw=0.8)
+        gap = us.mean() - pa.mean()
+        ax.text(max(us.mean(), pa.mean()) + 0.02 * x_max, 0.0, f"gap {gap:.3f}", va="center", fontsize=9)
+        ax.set_yticks(list(y) + [0.0])
+        if show_labels:
+            ax.set_yticklabels([self._pair_label(r) for r in rows] + [f"Mean of {len(rows)} pairs"], fontsize=8.5)
+            ax.get_yticklabels()[-1].set_fontweight("bold")
+        else:
+            ax.set_yticklabels([])
+        ax.set_ylim(-0.7, y.max() + 0.7)
+        ax.set_xlim(0, x_max)
+        ax.set_xlabel("|r| of the topic pair", fontsize=10)
+        ax.set_title(panel_label, fontsize=12, fontweight="bold")
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        if not show_labels:     # legend once, in the online panel's empty corner
+            handles = [Line2D([0], [0], marker="o", ls="", color=self.country_color[c], label=c) for c in ("US", partner)]
+            ax.legend(handles=handles, loc="upper right", fontsize=9, frameon=False)
+
+    def make_supp_pair(self, task_name: str = "main") -> Optional[Path]:
+        """SI figure: the standardized scatter + regression lines of the pair
+        chosen by ``_select_tutorial_pair`` (the former Fig 2A,B)."""
+        pair = self._select_tutorial_pair()
+        if pair is None:
             return None
-        candidates.sort(key=lambda c: c["score"], reverse=True)
-        return candidates[0]
+        plt.rcParams["font.family"] = "Times New Roman"
+        fig, axes = plt.subplots(1, 2, figsize=(8.5, 4.2))
+        self._tutorial_regression_panel(axes[0], kind="offline", pair=pair, panel_label="Offline (Surveys)")
+        self._tutorial_regression_panel(axes[1], kind="online", pair=pair, panel_label="Online (Social Media)")
+        self._label_panel(axes[0], "a")
+        self._label_panel(axes[1], "b")
+        path = self._output_path(task_name, "supp_pair")
+        fig.savefig(path, format="pdf", bbox_inches="tight")
+        plt.close(fig)
+        return path
 
     def _tutorial_regression_panel(
         self,
@@ -2331,10 +2413,20 @@ class Plotter:
             # The regression panels use the algorithmically-selected pair
             # (most similar online, most different offline between the US and
             # its partner society, _tutorial_partner).
+            # Two-country version (partner China): all concept-aligned pairs
+            # instead of one selected pair (the selected pair is the SI
+            # figure make_supp_pair).
             pair = self._select_tutorial_pair()
             ax_reg_off = fig.add_subplot(gs[0, 0])
             ax_reg_on = fig.add_subplot(gs[0, 1])
-            if pair is not None:
+            rows = self.tutorial_pair_table() if self._tutorial_partner() == "CN" else []
+            if rows:
+                x_max = 1.1 * max(abs(float(r[k])) for r in rows for k in ("us_off", "p_off", "us_on", "p_on"))
+                self._pair_dumbbell_panel(ax_reg_off, rows, kind="offline", panel_label="Offline (Surveys)",
+                                          show_labels=True, x_max=x_max)
+                self._pair_dumbbell_panel(ax_reg_on, rows, kind="online", panel_label="Online (Social Media)",
+                                          show_labels=False, x_max=x_max)
+            elif pair is not None:
                 self._tutorial_regression_panel(
                     ax_reg_off, kind="offline", pair=pair,
                     panel_label="Offline (Surveys)",
@@ -3069,6 +3161,12 @@ def run_task(
     for fig_num in figures_to_make:
         method = getattr(plotter, f"make_fig{fig_num}")
         paths[fig_num] = method(task_name=out_name)
+    # Two-country main figure shows all aligned pairs in Fig 2A,B; the
+    # rule-selected pair moves to an SI figure.
+    if 2 in figures_to_make and plotter.pedagogical and plotter._tutorial_partner() == "CN":
+        supp = plotter.make_supp_pair(task_name=out_name)
+        if supp is not None:
+            paths["supp_pair"] = supp
     if write_stats:
         from plotting import paper_stats  # imports this module; deferred to avoid a cycle
 
