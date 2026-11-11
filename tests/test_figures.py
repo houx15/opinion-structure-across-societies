@@ -1357,6 +1357,23 @@ def test_two_country_pair_table_has_all_ten_pairs_by_survey_gap():
     assert "Climate/Environment × LGBT" in labels
 
 
+def test_tutorial_pair_override_draws_lgbt_environment():
+    """The alternative two-country Fig 2A,B uses LGBT x climate/environment;
+    without an override the rule-selected pair is drawn."""
+    import plotting.figures as v4
+
+    plotter = v4.Plotter(countries=v4.TWO_COUNTRIES, tutorial_pair=v4.LGBT_ENVIRONMENT_PAIR)
+    if not plotter.tutorial_pair_table():
+        pytest.skip("pairwise correlation files not available")
+    pair = plotter._figure_tutorial_pair()
+    assert set(pair["us_offline"]) == {"Climate", "LGBT"}
+    assert set(pair["p_offline"]) == {"Environment", "LGBT"}
+    plotter.tutorial_pair = None
+    assert set(plotter._figure_tutorial_pair()["us_offline"]) == {"Climate", "UBI"}
+    with pytest.raises(ValueError):
+        v4.Plotter(countries=v4.TWO_COUNTRIES, tutorial_pair=("clc", "gun"))._figure_tutorial_pair()
+
+
 def test_task_kwargs_and_output_name_for_two_countries():
     import plotting.figures as v4
 
