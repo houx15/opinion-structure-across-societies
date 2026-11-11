@@ -15,11 +15,11 @@ sqrt(rho_i rho_j), so with equal reliability in both countries the gap
 shrinks and the ratio stays; a different reliability per country (``rho_us``
 vs ``rho_cn``) shows how unequal noise would have to be to reach 1.3.
 
-The platform reliabilities come from the split-half check on the clusters
-(SPEC check 2a); until they exist, ``rhos`` is a grid of assumed values.
+Platform reliabilities are not measured; ``rhos`` is a grid of values and
+the unequal-reliability table gives how much less reliable U.S. than Chinese
+scores would have to be for noise alone to produce the platform ratio.
 
     python -m robustness.survey_noise
-    python -m robustness.survey_noise --rhos 0.62,0.48   # measured platform values
 """
 
 from __future__ import annotations
@@ -94,7 +94,7 @@ def run(rhos: Sequence[float] = (0.9, 0.7, 0.5, 0.3), n_draws: int = 500) -> Lis
          "SOURCE: data/survey/anes.dta, data/survey/wvs.dta (main survey sources, nine topics each).",
          "CALCULATION: module docstring. Gaussian error with variance var(x)(1 - rho)/rho per topic; mean |r| over",
          f"  36 pairs (pairwise complete); {n_draws} draws per reliability (numpy seed 0); mean and 2.5-97.5% range.",
-         "  Reliabilities are ASSUMED values until the platform split-half reliabilities (SPEC check 2a) exist.", "",
+         "  Reliabilities are a grid of values (platform reliabilities are not measured).", "",
          f"No added noise: US {base['US']:.3f}, CN {base['CN']:.3f}, gap {base['US'] - base['CN']:.3f}, "
          f"ratio {base['US'] / base['CN']:.3f}",
          f"Platform (main analysis): US {PLATFORM['US']:.3f}, CN {PLATFORM['CN']:.3f}, gap {PLATFORM['US'] - PLATFORM['CN']:.3f}, "
