@@ -2777,7 +2777,8 @@ class Plotter:
 
     def _spectral_dash_panels(self, pr_ax, erank_ax, normalize: bool = False) -> None:
         """PR and eRank (effective number of dimensions, out of K topics) by
-        society and medium (Fig 3 B, C). With ``normalize`` the values and
+        society and medium (Fig 3 B; the SI figure ``make_fig3_erank``).
+        ``erank_ax`` may be None (main Fig 3: PR only). With ``normalize`` the values and
         intervals are divided by K (PR/K, eRank/K), for comparing analyses
         with different numbers of topics (SI comparison figure only).
 
@@ -2819,6 +2820,8 @@ class Plotter:
             (pr_ax, "PR", labels[0], "Participation ratio"),
             (erank_ax, "eRank", labels[1], "Exponential rank"),
         ):
+            if ax is None:
+                continue
             self._aligned_dash_plot(
                 ax, means[metric],
                 y_label=y_label, title=title, ylim=metric_ylim(metric),
@@ -2835,24 +2838,18 @@ class Plotter:
             (a) three toy opinion clouds, unbundled -> strongly bundled, each
                 with its normalized PR: bundling concentrates variation in
                 fewer directions.
-            (b, c) normalized PR and eRank (divided by the number of topics K)
-                by society and medium; each society's two dashes joined by a
-                thin segment, the cross-societal range per medium shaded.
+            (b) participation ratio by society and medium; each society's two
+                dashes joined by a thin segment, the cross-societal range per
+                medium shaded. The exponential rank is the SI figure
+                ``make_fig3_erank``.
 
-        Robustness checks (``pedagogical=False``) keep only (b, c), labelled
-        (a, b).
+        Robustness checks (``pedagogical=False``) show PR and eRank side by
+        side (a, b), as ``_build_fig3_pair``.
         """
         plt.rcParams["font.family"] = "Times New Roman"
 
         if not self.pedagogical:
-            fig = plt.figure(figsize=(13, 5))
-            gs = fig.add_gridspec(1, 2, wspace=0.38)
-            pr_ax = fig.add_subplot(gs[0, 0])
-            erank_ax = fig.add_subplot(gs[0, 1])
-            self._spectral_dash_panels(pr_ax, erank_ax)
-            self._label_panel(pr_ax, "a", x=-0.08)
-            self._label_panel(erank_ax, "b", x=-0.08)
-            return fig
+            return self._build_fig3_pair()
 
         fig = plt.figure(figsize=(13, 10))
         gs = fig.add_gridspec(2, 1, height_ratios=[0.8, 1.0], hspace=0.30)
@@ -2876,19 +2873,39 @@ class Plotter:
             if j == 0:
                 self._label_panel(ax, "a", x=-0.05, y=1.04)
 
-        # (B, C) PR and eRank of the real data.
-        dash_gs = gs[1].subgridspec(1, 2, wspace=0.38)
-        pr_ax = fig.add_subplot(dash_gs[0, 0])
-        erank_ax = fig.add_subplot(dash_gs[0, 1])
-        self._spectral_dash_panels(pr_ax, erank_ax)
+        # (B) PR of the real data, at its former width, centred under the clouds.
+        dash_gs = gs[1].subgridspec(1, 3, width_ratios=[0.29, 0.42, 0.29])
+        pr_ax = fig.add_subplot(dash_gs[0, 1])
+        self._spectral_dash_panels(pr_ax, None)
         self._label_panel(pr_ax, "b", x=-0.08)
-        self._label_panel(erank_ax, "c", x=-0.08)
+        return fig
+
+    def _build_fig3_pair(self) -> Figure:
+        """PR (a) and eRank (b) side by side: robustness Fig 3 and the SI
+        figure of the main analysis (``make_fig3_erank``)."""
+        plt.rcParams["font.family"] = "Times New Roman"
+        fig = plt.figure(figsize=(13, 5))
+        gs = fig.add_gridspec(1, 2, wspace=0.38)
+        pr_ax = fig.add_subplot(gs[0, 0])
+        erank_ax = fig.add_subplot(gs[0, 1])
+        self._spectral_dash_panels(pr_ax, erank_ax)
+        self._label_panel(pr_ax, "a", x=-0.08)
+        self._label_panel(erank_ax, "b", x=-0.08)
         return fig
 
     def make_fig3(self, task_name: str = "main") -> Path:
         """Build and save Figure 3; returns the saved PDF path."""
         fig = self.build_fig3()
         path = self._output_path(task_name, "fig3")
+        fig.savefig(path, format="pdf", bbox_inches="tight")
+        plt.close(fig)
+        return path
+
+    def make_fig3_erank(self, task_name: str = "main") -> Path:
+        """SI figure: PR (a) and eRank (b) of the main sources; returns the
+        saved PDF path."""
+        fig = self._build_fig3_pair()
+        path = self._output_path(task_name, "fig3_erank")
         fig.savefig(path, format="pdf", bbox_inches="tight")
         plt.close(fig)
         return path
@@ -2902,7 +2919,7 @@ TASKS: List[Dict] = [
         "name": "main",
         "us_survey": "anes", "cn_survey": "wvs", "gb_survey": "en_evs",
         "gbtwitter_src": "entwitter", "embedding_type": "gpt",
-        "figures": [2, 3],
+        "figures": [2, 3, "3_erank"],
     },
     {
         # Supplementary Figs 2s: Fig 2G's reweighting in detail - similarity
@@ -3112,7 +3129,7 @@ def run_task(
         ]
         if missing_spec:
             print(f"[figures] {name}: Fig 3 skipped, no spectral results for {missing_spec}")
-            figures_to_make.remove(3)
+            figures_to_make = [f for f in figures_to_make if f not in (3, "3_erank")]
     paths: Dict[Union[int, str], Path] = {}
     for fig_num in figures_to_make:
         method = getattr(plotter, f"make_fig{fig_num}")

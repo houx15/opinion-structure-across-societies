@@ -1164,6 +1164,28 @@ def test_semantic_weights_reproduce_the_adjusted_means(tmp_figure_folder):
         plotter.semantic_adjustment("ols")
     assert v4.task_names("main") == ["main", "supp_semantic"]
 
+def test_main_fig3_shows_pr_only_and_si_figure_adds_erank(tmp_figure_folder):
+    """Main Fig 3: three toy clouds + one PR panel (no eRank). The SI figure
+    make_fig3_erank has PR (a) and eRank (b); the main task lists it."""
+    import plotting.figures as v4
+    import matplotlib.pyplot as plt
+
+    plotter = v4.Plotter(figure_folder=str(tmp_figure_folder), date_prefix="20260513")
+    fig = plotter.build_fig3()
+    flat = [ax for ax in fig.axes if ax.name != "3d"]
+    assert len(flat) == 1
+    assert flat[0].get_title() == "Participation ratio"
+    assert all(ax.get_title() != "Exponential rank" for ax in fig.axes)
+    plt.close(fig)
+
+    path = Path(plotter.make_fig3_erank(task_name="main"))
+    assert path.name == "20260513_main_results_fig3_erank.pdf" and path.stat().st_size > 0
+    fig = plotter._build_fig3_pair()
+    assert [ax.get_title() for ax in fig.axes] == ["Participation ratio", "Exponential rank"]
+    plt.close(fig)
+    assert v4._task_by_name("main")["figures"] == [2, 3, "3_erank"]
+
+
 def test_fig3_non_pedagogical_keeps_only_pr_erank(tmp_figure_folder):
     """Robustness Fig 3 (pedagogical=False) has 2 axes and no 3D toy-cloud panels."""
     import plotting.figures as v4
