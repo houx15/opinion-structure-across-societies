@@ -2384,7 +2384,8 @@ class Plotter:
             gs = fig.add_gridspec(
                 2, 4, height_ratios=[1.0, 0.82], hspace=0.32, wspace=0.32,
             )
-            bottom = gs[1, :].subgridspec(1, 4, wspace=0.32)
+            # G gets more width (it carries the matching insets).
+            bottom = gs[1, :].subgridspec(1, 4, wspace=0.30, width_ratios=[0.85, 0.9, 0.9, 1.35])
             bottom_labels = ("e", "f", "g")
 
             # Row 1: tutorial — two scatter+regression panels + two word Venns.
@@ -2422,29 +2423,27 @@ class Plotter:
             self._label_panel(ax_venn_high, "d", x=-0.04, y=1.02)
         else:
             fig = plt.figure(figsize=(17, 4.8))
-            bottom = fig.add_gridspec(1, 4, wspace=0.32)
+            bottom = fig.add_gridspec(1, 4, wspace=0.30, width_ratios=[0.85, 0.9, 0.9, 1.35])
             bottom_labels = ("a", "b", "c")
 
         ax_ridge = fig.add_subplot(bottom[0, 0])
         loess_gs = bottom[0, 1:3].subgridspec(1, 2, wspace=0.08)
         ax_fit_off = fig.add_subplot(loess_gs[0, 0])
         ax_fit_on = fig.add_subplot(loess_gs[0, 1], sharey=ax_fit_off)
-        # G with the similarity matching behind it in two small panels below.
-        g_gs = bottom[0, 3].subgridspec(2, 1, height_ratios=[1.0, 0.32], hspace=0.62)
-        ax_adj = fig.add_subplot(g_gs[0])
-        strip_gs = g_gs[1].subgridspec(1, 2, wspace=0.12)
-        ax_strip_off = fig.add_subplot(strip_gs[0, 0])
-        ax_strip_on = fig.add_subplot(strip_gs[0, 1])
+        ax_adj = fig.add_subplot(bottom[0, 3])
         self._ridge_panel(ax_ridge, offline_sources, online_sources)
         self._loess_panel(ax_fit_off, offline_sources, panel_label="Offline (Surveys)", y_label=True)
         self._loess_panel(ax_fit_on, online_sources, panel_label="Online (Social Media)", y_label=False)
-        # Each matching panel sits under its own column of G.
-        self._matching_strip(ax_strip_off, offline_sources, legend=False)
-        self._matching_strip(ax_strip_on, online_sources, legend=True)
         self._adjusted_mean_panel(
             ax_adj, legend_loc=None,
             title=("Similarity held fixed (common support)" if self.semantic_method == "support"
                    else "Semantic similarity held fixed"))
+        # The similarity matching behind G, as two small insets stacked in its
+        # empty upper-right corner (surveys above, social media below).
+        # Kept right of x = 0.6 and above mid-height, clear of the joining lines.
+        for k, (sources, title) in enumerate(((offline_sources, "Surveys"), (online_sources, "Social media"))):
+            ins = ax_adj.inset_axes([0.60, 0.79 - 0.24 * k, 0.39, 0.15])
+            self._matching_strip(ins, sources, legend=False, title=title, x_label=k == 1)
         for ax, letter in zip((ax_ridge, ax_fit_off, ax_adj), bottom_labels):
             self._label_panel(ax, letter)
         return fig
@@ -2500,7 +2499,8 @@ class Plotter:
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
 
-    def _matching_strip(self, ax, sources: Sequence[str], *, legend: bool, title: str = "") -> None:
+    def _matching_strip(self, ax, sources: Sequence[str], *, legend: bool, title: str = "",
+                        x_label: bool = True) -> None:
         """Small similarity panel under Fig 2G (one per medium): the
         distribution the matching aims for (U.S. pairs, shaded), the other
         society's pairs before matching (dotted) and after (solid:
@@ -2532,18 +2532,18 @@ class Plotter:
                     color=color, linewidth=2.0, zorder=4)
             handles += [Line2D([0], [0], color=color, lw=1.1, linestyle=(0, (1.5, 1.5)), label=f"{code} before"),
                         Line2D([0], [0], color=color, lw=2.0, label=f"{code} matched")]
-        ax.set_ylim(0, ax.get_ylim()[1] * (1.55 if legend else 1.15))
+        ax.set_ylim(0, ax.get_ylim()[1] * 1.12)
         ax.set_yticks([])
-        ax.set_xlabel("similarity", fontsize=8.5, labelpad=1)
-        ax.tick_params(labelsize=7.5, length=2, pad=1)
-        ax.set_title(title, fontsize=9, pad=2)
-        if not online:
-            ax.set_ylabel("Matching", fontsize=8.5)
+        if x_label:
+            ax.set_xlabel("similarity", fontsize=7.5, labelpad=0)
+        ax.tick_params(labelsize=6.5, length=2, pad=1)
+        ax.text(0.0, 1.0, title, transform=ax.transAxes, fontsize=8, ha="left", va="bottom")
+        ax.patch.set_alpha(0)
         for side in ("top", "right", "left"):
             ax.spines[side].set_visible(False)
-        if legend:
-            ax.legend(handles=handles, loc="upper right", fontsize=6.3, frameon=False, ncol=1,
-                      handlelength=1.4, borderaxespad=0.0, labelspacing=0.2)
+        if legend:   # one legend for both insets, above the top one
+            ax.legend(handles=handles, loc="lower right", bbox_to_anchor=(1.0, 1.0), fontsize=6.5, frameon=False,
+                      ncol=3, handlelength=1.3, columnspacing=0.8, borderaxespad=0.0)
 
     def _loess_panel(self, ax, sources: Sequence[str], *, panel_label: str, y_label: bool) -> None:
         """|r| against semantic similarity for one medium: the pairs as

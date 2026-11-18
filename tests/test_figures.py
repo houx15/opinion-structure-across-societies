@@ -1072,11 +1072,13 @@ def test_fig2_non_pedagogical_omits_word_overlap_row(tmp_figure_folder):
     )
     fig = plotter.build_fig2()
     assert [ax.get_title() for ax in fig.axes] == [
-        "Pair correlations", "Offline (Surveys)", "Online (Social Media)", "Semantic similarity held fixed", "", "",
+        "Pair correlations", "Offline (Surveys)", "Online (Social Media)", "Semantic similarity held fixed",
     ]
-    # Under G: one similarity-matching panel per medium.
-    assert [ax.get_xlabel() for ax in fig.axes[4:]] == ["similarity", "similarity"]
-    assert fig.axes[3].get_position().y0 > fig.axes[4].get_position().y1
+    # G carries the similarity matching as two insets (surveys above, social media below).
+    insets = fig.axes[3].child_axes
+    assert len(insets) == 2
+    assert [t.get_text() for ins in insets for t in ins.texts] == ["Surveys", "Social media"]
+    assert insets[0].get_position().y0 > insets[1].get_position().y0
     all_text = " ".join(t.get_text() for ax in fig.axes for t in ax.texts)
     assert "Low similarity" not in all_text and "High similarity" not in all_text
     plt.close(fig)
