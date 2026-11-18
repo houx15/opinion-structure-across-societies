@@ -22,7 +22,7 @@ def test_rebuilt_centroids_match_stored_and_results_cover_two_countries():
     results hold the four U.S. / Chinese sources only."""
     from analysis.semantic.semantic_rank import SOURCES, load_results
 
-    res = load_results()
+    res = {k: v for k, v in load_results().items() if not k.startswith("_")}
     if not res:
         pytest.skip("semantic_rank has not been run")
     assert set(res) == set(SOURCES) == {"anes", "wvs", "twitter", "weibo"}

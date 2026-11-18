@@ -2430,7 +2430,7 @@ class Plotter:
             self._label_panel(ax, letter)
         return fig
 
-    RIDGE_STEP = 0.55     # spacing of two societies' ridges within a medium
+    RIDGE_STEP = 0.45     # spacing of two societies' ridges within a medium
     RIDGE_WIDTH = 1.0     # largest ridge width (density scaled to it)
 
     def _ridge_panel(self, ax, offline_sources: Sequence[str], online_sources: Sequence[str]) -> None:
@@ -2455,13 +2455,17 @@ class Plotter:
                     continue
                 dens = gaussian_kde(y)(grid)
                 dens = dens / dens.max() * self.RIDGE_WIDTH
-                ax.fill_betweenx(grid, x0, x0 + dens, color=color, alpha=0.72, linewidth=0, zorder=2 + i)
-                ax.plot(x0 + dens, grid, color="white", linewidth=1.2, zorder=2 + i)
-                ax.plot([x0, x0], [0, 0.7], color=color, linewidth=0.6, alpha=0.5, zorder=1)
+                # Opaque ridge with a white outline; the first society (U.S.)
+                # sits in front so its whole outline shows, the next one
+                # wherever it reaches beyond it.
+                z = 2 + 2 * (len(sources) - 1 - i)
+                ax.fill_betweenx(grid, x0, x0 + dens, color=color, linewidth=0, zorder=z)
+                ax.plot(x0 + dens, grid, color="white", linewidth=1.8, zorder=z + 1)
+                ax.plot([x0, x0], [0, 0.7], color="white", linewidth=1.8, zorder=z + 1)
                 mean_v = float(y.mean())
                 reach = float(dens[np.argmin(np.abs(grid - mean_v))])
                 ax.plot([x0, x0 + reach], [mean_v, mean_v], color="white", linewidth=1.6,
-                        linestyle=(0, (3, 2)), zorder=2 + i)
+                        linestyle=(0, (3, 2)), zorder=z + 1)
                 ax.text(x0 + reach + 0.03, mean_v, f"{mean_v:.3f}", color=color, fontsize=8.5, va="center",
                         zorder=10, bbox=dict(boxstyle="square,pad=0.05", facecolor="white", edgecolor="none", alpha=0.8))
         ax.set_xticks(centers)
@@ -2470,7 +2474,7 @@ class Plotter:
         ax.set_ylim(0, 0.7)
         ax.set_ylabel("|r|", fontsize=12, fontweight="bold")
         ax.set_title("Pair correlations", fontsize=12, fontweight="bold")
-        handles = [Line2D([0], [0], color=self.country_color[r.code], lw=6, alpha=0.72, label=r.code)
+        handles = [Line2D([0], [0], color=self.country_color[r.code], lw=6, label=r.code)
                    for r in self.regions]
         ax.legend(handles=handles, loc="upper right", fontsize=9, frameon=False)
         ax.spines["top"].set_visible(False)
@@ -2821,15 +2825,20 @@ class Plotter:
         title: str,
         seed: int,
         rendering: str,
+        points: Optional[np.ndarray] = None,
+        topic_axes: Optional[np.ndarray] = None,
+        axis_label: str = "opinion",
     ) -> None:
         """Render one toy opinion cloud in the same 3D coordinate system.
 
         For ``plate`` and ``line``, the supporting subspace (a translucent
         plane at z=0 / a thick segment along the x-axis) is drawn first so
         the visible 'condensation' of points onto a lower-dimensional set is
-        unambiguous.
+        unambiguous. ``points`` replaces the sampled cloud; ``topic_axes``
+        (unit rows) are drawn as labelled arrows from the origin (Fig 3A,
+        right column); ``axis_label`` names the box axes ("" for none).
         """
-        X = self._sample_toy_cloud(eigenvalues, seed=seed)
+        X = self._sample_toy_cloud(eigenvalues, seed=seed) if points is None else points
         bound = self._TOY_AXIS_BOUND
         distances = np.linalg.norm(X, axis=1)
 
@@ -2860,9 +2869,30 @@ class Plotter:
         ax.set_box_aspect([1, 1, 1])
         ax.view_init(elev=22, azim=35)
         ax.set_xticks([]); ax.set_yticks([]); ax.set_zticks([])
-        ax.set_xlabel("opinion 1", fontsize=9, labelpad=-10)
-        ax.set_ylabel("opinion 2", fontsize=9, labelpad=-10)
-        ax.set_zlabel("opinion 3", fontsize=9, labelpad=-10)
+        if topic_axes is not None:
+            # Draw the arrows above the points: switch off 3D depth sorting
+            # for this panel, otherwise points in front hide the axes.
+            ax.computed_zorder = False
+            for coll in ax.collections:
+                coll.set_zorder(1)
+            # Nearly parallel axes share one label at their common tip.
+            parallel = np.min(topic_axes @ topic_axes.T) > 0.9
+            label_box = dict(boxstyle="round,pad=0.15", facecolor="white", edgecolor="none", alpha=0.85)
+            for n, v in enumerate(topic_axes):
+                ax.quiver(0, 0, 0, *(0.95 * bound * v), color="0.05", linewidth=2.2, arrow_length_ratio=0.14,
+                          zorder=10)
+                if not parallel:
+                    ax.text(*(1.15 * bound * v), f"topic {n + 1}", fontsize=8.5, ha="center", va="center",
+                            color="0.05", fontweight="bold", zorder=11, bbox=label_box)
+            if parallel:
+                # Above the arrow tips, clear of the cloud along the same line.
+                tip = 0.95 * bound * topic_axes.mean(0) + np.array([0.0, 0.0, 0.55 * bound])
+                ax.text(*tip, "topics 1-3", fontsize=8.5, ha="center", va="center",
+                        color="0.05", fontweight="bold", zorder=11, bbox=label_box)
+        names = [f"{axis_label} {n}" if axis_label else "" for n in (1, 2, 3)]
+        ax.set_xlabel(names[0], fontsize=9, labelpad=-10)
+        ax.set_ylabel(names[1], fontsize=9, labelpad=-10)
+        ax.set_zlabel(names[2], fontsize=9, labelpad=-10)
         ax.set_title(title, fontsize=11, fontweight="bold", pad=6)
 
     def _toy_scree_panel(
@@ -2975,16 +3005,16 @@ class Plotter:
         """Construct Figure 3.
 
         With ``pedagogical`` (the default, used by the main figure):
-            (a) toy column, two topics: axes at right angles (unbundled vs
-                bundled opinions) and axes leaning together (topics that
-                overlap in meaning give correlated scores without bundling);
-                each toy panel states its semantic PR and opinion PR.
+            (a) toy, three topics, two columns of 3D panels with 3, 2 and 1
+                dimensions: left, the opinions bundle (axes at right angles);
+                right, the topic axes collapse while opinions stay evenly
+                spread. Each panel states its semantic PR and opinion PR.
             (b) semantic PR of each source's nine topics (PR of the cosine
                 matrix of the topic centroids); no joining segment, since
                 semantic PR is compared within a medium only. Keyword-set
                 sensitivity is in the SI.
             (c) opinion PR by society and medium (bars: 95% bootstrap).
-            B and C share one inverted y-range; each society's two dashes are
+            B (top) and C (bottom) share one inverted y-range; each society's two dashes are
             joined by a thin segment, the cross-societal range per medium
             shaded. eRank: the SI figure ``make_fig3_erank``.
 
@@ -2996,18 +3026,19 @@ class Plotter:
         if not self.pedagogical:
             return self._build_fig3_pair()
 
-        fig = plt.figure(figsize=(15, 6.4))
-        gs = fig.add_gridspec(1, 3, width_ratios=[1.1, 1.0, 1.0], wspace=0.32)
+        fig = plt.figure(figsize=(15, 11.0))
+        gs = fig.add_gridspec(1, 2, width_ratios=[1.3, 1.0], wspace=0.16)
 
-        # (a) toy column: two topics, two rows of two panels.
-        toy = gs[0].subgridspec(2, 2, hspace=0.62, wspace=0.12)
-        axes = [[fig.add_subplot(toy[i, j]) for j in range(2)] for i in range(2)]
+        # (a) toy: two columns of 3D panels, 3 -> 2 -> 1 dimensions.
+        toy = gs[0].subgridspec(3, 2, hspace=0.42, wspace=0.28)
+        axes = [[fig.add_subplot(toy[i, j], projection="3d") for j in range(2)] for i in range(3)]
         self._toy_axes_column(axes)
-        self._label_panel(axes[0][0], "a", x=-0.18, y=1.42)
+        self._label_panel(axes[0][0], "a", x=-0.30, y=1.36)
 
         # (b) semantic PR, (c) opinion PR of the real data, one shared y-range.
-        sem_ax = fig.add_subplot(gs[1])
-        pr_ax = fig.add_subplot(gs[2])
+        right = gs[1].subgridspec(2, 1, hspace=0.32)
+        sem_ax = fig.add_subplot(right[0])
+        pr_ax = fig.add_subplot(right[1])
         sem = self.semantic_rank_values()
         opinion = self._spectral_means("PR")
         lows = list(opinion.values()) + [v for lo_hi in self._opinion_pr_intervals().values() for v in lo_hi]
@@ -3031,65 +3062,80 @@ class Plotter:
         self._label_panel(pr_ax, "c", x=-0.10)
         return fig
 
-    # Toy column of Fig 3A: two topics (K = 2).
-    _TOY_AXIS_ANGLE = 35.0      # degrees between the two topic axes in row 2
-    _TOY_BUNDLED_R = 0.9        # opinion correlation of the bundled cloud in row 1
-    _TOY_N = 400
+    # Toy of Fig 3A: three topics (K = 3), two columns, 3 -> 2 -> 1 dimensions.
+    _TOY_LINE_ANGLE = 10.0      # degrees of each topic axis from the common line (right column, row 3)
+    _TOY_DIM_LABELS = ("3 dimensions", "2 dimensions", "1 dimension")
+
+    @classmethod
+    def _collapsing_axes(cls) -> List[np.ndarray]:
+        """Unit topic axes (rows) of the right column: at right angles; in
+        one plane (120 degrees apart, the z = 0 plane); close to one line
+        (``_TOY_LINE_ANGLE`` from the x-axis, spread evenly around it)."""
+        t = np.radians([0, 120, 240])
+        plane = np.column_stack([np.cos(t), np.sin(t), np.zeros(3)])
+        a = np.radians(cls._TOY_LINE_ANGLE)
+        line = np.column_stack([np.full(3, np.cos(a)), np.sin(a) * np.cos(t), np.sin(a) * np.sin(t)])
+        return [np.eye(3), plane, line]
 
     def _toy_axes_column(self, axes) -> None:
-        """Fig 3A. Row 1, topic axes at right angles (topics distinct in
-        meaning): an unbundled and a bundled opinion cloud. Row 2, topic axes
-        leaning together (topics overlap in meaning): opinions spread evenly
-        in meaning space (left) give correlated scores on the two topics
-        (right), a cloud as narrow as the bundled one. Each panel states its
-        semantic PR (dimensions of the topic axes: PR of their cosine matrix)
-        and opinion PR (dimensions of the points: PR of the score
-        covariance), the two quantities of panels B and C."""
+        """Fig 3A, three topics, two columns of three 3D panels.
+
+        Left, "opinions bundle": topic axes at right angles; the opinion cloud
+        itself has 3, 2 or 1 dimensions (the ``_TOY_CLOUDS``). Right, "topics
+        overlap": opinions spread evenly in meaning space (isotropic), the
+        topic axes have 3, 2 or 1 dimensions (``_collapsing_axes``). What the
+        topics register is the cloud mapped onto the axes and back,
+        Z A^T A, which has the dimensions of the axes. Each panel states its
+        semantic PR (PR of the axes' cosine matrix A A^T) and opinion PR (PR
+        of the covariance of the scores Z A^T); within a row the two clouds
+        have about the same opinion PR and differ in semantic PR."""
         rng = np.random.default_rng(11)
-        Z = rng.standard_normal((self._TOY_N, 2))
+        Z = rng.standard_normal((self._TOY_SAMPLE_SIZE, 3))
         Z = (Z - Z.mean(0)) / Z.std(0)
-        r = self._TOY_BUNDLED_R
-        L = np.linalg.cholesky(np.array([[1.0, r], [r, 1.0]]))
-        half = np.radians(self._TOY_AXIS_ANGLE / 2)
-        lean = np.array([[np.cos(np.pi / 4 - half), np.sin(np.pi / 4 - half)],
-                         [np.cos(np.pi / 4 + half), np.sin(np.pi / 4 + half)]])   # unit topic axes (rows)
-        right = np.eye(2)
 
         def pr_of(M):
             return participation_ratio(np.linalg.eigvalsh(M))
 
-        panels = [
-            # (row, col, points to draw, topic axes drawn, scores for opinion PR, title)
-            (0, 0, Z, right, Z, "Unbundled"),
-            (0, 1, Z @ L.T, right, Z @ L.T, "Bundled opinions"),
-            (1, 0, Z, lean, Z @ lean.T, "Opinions in meaning space"),
-            (1, 1, Z @ lean.T, right, Z @ lean.T, "Their scores on the two topics"),
-        ]
-        bound = 3.4
-        for i, j, pts, ax_vecs, scores, title in panels:
-            ax = axes[i][j]
-            ax.scatter(pts[:, 0], pts[:, 1], c=np.linalg.norm(pts, axis=1), cmap=self._TOY_CMAP,
-                       s=7, alpha=0.8, edgecolors="none")
-            for n, v in enumerate(ax_vecs):
-                ax.annotate("", xy=tuple(2.9 * v), xytext=(0, 0),
-                            arrowprops=dict(arrowstyle="-|>", color="0.2", lw=1.3))
-                ax.text(*(3.25 * v), f"topic {n + 1}", fontsize=8, ha="center", va="center", color="0.2")
-            semantic = pr_of(ax_vecs @ ax_vecs.T) if (i, j) != (1, 1) else pr_of(lean @ lean.T)
-            opinion = pr_of(np.cov(scores, rowvar=False))
-            note = (f"semantic PR {semantic:.2f}\n(opinions spread evenly)" if (i, j) == (1, 0)
-                    else f"semantic PR {semantic:.2f}\nopinion PR {opinion:.2f}")
-            ax.text(0.5, -0.08, note, transform=ax.transAxes, ha="center", va="top", fontsize=8.5)
-            ax.set_xlim(-bound, bound)
-            ax.set_ylim(-bound, bound)
-            ax.set_aspect("equal")
-            ax.set_xticks([]); ax.set_yticks([])
-            for side in ax.spines.values():
-                side.set_visible(False)
-            ax.set_title(title, fontsize=9.5, fontweight="bold", pad=3)
-        axes[0][0].text(0.0, 1.30, "Topics distinct in meaning (axes at right angles)", transform=axes[0][0].transAxes,
-                        fontsize=10, fontstyle="italic", ha="left")
-        axes[1][0].text(0.0, 1.30, "Topics overlap in meaning (axes lean together)", transform=axes[1][0].transAxes,
-                        fontsize=10, fontstyle="italic", ha="left")
+        for i, ((_, eigs, rendering), A) in enumerate(zip(self._TOY_CLOUDS, self._collapsing_axes())):
+            # Left: the original toy cloud (topic axes = the box axes).
+            left = self._sample_toy_cloud(eigs, seed=101 + i)
+            self._toy_cloud_panel(axes[i][0], eigs, title="", seed=101 + i, rendering=rendering)
+            # Right: evenly spread opinions seen through collapsing topic axes,
+            # Z A^T A, scaled so its widest direction matches the left cloud.
+            M = A.T @ A
+            right = Z @ M / np.sqrt(np.linalg.eigvalsh(M).max())
+            self._toy_cloud_panel(axes[i][1], eigs, title="", seed=0, rendering=rendering,
+                                  points=right, topic_axes=A if i else None,
+                                  axis_label="topic" if i == 0 else "")
+            for j, (ax_vecs, scores) in enumerate(((np.eye(3), left), (A, Z @ A.T))):
+                axes[i][j].text2D(0.5, -0.10, f"semantic PR {pr_of(ax_vecs @ ax_vecs.T):.2f}\n"
+                                             f"opinion PR {pr_of(np.cov(scores, rowvar=False)):.2f}",
+                                  transform=axes[i][j].transAxes, ha="center", va="top", fontsize=9)
+            axes[i][0].text2D(-0.24, 0.5, self._TOY_DIM_LABELS[i], transform=axes[i][0].transAxes, rotation=90,
+                              ha="center", va="center", fontsize=10.5, fontweight="bold")
+        self._toy_column_boxes(axes)
+
+    _TOY_BOX_HEADINGS = (
+        ("Opinion dimension reveals alignment", "axes at right angles;\nopinions collapse"),
+        ("Alternative explanation:\na collapsed topic semantic space", "opinions spread evenly;\ntopic axes collapse"),
+    )
+
+    def _toy_column_boxes(self, axes) -> None:
+        """A rounded dashed box around each toy column with its heading on
+        top (figure coordinates, from the axes positions)."""
+        from matplotlib.patches import FancyBboxPatch
+
+        fig = axes[0][0].figure
+        for j, (heading, sub) in enumerate(self._TOY_BOX_HEADINGS):
+            top, bottom = axes[0][j].get_position(), axes[-1][j].get_position()
+            x0, x1 = top.x0 - 0.018, top.x1 + 0.014
+            y0, y1 = bottom.y0 - 0.045, top.y1 + 0.075
+            fig.patches.append(FancyBboxPatch(
+                (x0, y0), x1 - x0, y1 - y0, boxstyle="round,pad=0.004,rounding_size=0.012",
+                transform=fig.transFigure, fill=False, edgecolor="0.35", linewidth=1.3, linestyle=(0, (5, 3))))
+            fig.text((x0 + x1) / 2, y1 - 0.008, heading, ha="center", va="top", fontsize=11, fontweight="bold")
+            fig.text((x0 + x1) / 2, y1 - (0.048 if "\n" in heading else 0.030), f"({sub})", ha="center",
+                     va="top", fontsize=9, fontstyle="italic", color="0.25")
 
     def semantic_rank_values(self):
         """({src: semantic PR}, {src: (min, max) over keyword sets}) from

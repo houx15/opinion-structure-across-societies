@@ -902,7 +902,7 @@ def test_make_fig3_row3_y_axis_does_not_start_at_zero(tmp_figure_folder):
     import matplotlib.pyplot as plt
 
     plotter = v4.Plotter(
-        figure_folder=str(tmp_figure_folder), date_prefix="20260513",
+        figure_folder=str(tmp_figure_folder), date_prefix="20260513", countries=v4.TWO_COUNTRIES,
     )
     fig = plotter.build_fig3()
     for ax in fig.axes[6:8]:
@@ -919,7 +919,7 @@ def test_make_fig3_dash_plot_legend_has_no_medium_handles(tmp_figure_folder):
     import matplotlib.pyplot as plt
 
     plotter = v4.Plotter(
-        figure_folder=str(tmp_figure_folder), date_prefix="20260513",
+        figure_folder=str(tmp_figure_folder), date_prefix="20260513", countries=v4.TWO_COUNTRIES,
     )
     fig = plotter.build_fig3()
     for ax in fig.axes[6:8]:
@@ -930,7 +930,7 @@ def test_make_fig3_dash_plot_legend_has_no_medium_handles(tmp_figure_folder):
         assert "Survey" not in labels and "Social media" not in labels, (
             f"legend should not list Survey/Social media (axis tells us), got {labels}"
         )
-        assert set(labels) == {"US", "CN", "GB"}
+        assert set(labels) == {"US", "CN"}
     plt.close(fig)
 
 
@@ -1133,24 +1133,29 @@ def test_semantic_weights_reproduce_the_adjusted_means(tmp_figure_folder):
     assert v4.task_names("main") == ["main", "supp_semantic"]
 
 def test_main_fig3_shows_pr_only_and_si_figure_adds_erank(tmp_figure_folder):
-    """Main Fig 3: four 2D toy panels (axes at right angles / leaning
-    together), semantic PR (B) and opinion PR (C) on one y-range, no eRank.
-    The SI figure make_fig3_erank has PR (a) and eRank (b)."""
+    """Main Fig 3: six 3D toy panels (left, opinions bundle; right, topic
+    axes collapse; 3 -> 2 -> 1 dimensions), semantic PR (B, top) and opinion
+    PR (C, bottom) on one y-range, no eRank. The SI figure make_fig3_erank
+    has PR (a) and eRank (b)."""
     import plotting.figures as v4
     import matplotlib.pyplot as plt
 
     plotter = v4.Plotter(figure_folder=str(tmp_figure_folder), date_prefix="20260513",
                          countries=v4.TWO_COUNTRIES)
     fig = plotter.build_fig3()
-    assert all(ax.name != "3d" for ax in fig.axes)
+    assert [ax.name for ax in fig.axes] == ["3d"] * 6 + ["rectilinear"] * 2
     titles = [ax.get_title() for ax in fig.axes]
-    assert titles[:4] == ["Unbundled", "Bundled opinions", "Opinions in meaning space",
-                          "Their scores on the two topics"]
-    assert titles[4:] == ["Topic meanings (semantic PR)", "Opinions (opinion PR)"]
-    assert fig.axes[4].get_ylim() == fig.axes[5].get_ylim()
+    headings = [t.get_text() for t in fig.texts]
+    assert "Opinion dimension reveals alignment" in headings
+    assert any(h.startswith("Alternative explanation") for h in headings)
+    assert len(fig.patches) == 2          # the two dashed boxes around the toy columns
+    assert titles[6:] == ["Topic meanings (semantic PR)", "Opinions (opinion PR)"]
+    assert fig.axes[6].get_ylim() == fig.axes[7].get_ylim()
     assert "Exponential rank" not in titles
-    notes = " ".join(t.get_text() for ax in fig.axes[:4] for t in ax.texts)
-    assert "semantic PR 2.00" in notes and "semantic PR 1.20" in notes
+    notes = [t.get_text() for ax in fig.axes[:6] for t in ax.texts if "semantic PR" in t.get_text()]
+    # Right column: semantic PR 3.00 -> 2.00 -> about 1, matching the opinion PR of each row.
+    assert [n.splitlines()[0] for n in notes[1::2]] == ["semantic PR 3.00", "semantic PR 2.00", "semantic PR 1.06"]
+    assert all(n.splitlines()[0] == "semantic PR 3.00" for n in notes[0::2])
     plt.close(fig)
 
     path = Path(plotter.make_fig3_erank(task_name="main"))
