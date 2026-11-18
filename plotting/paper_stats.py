@@ -436,8 +436,10 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
                 r.code, medium, f"{sem['adjusted'][src]:.3f}", _ci(lo, hi),
                 f"{strata['adjusted'][src]:.3f}", _ci(lo_s, hi_s),
             ])
-    # Main = common support: its reweighting details; robustness = all pairs.
-    full = plotter.semantic_adjustment("kde")
+    # The other method is the robustness check: common support when the main
+    # analysis uses all pairs ("kde"), all pairs when it uses the support.
+    other = "kde" if main_support else "support"
+    full = plotter.semantic_adjustment(other)
     rows_sup, rows_full = [], []
     for medium, attr in MEDIA:
         ref_src = getattr(ref, attr)
@@ -452,9 +454,9 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
                 f"{m_w:.3f}", f"{np.sqrt(w @ (x - m_w) ** 2):.3f}",
                 "" if r is ref else f"{sa.effective_sample_size(w):.1f}",
             ])
-            xa, ya = plotter.semantic_pairs(src)
+            xa, ya = plotter.semantic_pairs(src, support=other == "support")
             lo, hi = full["adjusted_ci"][src]
-            ess = "" if r is ref else f"{sa.effective_sample_size(sa.density_ratio_weights(plotter.semantic_pairs(ref_src)[0], xa)):.1f}"
+            ess = "" if r is ref else f"{sa.effective_sample_size(sa.density_ratio_weights(plotter.semantic_pairs(ref_src, support=other == 'support')[0], xa)):.1f}"
             rows_full.append([r.code, medium, f"{xa.mean():.3f}", f"{full['raw'][src]:.3f}",
                               f"{full['adjusted'][src]:.3f}", _ci(lo, hi), ess])
         a_ref = full["adjusted"][getattr(ref, attr)]
@@ -478,11 +480,12 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
         f"PART 9. Mean |r| with semantic similarity held fixed at the {ref.code} distribution (Fig 2G)",
         sem_sources,
         [
-            "MAIN = COMMON SUPPORT (since 2026-11-18): within each medium only the pairs whose similarity lies in",
-            "  the range every society covers [largest minimum, smallest maximum] are kept, for all societies",
-            f"  including the {ref.code} (whose value is then the mean |r| of its kept pairs); bounds fixed from the",
-            "  observed pairs, bootstrap resamples drawn from the kept pairs. The reweighting below is applied to the",
-            "  kept pairs. Robustness: the same reweighting on all pairs (full range; table at the end).",
+            ("MAIN = COMMON SUPPORT" if main_support else "MAIN = ALL PAIRS")
+            + f" (Plotter.semantic_method = {plotter.semantic_method!r}). Common support: within each medium only the",
+            "  pairs whose similarity lies in the range every society covers [largest minimum, smallest maximum]",
+            f"  are kept, for all societies including the {ref.code} (whose value is then the mean |r| of its kept",
+            "  pairs); bounds fixed from the observed pairs, bootstrap resamples drawn from the kept pairs.",
+            "  The other version is reported as the robustness check (table at the end).",
             f"Within each medium, reweight every other society's {n_pairs} pairs so their semantic similarities are",
             f"distributed like the {ref.code} pairs' (DiNardo-Fortin-Lemieux reweighting):",
             f"  weight_j = f_{ref.code}(sim_j) / f_other(sim_j), both densities Gaussian KDEs (Scott bandwidth),",
@@ -501,13 +504,11 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
             f"  (other pairs outside the {ref.code} range dropped); same bootstrap.",
             "Common-support details: bounds, pairs kept, reweighted mean / SD of similarity of the kept pairs",
             f"  (the {ref.code} row gives the target), ESS.",
-            "Robustness - full range (SI fig2_fullrange): the same density-ratio reweighting on all pairs; the",
-            f"  {ref.code} value is its raw mean over all pairs.",
             "Gap and ratio at equal similarity: adjusted mean |r| of the reference minus / over that of the other.",
         ],
         _table(["Country", "Medium", "Source", "Pairs kept", "Mean sim (kept)", "Raw mean |r| (kept)",
                 "Adjusted mean |r|", "95% CI", "ESS"], rows_main)
-        + ["", "Gap and ratio at equal similarity (main, common support):"]
+        + ["", "Gap and ratio at equal similarity (main):"]
         + _table(["Comparison", "Medium", "Gap", "Ratio"], rows_gapm)
         + ["", "Gap decomposition (main, kept pairs):"]
         + _table(["Comparison", "Medium", "Raw gap", "Similarity mix", "Society", "Society share"], rows_gap)
@@ -517,7 +518,7 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
         + ["", "Common-support details:"]
         + _table(["Country", "Medium", "Support", "Pairs kept", "Reweighted sim mean", "Reweighted sim SD",
                   "ESS"], rows_sup)
-        + ["", "Robustness - full similarity range (all pairs):"]
+        + ["", "Robustness - " + ("full similarity range (all pairs):" if main_support else "common similarity support:")]
         + _table(["Country", "Medium", "Mean sim", "Raw mean |r|", "Adjusted mean |r|", "95% CI", "ESS"],
                  rows_full),
     )

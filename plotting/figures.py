@@ -1226,10 +1226,10 @@ class Plotter:
         self.embedding_type = embedding_type
         # semantic_adjustment results per method (bootstrap is the slow part).
         self._semantic_cache: Dict[str, Dict[str, object]] = {}
-        # Fig 2G and the stats Parts 9-10 use the common similarity support
-        # ("support"); "kde" = all pairs (the SI full-range robustness check).
+        # Fig 2G and the stats Parts 9-10: "kde" = all pairs (main);
+        # "support" = the common similarity support (SI robustness check).
         # Fig 2F always shows all pairs.
-        self.semantic_method = "support"
+        self.semantic_method = "kde"
         # Fig 3 spectrum: pairwise-available covariance ("cov", main) or the
         # same matrix rescaled to correlations ("corr", robustness check).
         dimension_results_dir(spectral_matrix)  # validates the name
@@ -2226,13 +2226,13 @@ class Plotter:
         """Similarity-adjusted mean |r| per source and the Shapley decomposition
         per medium, with percentile bootstrap intervals (cached per method).
 
-        ``method`` (default ``self.semantic_method``, "support"): "support"
-        (main, Fig 2G: density-ratio reweighting on the common support only: every society,
+        ``method`` (default ``self.semantic_method``): "kde" (main, Fig 2G:
+        density-ratio reweighting of all pairs), "support" (the same on the
+        common support only, SI robustness check: every society,
         the reference included, keeps the pairs inside the similarity range
         all societies of the medium cover; bounds fixed from the observed
         pairs, resamples drawn from the kept pairs; Fig 2s support) or
-        "strata" (quintile reweighting, sensitivity), "kde" (density-ratio
-        reweighting of all pairs: the SI full-range robustness check).
+        "strata" (quintile reweighting, sensitivity).
 
         Returns ``raw`` / ``adjusted`` {src: mean |r|}, ``adjusted_ci``
         {src: (lo, hi)}, ``decomposition`` {medium: shapley_r2 dict on Fisher z}
@@ -2300,7 +2300,7 @@ class Plotter:
     ) -> None:
         """Mean |r| per society and medium after reweighting each society's
         topic pairs to the U.S. similarity distribution (Fig 2G; ``method``
-        default ``self.semantic_method``: on the common support)."""
+        default ``self.semantic_method``)."""
         res = self.semantic_adjustment(method)
         values = res["adjusted"]
         intervals = res["adjusted_ci"]
@@ -2366,11 +2366,11 @@ class Plotter:
                 platforms right; (f, two axes spanning two columns) |r|
                 against semantic similarity with one LOESS curve per society,
                 surveys and platforms, curves fitted on all pairs, dotted
-                lines at the common similarity support; (g) mean |r| within
-                the common support with each society's pairs reweighted to the
-                U.S. similarity distribution. With ``semantic_method = "kde"``
-                (SI full-range figure) G uses all pairs. Details of (g) are in
-                supplementary Fig 2s.
+                lines at the common similarity support (SI robustness check),
+                with a strip below showing the similarity matching behind (g);
+                (g) mean |r| with each society's pairs reweighted to the U.S.
+                similarity distribution. Details of (g) are in supplementary
+                Fig 2s; the common-support version is Fig 2s support.
 
         Robustness checks (``pedagogical=False``) drop the tutorial row,
         leaving the generalization row (a-c).
@@ -2429,14 +2429,22 @@ class Plotter:
         loess_gs = bottom[0, 1:3].subgridspec(1, 2, wspace=0.08)
         ax_fit_off = fig.add_subplot(loess_gs[0, 0])
         ax_fit_on = fig.add_subplot(loess_gs[0, 1], sharey=ax_fit_off)
-        ax_adj = fig.add_subplot(bottom[0, 3])
+        # G with the similarity matching behind it in two small panels below.
+        g_gs = bottom[0, 3].subgridspec(2, 1, height_ratios=[1.0, 0.32], hspace=0.62)
+        ax_adj = fig.add_subplot(g_gs[0])
+        strip_gs = g_gs[1].subgridspec(1, 2, wspace=0.12)
+        ax_strip_off = fig.add_subplot(strip_gs[0, 0])
+        ax_strip_on = fig.add_subplot(strip_gs[0, 1])
         self._ridge_panel(ax_ridge, offline_sources, online_sources)
         self._loess_panel(ax_fit_off, offline_sources, panel_label="Offline (Surveys)", y_label=True)
         self._loess_panel(ax_fit_on, online_sources, panel_label="Online (Social Media)", y_label=False)
+        # Each matching panel sits under its own column of G.
+        self._matching_strip(ax_strip_off, offline_sources, legend=False)
+        self._matching_strip(ax_strip_on, online_sources, legend=True)
         self._adjusted_mean_panel(
             ax_adj, legend_loc=None,
             title=("Similarity held fixed (common support)" if self.semantic_method == "support"
-                   else "Similarity held fixed (all pairs)"))
+                   else "Semantic similarity held fixed"))
         for ax, letter in zip((ax_ridge, ax_fit_off, ax_adj), bottom_labels):
             self._label_panel(ax, letter)
         return fig
@@ -2492,18 +2500,63 @@ class Plotter:
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
 
+    def _matching_strip(self, ax, sources: Sequence[str], *, legend: bool, title: str = "") -> None:
+        """Small similarity panel under Fig 2G (one per medium): the
+        distribution the matching aims for (U.S. pairs, shaded), the other
+        society's pairs before matching (dotted) and after (solid:
+        density-ratio weights of Fig 2G). With
+        ``semantic_method == "support"`` the target and the matched pairs are
+        those inside the common support (dotted lines), the raw curve all
+        pairs; with "kde" all pairs throughout."""
+        support = self.semantic_method == "support"
+        ref_code = self.semantic_reference().code
+        online = sources[0] in [r.social for r in self.regions]
+        xs = np.concatenate([self.semantic_pairs(s)[0] for s in sources])
+        grid = np.linspace(xs.min() - 0.04, xs.max() + 0.04, 300)
+        if support:
+            for bound in self.semantic_support(sources[0]):
+                ax.axvline(bound, color="0.55", linewidth=0.8, linestyle=(0, (1, 2)), zorder=1)
+        handles = []
+        for src in sources:
+            code = self.source_country[src]
+            color = self.country_color[code]
+            x_kept, _ = self.semantic_pairs(src, support=support)
+            if code == ref_code:
+                dens = gaussian_kde(x_kept)(grid)
+                ax.fill_between(grid, dens, color=color, alpha=0.30, linewidth=0, zorder=2)
+                handles.append(Line2D([0], [0], color=color, lw=6, alpha=0.30, label=f"{code} (target)"))
+                continue
+            x_all, _ = self.semantic_pairs(src)
+            ax.plot(grid, gaussian_kde(x_all)(grid), color=color, linewidth=1.1, linestyle=(0, (1.5, 1.5)), zorder=3)
+            ax.plot(grid, gaussian_kde(x_kept, weights=self.semantic_weights(src, support=support))(grid),
+                    color=color, linewidth=2.0, zorder=4)
+            handles += [Line2D([0], [0], color=color, lw=1.1, linestyle=(0, (1.5, 1.5)), label=f"{code} before"),
+                        Line2D([0], [0], color=color, lw=2.0, label=f"{code} matched")]
+        ax.set_ylim(0, ax.get_ylim()[1] * (1.55 if legend else 1.15))
+        ax.set_yticks([])
+        ax.set_xlabel("similarity", fontsize=8.5, labelpad=1)
+        ax.tick_params(labelsize=7.5, length=2, pad=1)
+        ax.set_title(title, fontsize=9, pad=2)
+        if not online:
+            ax.set_ylabel("Matching", fontsize=8.5)
+        for side in ("top", "right", "left"):
+            ax.spines[side].set_visible(False)
+        if legend:
+            ax.legend(handles=handles, loc="upper right", fontsize=6.3, frameon=False, ncol=1,
+                      handlelength=1.4, borderaxespad=0.0, labelspacing=0.2)
+
     def _loess_panel(self, ax, sources: Sequence[str], *, panel_label: str, y_label: bool) -> None:
         """|r| against semantic similarity for one medium: the pairs as
         points and, per society, the mean of ``n_bootstrap`` LOWESS curves
         (span ``loess_frac``, pairs resampled; seed 7) with its pointwise 95%
-        band, fitted on all pairs. Dotted lines bound the similarity range
-        every society of the medium covers (common support), the pairs Fig 2G
-        uses."""
+        band, fitted on all pairs. When Fig 2G uses the common support
+        (``semantic_method == "support"``), dotted lines bound it."""
         rng = np.random.default_rng(7)
         online = sources[0] in [r.social for r in self.regions]
         style = self._MEDIA_DASH_PATTERN if online else "solid"     # dashed online, as everywhere
-        for bound in self.semantic_support(sources[0]):
-            ax.axvline(bound, color="0.55", linewidth=0.8, linestyle=(0, (1, 2)), zorder=1)
+        if self.semantic_method == "support":      # only when G uses the common support
+            for bound in self.semantic_support(sources[0]):
+                ax.axvline(bound, color="0.55", linewidth=0.8, linestyle=(0, (1, 2)), zorder=1)
         for src in sources:
             color = self.country_color[self.source_country[src]]
             x, y = self.semantic_pairs(src)
@@ -2522,21 +2575,6 @@ class Plotter:
         ax.set_title(panel_label, fontsize=12, fontweight="bold")
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
-
-    def make_fig2_fullrange(self, task_name: str = "main") -> Path:
-        """SI robustness figure: the Fig 2 bottom row with Fig 2G on all pairs
-        (reweighting of all pairs, ``semantic_method`` "kde") instead of the
-        common support; E and F are as in the main figure."""
-        main_method, main_ped = self.semantic_method, self.pedagogical
-        try:
-            self.semantic_method, self.pedagogical = "kde", False
-            fig = self.build_fig2()
-        finally:
-            self.semantic_method, self.pedagogical = main_method, main_ped
-        path = self._output_path(task_name, "fig2_fullrange")
-        fig.savefig(path, format="pdf", bbox_inches="tight")
-        plt.close(fig)
-        return path
 
     LOESS_SPANS = (0.3, 0.4, 0.5, 0.7)
 
@@ -3199,7 +3237,7 @@ TASKS: List[Dict] = [
         "name": "main",
         "us_survey": "anes", "cn_survey": "wvs", "gb_survey": "en_evs",
         "gbtwitter_src": "entwitter", "embedding_type": "gpt",
-        "figures": [2, "2_fullrange", "2_loess_spans", 3, "3_erank"],
+        "figures": [2, "2_loess_spans", 3, "3_erank"],
     },
     {
         # Supplementary Figs 2s: Fig 2G's reweighting in detail - similarity

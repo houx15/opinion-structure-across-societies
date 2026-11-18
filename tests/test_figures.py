@@ -655,8 +655,7 @@ def test_make_fig2_bottom_row_has_three_panels_without_pair_callouts(tmp_figure_
     )
     fig = plotter.build_fig2()
     titles = [ax.get_title() for ax in fig.axes]
-    assert fig.axes[-1].child_axes == []      # no insets in G
-    for t in ("Pair correlations", "Similarity held fixed (common support)"):
+    for t in ("Pair correlations", "Semantic similarity held fixed"):
         assert t in titles, titles
     assert titles.count("Offline (Surveys)") == 2 and titles.count("Online (Social Media)") == 2   # A/B + F
     for ax in fig.axes[4:]:
@@ -1073,8 +1072,11 @@ def test_fig2_non_pedagogical_omits_word_overlap_row(tmp_figure_folder):
     )
     fig = plotter.build_fig2()
     assert [ax.get_title() for ax in fig.axes] == [
-        "Pair correlations", "Offline (Surveys)", "Online (Social Media)", "Similarity held fixed (common support)",
+        "Pair correlations", "Offline (Surveys)", "Online (Social Media)", "Semantic similarity held fixed", "", "",
     ]
+    # Under G: one similarity-matching panel per medium.
+    assert [ax.get_xlabel() for ax in fig.axes[4:]] == ["similarity", "similarity"]
+    assert fig.axes[3].get_position().y0 > fig.axes[4].get_position().y1
     all_text = " ".join(t.get_text() for ax in fig.axes for t in ax.texts)
     assert "Low similarity" not in all_text and "High similarity" not in all_text
     plt.close(fig)
@@ -1162,7 +1164,7 @@ def test_main_fig3_shows_pr_only_and_si_figure_adds_erank(tmp_figure_folder):
     fig = plotter._build_fig3_pair()
     assert [ax.get_title() for ax in fig.axes] == ["Participation ratio", "Exponential rank"]
     plt.close(fig)
-    assert v4._task_by_name("main")["figures"] == [2, "2_fullrange", "2_loess_spans", 3, "3_erank"]
+    assert v4._task_by_name("main")["figures"] == [2, "2_loess_spans", 3, "3_erank"]
 
 
 
@@ -1385,22 +1387,17 @@ def test_task_kwargs_and_output_name_for_two_countries():
     assert v4.output_task_name("main") == "main"
 
 
-def test_fig2_matching_uses_common_support_and_full_range_is_si(tmp_figure_folder):
-    """Fig 2F, G and stats Parts 9-10 use the common similarity support by
-    default; the all-pairs version is the SI figure fig2_fullrange, and the
-    plotter's settings are restored after drawing it."""
+def test_fig2_matching_uses_all_pairs_and_common_support_is_robustness(tmp_figure_folder):
+    """Fig 2G and stats Parts 9-10 use all pairs by default; the common
+    support is the robustness check (its U.S. value is the mean |r| of the
+    kept pairs)."""
     import plotting.figures as v4
 
     plotter = v4.Plotter(figure_folder=str(tmp_figure_folder), date_prefix="20260513",
                          n_bootstrap=20, countries=v4.TWO_COUNTRIES)
-    assert plotter.semantic_method == "support"
-    assert plotter.semantic_adjustment() is plotter.semantic_adjustment("support")
-    support, full = plotter.semantic_adjustment("support"), plotter.semantic_adjustment("kde")
-    # U.S. value on the common support = mean |r| of its kept pairs, not of all pairs.
+    assert plotter.semantic_method == "kde"
+    assert plotter.semantic_adjustment() is plotter.semantic_adjustment("kde")
+    main, support = plotter.semantic_adjustment("kde"), plotter.semantic_adjustment("support")
+    assert main["adjusted"][plotter.twitter] == pytest.approx(plotter.semantic_pairs(plotter.twitter)[1].mean())
     _, y_kept = plotter.semantic_pairs(plotter.twitter, support=True)
     assert support["adjusted"][plotter.twitter] == pytest.approx(y_kept.mean())
-    assert full["adjusted"][plotter.twitter] == pytest.approx(plotter.semantic_pairs(plotter.twitter)[1].mean())
-    path = Path(plotter.make_fig2_fullrange(task_name="main"))
-    assert path.name == "20260513_main_results_fig2_fullrange.pdf" and path.stat().st_size > 0
-    assert plotter.semantic_method == "support" and plotter.pedagogical
-    assert "2_fullrange" in v4._task_by_name("main")["figures"]
