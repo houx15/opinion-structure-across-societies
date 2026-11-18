@@ -1765,9 +1765,11 @@ class Plotter:
             ax.scatter(pts[:, 0], pts[:, 1], s=8, color=color, alpha=0.18,
                        edgecolors="none", zorder=1, rasterized=True)
             x_line = np.linspace(-x_lim + 0.2, x_lim - 0.2, 50)
-            ax.plot(x_line, r * x_line, color=color, linewidth=2.8, zorder=3)
+            # Solid offline, dashed online, as in every dash plot.
+            style = self._MEDIA_DASH_PATTERN if kind == "online" else "solid"
+            ax.plot(x_line, r * x_line, color=color, linewidth=2.8, linestyle=style, zorder=3)
             handles.append(Line2D(
-                [0], [0], color=color, lw=2.6,
+                [0], [0], color=color, lw=2.6, linestyle=style,
                 label=f"{code}   |r| = {abs(signed_r):.3f}",
             ))
 
@@ -2473,8 +2475,9 @@ class Plotter:
                 ax.plot([x0, x0], [0, 0.7], color="white", linewidth=1.8, zorder=z + 1)
                 mean_v = float(y.mean())
                 reach = float(dens[np.argmin(np.abs(grid - mean_v))])
-                ax.plot([x0, x0 + reach], [mean_v, mean_v], color="white", linewidth=1.6,
-                        linestyle=(0, (3, 2)), zorder=z + 1)
+                # Mean: solid for surveys, dashed for social media.
+                ax.plot([x0, x0 + reach], [mean_v, mean_v], color="white", linewidth=1.8,
+                        linestyle=self._MEDIA_DASH_PATTERN if m else "solid", zorder=z + 1)
                 ax.text(x0 + reach + 0.03, mean_v, f"{mean_v:.3f}", color=color, fontsize=8.5, va="center",
                         zorder=10, bbox=dict(boxstyle="square,pad=0.05", facecolor="white", edgecolor="none", alpha=0.8))
         ax.set_xticks(centers)
@@ -2497,6 +2500,8 @@ class Plotter:
         every society of the medium covers (common support), the pairs Fig 2G
         uses."""
         rng = np.random.default_rng(7)
+        online = sources[0] in [r.social for r in self.regions]
+        style = self._MEDIA_DASH_PATTERN if online else "solid"     # dashed online, as everywhere
         for bound in self.semantic_support(sources[0]):
             ax.axvline(bound, color="0.55", linewidth=0.8, linestyle=(0, (1, 2)), zorder=1)
         for src in sources:
@@ -2507,7 +2512,7 @@ class Plotter:
             if grid is None:
                 continue
             ax.fill_between(grid, lo, hi, color=color, alpha=0.13, linewidth=0, zorder=2)
-            ax.plot(grid, mean, color=color, linewidth=2.6, zorder=3)
+            ax.plot(grid, mean, color=color, linewidth=2.6, linestyle=style, zorder=3)
         ax.set_xlabel("Semantic similarity of the topic pair", fontsize=11)
         if y_label:
             ax.set_ylabel("|r|", fontsize=12, fontweight="bold")
