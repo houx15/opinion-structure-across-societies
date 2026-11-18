@@ -601,8 +601,7 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
             "  (raw pairs) or the Part 9 weights (reweighted); slope SE and two-sided p from the t distribution",
             "  (WLS treats the weights as known); weighted R^2.",
             "Spearman rho of |r| and similarity over each source's pairs (raw pairs only; scipy.stats.spearmanr,",
-            "  two-sided p), all pairs; and on the common-support pairs (the pairs Fig 2F fits; main text since",
-            "  2026-11-18).",
+            "  two-sided p), all pairs (main text, with Fig 2F); and on the common-support pairs (Fig 2G's pairs).",
             f"The LOESS version draws a local-linear fit (tricube kernel over the nearest {plotter.loess_frac:.0%} of",
             "  the pairs, kernel times the pair weights, no robustness iterations) in place of the lines;",
             "  descriptive only, no numbers reported.",
@@ -613,7 +612,7 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
         + ["", "OLS |r| ~ similarity, raw and reweighted pairs:"]
         + _table(["Country", "Medium", "Pairs used", "Intercept", "Slope", "SE", "p", "R^2", "Spearman rho", "p",
                   "N"], rows_ols)
-        + ["", "Spearman rho of |r| and similarity on the common-support pairs (Fig 2F; main text):"]
+        + ["", "Spearman rho of |r| and similarity on the common-support pairs (Fig 2G's pairs):"]
         + _table(["Country", "Medium", "Pairs", "Spearman rho", "p"], [
             [r.code, medium, str(len(xs)), f"{rho.statistic:+.2f}", f"{rho.pvalue:.2f}"]
             for medium, attr in MEDIA for r in regions

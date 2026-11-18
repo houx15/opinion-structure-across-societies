@@ -1226,8 +1226,9 @@ class Plotter:
         self.embedding_type = embedding_type
         # semantic_adjustment results per method (bootstrap is the slow part).
         self._semantic_cache: Dict[str, Dict[str, object]] = {}
-        # Fig 2F, G and the stats Parts 9-10 use the common similarity support
+        # Fig 2G and the stats Parts 9-10 use the common similarity support
         # ("support"); "kde" = all pairs (the SI full-range robustness check).
+        # Fig 2F always shows all pairs.
         self.semantic_method = "support"
         # Fig 3 spectrum: pairwise-available covariance ("cov", main) or the
         # same matrix rescaled to correlations ("corr", robustness check).
@@ -2362,12 +2363,12 @@ class Plotter:
                 of every source as overlapping vertical ridges, surveys left,
                 platforms right; (f, two axes spanning two columns) |r|
                 against semantic similarity with one LOESS curve per society,
-                surveys and platforms, curves fitted on the common
-                similarity support only (pairs outside it hollow); (g) mean
-                |r| within the common support with each society's pairs
-                reweighted to the U.S. similarity distribution. With
-                ``semantic_method = "kde"`` (SI full-range figure) F and G
-                use all pairs. Details of (g) are in supplementary Fig 2s.
+                surveys and platforms, curves fitted on all pairs, dotted
+                lines at the common similarity support; (g) mean |r| within
+                the common support with each society's pairs reweighted to the
+                U.S. similarity distribution. With ``semantic_method = "kde"``
+                (SI full-range figure) G uses all pairs. Details of (g) are in
+                supplementary Fig 2s.
 
         Robustness checks (``pedagogical=False``) drop the tutorial row,
         leaving the generalization row (a-c).
@@ -2492,27 +2493,16 @@ class Plotter:
         """|r| against semantic similarity for one medium: the pairs as
         points and, per society, the mean of ``n_bootstrap`` LOWESS curves
         (span ``loess_frac``, pairs resampled; seed 7) with its pointwise 95%
-        band. Dotted lines bound the similarity range every society of the
-        medium covers (common support). With ``semantic_method == "support"``
-        the curves are fitted on the pairs inside it only and the pairs
-        outside are drawn hollow; with "kde" on all pairs."""
+        band, fitted on all pairs. Dotted lines bound the similarity range
+        every society of the medium covers (common support), the pairs Fig 2G
+        uses."""
         rng = np.random.default_rng(7)
-        support_only = self.semantic_method == "support"
-        lo_s, hi_s = self.semantic_support(sources[0])
-        for bound in (lo_s, hi_s):
+        for bound in self.semantic_support(sources[0]):
             ax.axvline(bound, color="0.55", linewidth=0.8, linestyle=(0, (1, 2)), zorder=1)
         for src in sources:
             color = self.country_color[self.source_country[src]]
-            x_all, y_all = self.semantic_pairs(src)
-            inside = (x_all >= lo_s) & (x_all <= hi_s)
-            ax.scatter(x_all[inside], y_all[inside], s=16, color=color, alpha=0.35, edgecolors="none", zorder=2)
-            if support_only:
-                ax.scatter(x_all[~inside], y_all[~inside], s=16, facecolors="none", edgecolors=color,
-                           linewidths=0.8, alpha=0.6, zorder=2)
-                x, y = x_all[inside], y_all[inside]
-            else:
-                ax.scatter(x_all[~inside], y_all[~inside], s=16, color=color, alpha=0.35, edgecolors="none", zorder=2)
-                x, y = x_all, y_all
+            x, y = self.semantic_pairs(src)
+            ax.scatter(x, y, s=16, color=color, alpha=0.35, edgecolors="none", zorder=2)
             grid, mean, lo, hi = bootstrap_lowess_ci(x, y, frac=self.loess_frac, n_bootstrap=self.n_bootstrap, rng=rng)
             if grid is None:
                 continue
@@ -2529,9 +2519,9 @@ class Plotter:
         ax.spines["right"].set_visible(False)
 
     def make_fig2_fullrange(self, task_name: str = "main") -> Path:
-        """SI robustness figure: the Fig 2 bottom row with all pairs (curves
-        fitted on all pairs; reweighting of all pairs, ``semantic_method``
-        "kde") instead of the common support."""
+        """SI robustness figure: the Fig 2 bottom row with Fig 2G on all pairs
+        (reweighting of all pairs, ``semantic_method`` "kde") instead of the
+        common support; E and F are as in the main figure."""
         main_method, main_ped = self.semantic_method, self.pedagogical
         try:
             self.semantic_method, self.pedagogical = "kde", False
