@@ -407,17 +407,19 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
         f"{csv(getattr(r, attr))} + similarity of {getattr(r, attr)} ({plotter.embedding_type} embedding)"
         for medium, attr in MEDIA for r in regions
     ] + ["Pairs merged on topic_combination (figures.similarity_pairs)."]
+    main_support = plotter.semantic_method == "support"
     rows_main, rows_gap, rows_alt = [], [], []
     for medium, attr in MEDIA:
         ref_src = getattr(ref, attr)
-        xr, yr = v4.similarity_pairs(ref_src, plotter.embedding_type, plotter.correlation_year(ref_src))
+        xr, yr = plotter.semantic_pairs(ref_src, support=main_support)
         for r in regions:
             src = getattr(r, attr)
-            x, y = v4.similarity_pairs(src, plotter.embedding_type, plotter.correlation_year(src))
+            x, y = plotter.semantic_pairs(src, support=main_support)
+            n_all = len(plotter.semantic_pairs(src)[0])
             lo, hi = sem["adjusted_ci"][src]
             ess = "" if r is ref else f"{sa.effective_sample_size(sa.density_ratio_weights(xr, x)):.1f}"
             rows_main.append([
-                r.code, medium, src, f"{x.mean():.3f}", f"{sem['raw'][src]:.3f}",
+                r.code, medium, src, f"{len(x)}/{n_all}", f"{x.mean():.3f}", f"{sem['raw'][src]:.3f}",
                 f"{sem['adjusted'][src]:.3f}", _ci(lo, hi), ess,
             ])
             if r is ref:
@@ -434,26 +436,53 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
                 r.code, medium, f"{sem['adjusted'][src]:.3f}", _ci(lo, hi),
                 f"{strata['adjusted'][src]:.3f}", _ci(lo_s, hi_s),
             ])
-    support = plotter.semantic_adjustment("support")
-    rows_sup = []
+    # Main = common support: its reweighting details; robustness = all pairs.
+    full = plotter.semantic_adjustment("kde")
+    rows_sup, rows_full = [], []
     for medium, attr in MEDIA:
+        ref_src = getattr(ref, attr)
         for r in regions:
             src = getattr(r, attr)
             lo_b, hi_b = plotter.semantic_support(src)
             x, _ = plotter.semantic_pairs(src, support=True)
             w = plotter.semantic_weights(src, support=True)
             m_w = w @ x
-            lo, hi = support["adjusted_ci"][src]
             rows_sup.append([
                 r.code, medium, f"[{lo_b:.3f}, {hi_b:.3f}]", f"{len(x)}/{len(plotter.semantic_pairs(src)[0])}",
                 f"{m_w:.3f}", f"{np.sqrt(w @ (x - m_w) ** 2):.3f}",
                 "" if r is ref else f"{sa.effective_sample_size(w):.1f}",
-                f"{sem['adjusted'][src]:.3f}", f"{support['adjusted'][src]:.3f}", _ci(lo, hi),
             ])
+            xa, ya = plotter.semantic_pairs(src)
+            lo, hi = full["adjusted_ci"][src]
+            ess = "" if r is ref else f"{sa.effective_sample_size(sa.density_ratio_weights(plotter.semantic_pairs(ref_src)[0], xa)):.1f}"
+            rows_full.append([r.code, medium, f"{xa.mean():.3f}", f"{full['raw'][src]:.3f}",
+                              f"{full['adjusted'][src]:.3f}", _ci(lo, hi), ess])
+        a_ref = full["adjusted"][getattr(ref, attr)]
+        for r in regions:
+            if r is ref:
+                continue
+            src = getattr(r, attr)
+            rows_full.append([f"{ref.code} - {r.code}", medium, "", f"{full['raw'][ref_src] - full['raw'][src]:.3f}",
+                              f"{a_ref - full['adjusted'][src]:.3f}", "gap; ratio "
+                              f"{a_ref / full['adjusted'][src]:.2f}", ""])
+    rows_gapm = []
+    for medium, attr in MEDIA:
+        a_ref = sem["adjusted"][getattr(ref, attr)]
+        for r in regions:
+            if r is ref:
+                continue
+            src = getattr(r, attr)
+            rows_gapm.append([f"{ref.code} - {r.code}", medium, f"{a_ref - sem['adjusted'][src]:.3f}",
+                              f"{a_ref / sem['adjusted'][src]:.2f}"])
     lines += _part(
         f"PART 9. Mean |r| with semantic similarity held fixed at the {ref.code} distribution (Fig 2G)",
         sem_sources,
         [
+            "MAIN = COMMON SUPPORT (since 2026-11-18): within each medium only the pairs whose similarity lies in",
+            "  the range every society covers [largest minimum, smallest maximum] are kept, for all societies",
+            f"  including the {ref.code} (whose value is then the mean |r| of its kept pairs); bounds fixed from the",
+            "  observed pairs, bootstrap resamples drawn from the kept pairs. The reweighting below is applied to the",
+            "  kept pairs. Robustness: the same reweighting on all pairs (full range; table at the end).",
             f"Within each medium, reweight every other society's {n_pairs} pairs so their semantic similarities are",
             f"distributed like the {ref.code} pairs' (DiNardo-Fortin-Lemieux reweighting):",
             f"  weight_j = f_{ref.code}(sim_j) / f_other(sim_j), both densities Gaussian KDEs (Scott bandwidth),",
@@ -470,30 +499,34 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
             f"  the reweighted similarity distribution is close to, not identical with, the {ref.code} one (Part 11).",
             f"Sensitivity - quintile strata: {ref.code} similarity quintiles, each weighted by its {ref.code} share",
             f"  (other pairs outside the {ref.code} range dropped); same bootstrap.",
-            "Robustness - common support (Fig 2s support): within each medium keep only the pairs whose similarity",
-            "  lies in the range every society covers [largest minimum, smallest maximum], for all societies",
-            f"  including the {ref.code}; then the same density-ratio reweighting to the kept {ref.code} pairs. The {ref.code}",
-            "  value is the mean |r| of its kept pairs. Bounds fixed from the observed pairs; bootstrap resamples",
-            "  drawn from the kept pairs. Reweighted mean / SD of similarity: weighted moments of the kept pairs",
-            f"  (the {ref.code} row gives the target).",
+            "Common-support details: bounds, pairs kept, reweighted mean / SD of similarity of the kept pairs",
+            f"  (the {ref.code} row gives the target), ESS.",
+            "Robustness - full range (SI fig2_fullrange): the same density-ratio reweighting on all pairs; the",
+            f"  {ref.code} value is its raw mean over all pairs.",
+            "Gap and ratio at equal similarity: adjusted mean |r| of the reference minus / over that of the other.",
         ],
-        _table(["Country", "Medium", "Source", "Mean sim", "Raw mean |r|", "Adjusted mean |r|", "95% CI",
-                "ESS"], rows_main)
-        + ["", "Gap decomposition (main method):"]
+        _table(["Country", "Medium", "Source", "Pairs kept", "Mean sim (kept)", "Raw mean |r| (kept)",
+                "Adjusted mean |r|", "95% CI", "ESS"], rows_main)
+        + ["", "Gap and ratio at equal similarity (main, common support):"]
+        + _table(["Comparison", "Medium", "Gap", "Ratio"], rows_gapm)
+        + ["", "Gap decomposition (main, kept pairs):"]
         + _table(["Comparison", "Medium", "Raw gap", "Similarity mix", "Society", "Society share"], rows_gap)
-        + ["", "Sensitivity - adjusted mean |r| by method:"]
+        + ["", "Sensitivity - adjusted mean |r| by method (density ratio on the kept pairs vs quintile strata on all pairs):"]
         + _table(["Country", "Medium", "Density ratio (main)", "95% CI", "Quintile strata", "95% CI"],
                  rows_alt)
-        + ["", "Robustness - common support:"]
+        + ["", "Common-support details:"]
         + _table(["Country", "Medium", "Support", "Pairs kept", "Reweighted sim mean", "Reweighted sim SD",
-                  "ESS", "Main adjusted |r|", "Common-support |r|", "95% CI"], rows_sup),
+                  "ESS"], rows_sup)
+        + ["", "Robustness - full similarity range (all pairs):"]
+        + _table(["Country", "Medium", "Mean sim", "Raw mean |r|", "Adjusted mean |r|", "95% CI", "ESS"],
+                 rows_full),
     )
 
     # Part 10 - Shapley decomposition (text only, no figure panel)
     rows, rows_alt = [], []
     for medium, attr in MEDIA:
         sources = [getattr(r, attr) for r in regions]
-        data = [v4.similarity_pairs(s, plotter.embedding_type, plotter.correlation_year(s)) for s in sources]
+        data = [plotter.semantic_pairs(s, support=main_support) for s in sources]
         groups = np.concatenate([np.full(len(x), i) for i, (x, _) in enumerate(data)])
         x_all = np.concatenate([x for x, _ in data])
         r_all = np.concatenate([y for _, y in data])
@@ -513,7 +546,7 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
         ])
     lines += _part(
         "PART 10. Variance decomposition: society vs semantic similarity (Shapley R^2; text, no figure)",
-        ["Same pairs as Part 9."],
+        ["Same pairs as Part 9 (main: the common-support pairs)."],
         [
             "Pool the pairs of one medium across societies; outcome Fisher z = arctanh(|r|) (as in Part 5).",
             "Linear regression on society (dummies) and semantic similarity (linear). R^2 of each subset:",
@@ -521,7 +554,7 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
             "Shapley share of a factor = mean of its R^2 gain over the two entry orders, e.g.",
             "  society = [R^2(society) + R^2(both) - R^2(similarity)] / 2; the two shares add up to R^2(both).",
             "Unexplained = 1 - R^2(both) (topic-pair differences not captured by society or similarity).",
-            "Society alone = eta^2 of Part 5.",
+            "Society alone = eta^2 on the same pairs (Part 5 gives it on all pairs).",
             sem_boot_note,
             "Sensitivity: each factor entered first / last (the two bounds the Shapley share averages),",
             "  and the same decomposition on |r| instead of Fisher z.",
@@ -568,7 +601,8 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
             "  (raw pairs) or the Part 9 weights (reweighted); slope SE and two-sided p from the t distribution",
             "  (WLS treats the weights as known); weighted R^2.",
             "Spearman rho of |r| and similarity over each source's pairs (raw pairs only; scipy.stats.spearmanr,",
-            "  two-sided p) - the rank correlations quoted in the main text.",
+            "  two-sided p), all pairs; and on the common-support pairs (the pairs Fig 2F fits; main text since",
+            "  2026-11-18).",
             f"The LOESS version draws a local-linear fit (tricube kernel over the nearest {plotter.loess_frac:.0%} of",
             "  the pairs, kernel times the pair weights, no robustness iterations) in place of the lines;",
             "  descriptive only, no numbers reported.",
@@ -578,7 +612,14 @@ def build_report(plotter: "v4.Plotter", n_boot: int = DEFAULT_N_BOOT, header: st
                   "Reweighted mean", "Reweighted SD", "ESS"], rows_sim)
         + ["", "OLS |r| ~ similarity, raw and reweighted pairs:"]
         + _table(["Country", "Medium", "Pairs used", "Intercept", "Slope", "SE", "p", "R^2", "Spearman rho", "p",
-                  "N"], rows_ols),
+                  "N"], rows_ols)
+        + ["", "Spearman rho of |r| and similarity on the common-support pairs (Fig 2F; main text):"]
+        + _table(["Country", "Medium", "Pairs", "Spearman rho", "p"], [
+            [r.code, medium, str(len(xs)), f"{rho.statistic:+.2f}", f"{rho.pvalue:.2f}"]
+            for medium, attr in MEDIA for r in regions
+            for xs, ys in [plotter.semantic_pairs(getattr(r, attr), support=True)]
+            for rho in [spearmanr(xs, ys)]
+        ]),
     )
 
     # Part 12 - topic-specific agreement between the U.S. and British sources
