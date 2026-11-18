@@ -1948,7 +1948,8 @@ class Plotter:
             Line2D([0], [0], color=self.country_color[c], lw=4, label=c)
             for c in countries
         ]
-        ax.legend(handles=handles, loc=legend_loc, fontsize=9, framealpha=0.95)
+        if legend_loc:
+            ax.legend(handles=handles, loc=legend_loc, fontsize=9, framealpha=0.95)
 
     def _half_violin_panel(
         self,
@@ -2287,6 +2288,7 @@ class Plotter:
 
     def _adjusted_mean_panel(
         self, ax, method: str = "kde", title: str = "Semantic similarity held fixed",
+        legend_loc: str = "upper right",
     ) -> None:
         """Mean |r| per society and medium after reweighting each society's
         topic pairs to the U.S. similarity distribution (Fig 2G; ``method``
@@ -2301,7 +2303,7 @@ class Plotter:
             title=title,
             ylim=(0, max(0.45, np.ceil(hi * 1.1 / 0.05) * 0.05)),
             connect=True, range_span=True, intervals=intervals,
-            legend_loc="upper right",
+            legend_loc=legend_loc,
         )
 
     # -- Figure 1 ------------------------------------------------------------
@@ -2351,14 +2353,18 @@ class Plotter:
                 selected U.S./partner pair (GB, or CN without GB), offline and online (a, b); plus two word
                 Venns anchoring 'semantic similarity = 0.X' in concrete
                 US-Twitter TF-IDF keywords (c = low, d = high).
-            Row 2 (generalization, three panels): per-country half-violin of
-                pair |r| with mean marker (e offline, f online); mean |r| with
-                each society's pairs reweighted to the U.S. similarity
-                distribution (g). The trend lines and the before / after
-                distributions behind (g) are in supplementary Fig 2s.
+            Row 2 (generalization, four columns): (e) the |r| distribution
+                of every source as overlapping vertical ridges, surveys left,
+                platforms right; (f, two axes spanning two columns) |r|
+                against semantic similarity with one LOESS curve per society,
+                surveys and platforms, common similarity support shaded; (g)
+                mean |r| with each society's pairs reweighted to the U.S.
+                similarity distribution, with an inset of the similarity
+                distributions before and after reweighting. Details of (g)
+                are in supplementary Fig 2s.
 
         Robustness checks (``pedagogical=False``) drop the tutorial row,
-        leaving the three generalization panels (a-c) in one row.
+        leaving the generalization row (a-c).
         """
         plt.rcParams["font.family"] = "Times New Roman"
         offline_sources = [r.survey for r in self.regions]
@@ -2369,7 +2375,7 @@ class Plotter:
             gs = fig.add_gridspec(
                 2, 4, height_ratios=[1.0, 0.82], hspace=0.32, wspace=0.32,
             )
-            bottom = gs[1, :].subgridspec(1, 3, wspace=0.28)
+            bottom = gs[1, :].subgridspec(1, 4, wspace=0.32)
             bottom_labels = ("e", "f", "g")
 
             # Row 1: tutorial — two scatter+regression panels + two word Venns.
@@ -2407,22 +2413,154 @@ class Plotter:
             self._label_panel(ax_venn_high, "d", x=-0.04, y=1.02)
         else:
             fig = plt.figure(figsize=(17, 4.8))
-            bottom = fig.add_gridspec(1, 3, wspace=0.28)
+            bottom = fig.add_gridspec(1, 4, wspace=0.32)
             bottom_labels = ("a", "b", "c")
 
-        ax_v_off = fig.add_subplot(bottom[0, 0])
-        ax_v_on = fig.add_subplot(bottom[0, 1])
-        ax_adj = fig.add_subplot(bottom[0, 2])
-        self._half_violin_panel(
-            ax_v_off, offline_sources, panel_label="Offline (Surveys)",
-        )
-        self._half_violin_panel(
-            ax_v_on, online_sources, panel_label="Online (Social Media)",
-        )
-        self._adjusted_mean_panel(ax_adj)
-        for ax, letter in zip((ax_v_off, ax_v_on, ax_adj), bottom_labels):
+        ax_ridge = fig.add_subplot(bottom[0, 0])
+        loess_gs = bottom[0, 1:3].subgridspec(1, 2, wspace=0.08)
+        ax_fit_off = fig.add_subplot(loess_gs[0, 0])
+        ax_fit_on = fig.add_subplot(loess_gs[0, 1], sharey=ax_fit_off)
+        ax_adj = fig.add_subplot(bottom[0, 3])
+        self._ridge_panel(ax_ridge, offline_sources, online_sources)
+        self._loess_panel(ax_fit_off, offline_sources, panel_label="Offline (Surveys)", y_label=True)
+        self._loess_panel(ax_fit_on, online_sources, panel_label="Online (Social Media)", y_label=False)
+        self._adjusted_mean_panel(ax_adj, legend_loc=None)
+        self._reweighting_inset(ax_adj, offline_sources, online_sources)
+        for ax, letter in zip((ax_ridge, ax_fit_off, ax_adj), bottom_labels):
             self._label_panel(ax, letter)
         return fig
+
+    RIDGE_STEP = 0.55     # spacing of two societies' ridges within a medium
+    RIDGE_WIDTH = 1.0     # largest ridge width (density scaled to it)
+
+    def _ridge_panel(self, ax, offline_sources: Sequence[str], online_sources: Sequence[str]) -> None:
+        """|r| distribution of every source as a vertical ridge (KDE opening
+        to the right of its own baseline), surveys left and platforms right.
+        A medium's ridges overlap, so their peaks can be compared directly;
+        each ridge's mean is a white dashed line, its value written in the
+        society's colour."""
+        grid = np.linspace(0.0, 0.7, 260)
+        group_gap = self.RIDGE_STEP * (len(self.regions) - 1) + self.RIDGE_WIDTH + 0.35
+        centers = []
+        for m, sources in enumerate((offline_sources, online_sources)):
+            base = m * group_gap
+            centers.append(base + self.RIDGE_STEP * (len(sources) - 1) / 2 + 0.35)
+            for i, src in enumerate(sources):
+                code = self.source_country[src]
+                color = self.country_color[code]
+                x0 = base + i * self.RIDGE_STEP
+                y = self.pair_correlations(src)["correlation"].to_numpy()
+                y = y[np.isfinite(y)]
+                if len(y) < 3:
+                    continue
+                dens = gaussian_kde(y)(grid)
+                dens = dens / dens.max() * self.RIDGE_WIDTH
+                ax.fill_betweenx(grid, x0, x0 + dens, color=color, alpha=0.72, linewidth=0, zorder=2 + i)
+                ax.plot(x0 + dens, grid, color="white", linewidth=1.2, zorder=2 + i)
+                ax.plot([x0, x0], [0, 0.7], color=color, linewidth=0.6, alpha=0.5, zorder=1)
+                mean_v = float(y.mean())
+                reach = float(dens[np.argmin(np.abs(grid - mean_v))])
+                ax.plot([x0, x0 + reach], [mean_v, mean_v], color="white", linewidth=1.6,
+                        linestyle=(0, (3, 2)), zorder=2 + i)
+                ax.text(x0 + reach + 0.03, mean_v, f"{mean_v:.3f}", color=color, fontsize=8.5, va="center",
+                        zorder=10, bbox=dict(boxstyle="square,pad=0.05", facecolor="white", edgecolor="none", alpha=0.8))
+        ax.set_xticks(centers)
+        ax.set_xticklabels([self._OFFLINE_LABEL, self._ONLINE_LABEL], fontsize=11, fontweight="bold")
+        ax.set_xlim(-0.15, group_gap + self.RIDGE_STEP * (len(self.regions) - 1) + self.RIDGE_WIDTH + 0.1)
+        ax.set_ylim(0, 0.7)
+        ax.set_ylabel("|r|", fontsize=12, fontweight="bold")
+        ax.set_title("Pair correlations", fontsize=12, fontweight="bold")
+        handles = [Line2D([0], [0], color=self.country_color[r.code], lw=6, alpha=0.72, label=r.code)
+                   for r in self.regions]
+        ax.legend(handles=handles, loc="upper right", fontsize=9, frameon=False)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+
+    def _loess_panel(self, ax, sources: Sequence[str], *, panel_label: str, y_label: bool) -> None:
+        """|r| against semantic similarity for one medium: the pairs as faint
+        points and, per society, the mean of ``n_bootstrap`` LOWESS curves
+        (span ``loess_frac``, pairs resampled; seed 7) with its pointwise 95%
+        band. Dotted lines bound the similarity range every society of the
+        medium covers (common support)."""
+        rng = np.random.default_rng(7)
+        for bound in self.semantic_support(sources[0]):
+            ax.axvline(bound, color="0.55", linewidth=0.8, linestyle=(0, (1, 2)), zorder=1)
+        for src in sources:
+            color = self.country_color[self.source_country[src]]
+            x, y = self.semantic_pairs(src)
+            ax.scatter(x, y, s=16, color=color, alpha=0.3, edgecolors="none", zorder=2)
+            grid, mean, lo, hi = bootstrap_lowess_ci(x, y, frac=self.loess_frac, n_bootstrap=self.n_bootstrap, rng=rng)
+            if grid is None:
+                continue
+            ax.fill_between(grid, lo, hi, color=color, alpha=0.13, linewidth=0, zorder=2)
+            ax.plot(grid, mean, color=color, linewidth=2.6, zorder=3)
+        ax.set_xlabel("Semantic similarity of the topic pair", fontsize=11)
+        if y_label:
+            ax.set_ylabel("|r|", fontsize=12, fontweight="bold")
+        else:
+            ax.tick_params(labelleft=False)
+        ax.set_ylim(0, 0.7)
+        ax.set_title(panel_label, fontsize=12, fontweight="bold")
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+
+    def _reweighting_inset(self, ax, offline_sources: Sequence[str], online_sources: Sequence[str]) -> None:
+        """Two small insets in the upper right of Fig 2G: per medium, the
+        similarity density of the reference society (shaded) and of the other
+        societies before (dotted) and after (solid) reweighting."""
+        ref_code = self.semantic_reference().code
+        for k, (sources, title) in enumerate(((offline_sources, "Surveys"), (online_sources, "Social media"))):
+            ins = ax.inset_axes([0.47 + 0.28 * k, 0.56, 0.23, 0.19])
+            xs = np.concatenate([self.semantic_pairs(s)[0] for s in sources])
+            grid = np.linspace(xs.min() - 0.05, xs.max() + 0.05, 200)
+            for src in sources:
+                code = self.source_country[src]
+                color = self.country_color[code]
+                x, _ = self.semantic_pairs(src)
+                raw = gaussian_kde(x)(grid)
+                if code == ref_code:
+                    ins.fill_between(grid, raw, color=color, alpha=0.25, linewidth=0)
+                    ins.plot(grid, raw, color=color, linewidth=1.2)
+                    continue
+                ins.plot(grid, raw, color=color, linewidth=0.9, linestyle=(0, (1.5, 1.5)))
+                ins.plot(grid, gaussian_kde(x, weights=self.semantic_weights(src))(grid), color=color, linewidth=1.4)
+            ins.set_title(title, fontsize=7.5, pad=2)
+            ins.set_xlabel("similarity", fontsize=6.5, labelpad=1)
+            ins.set_yticks([])
+            ins.tick_params(labelsize=6, length=2, pad=1)
+            ins.set_ylim(bottom=0)
+            for side in ("top", "right", "left"):
+                ins.spines[side].set_visible(False)
+        ax.text(0.72, 0.80, "Similarity distributions\n(dotted: raw, solid: reweighted to US)",
+                transform=ax.transAxes, ha="center", va="bottom", fontsize=7, color="0.3")
+
+    LOESS_SPANS = (0.3, 0.4, 0.5, 0.7)
+
+    def make_fig2_loess_spans(self, task_name: str = "main") -> Path:
+        """SI figure: Fig 2F at LOESS spans ``LOESS_SPANS`` (columns; the
+        main span is 0.4), surveys (top row) and platforms (bottom row)."""
+        plt.rcParams["font.family"] = "Times New Roman"
+        offline = [r.survey for r in self.regions]
+        online = [r.social for r in self.regions]
+        fig, axes = plt.subplots(2, len(self.LOESS_SPANS), figsize=(4 * len(self.LOESS_SPANS), 7.6),
+                                 sharey=True, gridspec_kw=dict(hspace=0.42, wspace=0.08))
+        main_frac = self.loess_frac
+        try:
+            for j, frac in enumerate(self.LOESS_SPANS):
+                self.loess_frac = frac
+                tag = " (main)" if np.isclose(frac, main_frac) else ""
+                self._loess_panel(axes[0, j], offline, panel_label=f"Surveys, span {frac}{tag}", y_label=j == 0)
+                self._loess_panel(axes[1, j], online, panel_label=f"Social media, span {frac}{tag}", y_label=j == 0)
+        finally:
+            self.loess_frac = main_frac
+        handles = [Line2D([0], [0], color=self.country_color[r.code], lw=2.6, label=r.code) for r in self.regions]
+        axes[0, -1].legend(handles=handles, loc="upper right", fontsize=9, frameon=False)
+        for ax, letter in zip(axes.ravel(), "abcdefgh"):
+            self._label_panel(ax, letter, x=-0.06)
+        path = self._output_path(task_name, "fig2_loess_spans")
+        fig.savefig(path, format="pdf", bbox_inches="tight")
+        plt.close(fig)
+        return path
 
     def make_fig2(self, task_name: str = "main", fig_name: str = "fig2") -> Path:
         """Build and save Figure 2; returns the saved PDF path."""
@@ -2775,7 +2913,9 @@ class Plotter:
         "lower rank\nmore collapsed", "higher rank\nless collapsed",
     )
 
-    def _spectral_dash_panels(self, pr_ax, erank_ax, normalize: bool = False) -> None:
+    def _spectral_dash_panels(self, pr_ax, erank_ax, normalize: bool = False,
+                              ylim: Optional[Tuple[float, float]] = None,
+                              title: Optional[str] = None) -> None:
         """PR and eRank (effective number of dimensions, out of K topics) by
         society and medium (Fig 3 B; the SI figure ``make_fig3_erank``).
         ``erank_ax`` may be None (main Fig 3: PR only). With ``normalize`` the values and
@@ -2816,15 +2956,15 @@ class Plotter:
 
         labels = ((f"PR/K (K = {k})", f"eRank/K (K = {k})") if normalize
                   else (f"Effective dimensions (of K = {k})",) * 2)
-        for ax, metric, y_label, title in (
-            (pr_ax, "PR", labels[0], "Participation ratio"),
+        for ax, metric, y_label, panel_title in (
+            (pr_ax, "PR", labels[0], title or "Participation ratio"),
             (erank_ax, "eRank", labels[1], "Exponential rank"),
         ):
             if ax is None:
                 continue
             self._aligned_dash_plot(
                 ax, means[metric],
-                y_label=y_label, title=title, ylim=metric_ylim(metric),
+                y_label=y_label, title=panel_title, ylim=ylim or metric_ylim(metric),
                 decimals_fn=lambda src: 3 if normalize else 2, invert_y=True,
                 connect=True, range_span=True,
                 direction_notes=self._SPECTRAL_DIRECTION_NOTES,
@@ -2835,13 +2975,18 @@ class Plotter:
         """Construct Figure 3.
 
         With ``pedagogical`` (the default, used by the main figure):
-            (a) three toy opinion clouds, unbundled -> strongly bundled, each
-                with its normalized PR: bundling concentrates variation in
-                fewer directions.
-            (b) participation ratio by society and medium; each society's two
-                dashes joined by a thin segment, the cross-societal range per
-                medium shaded. The exponential rank is the SI figure
-                ``make_fig3_erank``.
+            (a) toy column, two topics: axes at right angles (unbundled vs
+                bundled opinions) and axes leaning together (topics that
+                overlap in meaning give correlated scores without bundling);
+                each toy panel states its semantic PR and opinion PR.
+            (b) semantic PR of each source's nine topics (PR of the cosine
+                matrix of the topic centroids); no joining segment, since
+                semantic PR is compared within a medium only. Keyword-set
+                sensitivity is in the SI.
+            (c) opinion PR by society and medium (bars: 95% bootstrap).
+            B and C share one inverted y-range; each society's two dashes are
+            joined by a thin segment, the cross-societal range per medium
+            shaded. eRank: the SI figure ``make_fig3_erank``.
 
         Robustness checks (``pedagogical=False``) show PR and eRank side by
         side (a, b), as ``_build_fig3_pair``.
@@ -2851,34 +2996,122 @@ class Plotter:
         if not self.pedagogical:
             return self._build_fig3_pair()
 
-        fig = plt.figure(figsize=(13, 10))
-        gs = fig.add_gridspec(2, 1, height_ratios=[0.8, 1.0], hspace=0.30)
+        fig = plt.figure(figsize=(15, 6.4))
+        gs = fig.add_gridspec(1, 3, width_ratios=[1.1, 1.0, 1.0], wspace=0.32)
 
-        # (a) toy clouds in one shared 3D coordinate system; the plate / line
-        # variants overlay their supporting subspace so the collapse is
-        # explicit. The normalized PR is computed on the very sample shown.
-        clouds_gs = gs[0].subgridspec(1, len(self._TOY_CLOUDS), wspace=0.05)
-        for j, ((_, eigs, rendering), title) in enumerate(
-            zip(self._TOY_CLOUDS, self._TOY_BUNDLING_TITLES)
-        ):
-            seed = 101 + j
-            ax = fig.add_subplot(clouds_gs[0, j], projection="3d")
-            self._toy_cloud_panel(ax, eigs, title=title, seed=seed, rendering=rendering)
-            lam = np.maximum(pca_loadings(self._sample_toy_cloud(eigs, seed=seed))["eigenvalues"], 0.0)
-            ax.text2D(
-                0.5, -0.04,
-                f"PR = {participation_ratio(lam):.2f}   (K = {len(lam)} opinions)",
-                transform=ax.transAxes, ha="center", va="top", fontsize=11,
+        # (a) toy column: two topics, two rows of two panels.
+        toy = gs[0].subgridspec(2, 2, hspace=0.62, wspace=0.12)
+        axes = [[fig.add_subplot(toy[i, j]) for j in range(2)] for i in range(2)]
+        self._toy_axes_column(axes)
+        self._label_panel(axes[0][0], "a", x=-0.18, y=1.42)
+
+        # (b) semantic PR, (c) opinion PR of the real data, one shared y-range.
+        sem_ax = fig.add_subplot(gs[1])
+        pr_ax = fig.add_subplot(gs[2])
+        sem = self.semantic_rank_values()
+        opinion = self._spectral_means("PR")
+        lows = list(opinion.values()) + [v for lo_hi in self._opinion_pr_intervals().values() for v in lo_hi]
+        if sem is not None:
+            lows += list(sem[0].values())
+        ylim = (np.floor((min(lows) - 0.3) / 0.5) * 0.5, np.ceil((max(lows) + 0.3) / 0.5) * 0.5)
+        k = len(RESTRICTED_TOPICS[self.regions[0].survey])
+        if sem is not None:
+            self._aligned_dash_plot(
+                sem_ax, sem[0], y_label=f"Effective dimensions (of K = {k})",
+                title="Topic meanings (semantic PR)", ylim=ylim,
+                decimals_fn=lambda src: 2, invert_y=True, connect=False, range_span=True,
+                direction_notes=self._SPECTRAL_DIRECTION_NOTES,
             )
-            if j == 0:
-                self._label_panel(ax, "a", x=-0.05, y=1.04)
-
-        # (B) PR of the real data, at its former width, centred under the clouds.
-        dash_gs = gs[1].subgridspec(1, 3, width_ratios=[0.29, 0.42, 0.29])
-        pr_ax = fig.add_subplot(dash_gs[0, 1])
-        self._spectral_dash_panels(pr_ax, None)
-        self._label_panel(pr_ax, "b", x=-0.08)
+        else:
+            sem_ax.text(0.5, 0.5, "semantic rank not computed\n(analysis.semantic.semantic_rank)",
+                        transform=sem_ax.transAxes, ha="center", va="center", color="0.5")
+            sem_ax.set_axis_off()
+        self._spectral_dash_panels(pr_ax, None, ylim=ylim, title="Opinions (opinion PR)")
+        self._label_panel(sem_ax, "b", x=-0.10)
+        self._label_panel(pr_ax, "c", x=-0.10)
         return fig
+
+    # Toy column of Fig 3A: two topics (K = 2).
+    _TOY_AXIS_ANGLE = 35.0      # degrees between the two topic axes in row 2
+    _TOY_BUNDLED_R = 0.9        # opinion correlation of the bundled cloud in row 1
+    _TOY_N = 400
+
+    def _toy_axes_column(self, axes) -> None:
+        """Fig 3A. Row 1, topic axes at right angles (topics distinct in
+        meaning): an unbundled and a bundled opinion cloud. Row 2, topic axes
+        leaning together (topics overlap in meaning): opinions spread evenly
+        in meaning space (left) give correlated scores on the two topics
+        (right), a cloud as narrow as the bundled one. Each panel states its
+        semantic PR (dimensions of the topic axes: PR of their cosine matrix)
+        and opinion PR (dimensions of the points: PR of the score
+        covariance), the two quantities of panels B and C."""
+        rng = np.random.default_rng(11)
+        Z = rng.standard_normal((self._TOY_N, 2))
+        Z = (Z - Z.mean(0)) / Z.std(0)
+        r = self._TOY_BUNDLED_R
+        L = np.linalg.cholesky(np.array([[1.0, r], [r, 1.0]]))
+        half = np.radians(self._TOY_AXIS_ANGLE / 2)
+        lean = np.array([[np.cos(np.pi / 4 - half), np.sin(np.pi / 4 - half)],
+                         [np.cos(np.pi / 4 + half), np.sin(np.pi / 4 + half)]])   # unit topic axes (rows)
+        right = np.eye(2)
+
+        def pr_of(M):
+            return participation_ratio(np.linalg.eigvalsh(M))
+
+        panels = [
+            # (row, col, points to draw, topic axes drawn, scores for opinion PR, title)
+            (0, 0, Z, right, Z, "Unbundled"),
+            (0, 1, Z @ L.T, right, Z @ L.T, "Bundled opinions"),
+            (1, 0, Z, lean, Z @ lean.T, "Opinions in meaning space"),
+            (1, 1, Z @ lean.T, right, Z @ lean.T, "Their scores on the two topics"),
+        ]
+        bound = 3.4
+        for i, j, pts, ax_vecs, scores, title in panels:
+            ax = axes[i][j]
+            ax.scatter(pts[:, 0], pts[:, 1], c=np.linalg.norm(pts, axis=1), cmap=self._TOY_CMAP,
+                       s=7, alpha=0.8, edgecolors="none")
+            for n, v in enumerate(ax_vecs):
+                ax.annotate("", xy=tuple(2.9 * v), xytext=(0, 0),
+                            arrowprops=dict(arrowstyle="-|>", color="0.2", lw=1.3))
+                ax.text(*(3.25 * v), f"topic {n + 1}", fontsize=8, ha="center", va="center", color="0.2")
+            semantic = pr_of(ax_vecs @ ax_vecs.T) if (i, j) != (1, 1) else pr_of(lean @ lean.T)
+            opinion = pr_of(np.cov(scores, rowvar=False))
+            note = (f"semantic PR {semantic:.2f}\n(opinions spread evenly)" if (i, j) == (1, 0)
+                    else f"semantic PR {semantic:.2f}\nopinion PR {opinion:.2f}")
+            ax.text(0.5, -0.08, note, transform=ax.transAxes, ha="center", va="top", fontsize=8.5)
+            ax.set_xlim(-bound, bound)
+            ax.set_ylim(-bound, bound)
+            ax.set_aspect("equal")
+            ax.set_xticks([]); ax.set_yticks([])
+            for side in ax.spines.values():
+                side.set_visible(False)
+            ax.set_title(title, fontsize=9.5, fontweight="bold", pad=3)
+        axes[0][0].text(0.0, 1.30, "Topics distinct in meaning (axes at right angles)", transform=axes[0][0].transAxes,
+                        fontsize=10, fontstyle="italic", ha="left")
+        axes[1][0].text(0.0, 1.30, "Topics overlap in meaning (axes lean together)", transform=axes[1][0].transAxes,
+                        fontsize=10, fontstyle="italic", ha="left")
+
+    def semantic_rank_values(self):
+        """({src: semantic PR}, {src: (min, max) over keyword sets}) from
+        analysis.semantic.semantic_rank, or None when a source is missing."""
+        from analysis.semantic.semantic_rank import load_results
+
+        res = load_results()
+        sources = [s for r in self.regions for s in (r.survey, r.social)]
+        if not all(parent_source(s) in res for s in sources):
+            return None
+        values = {s: res[parent_source(s)]["main"]["PR"] for s in sources}
+        ranges = {s: tuple(res[parent_source(s)]["range"]["PR"]) for s in sources}
+        return values, ranges
+
+    def _opinion_pr_intervals(self) -> Dict[str, Tuple[float, float]]:
+        out = {}
+        for r in self.regions:
+            for src in (r.survey, r.social):
+                b = load_spectral_bootstrap(src, self.spectral_matrix, self.spectral_year(src))
+                if b is not None:
+                    out[src] = (b["PR_lo"], b["PR_hi"])
+        return out
 
     def _build_fig3_pair(self) -> Figure:
         """PR (a) and eRank (b) side by side: robustness Fig 3 and the SI
@@ -2919,7 +3152,7 @@ TASKS: List[Dict] = [
         "name": "main",
         "us_survey": "anes", "cn_survey": "wvs", "gb_survey": "en_evs",
         "gbtwitter_src": "entwitter", "embedding_type": "gpt",
-        "figures": [2, 3, "3_erank"],
+        "figures": [2, "2_loess_spans", 3, "3_erank"],
     },
     {
         # Supplementary Figs 2s: Fig 2G's reweighting in detail - similarity

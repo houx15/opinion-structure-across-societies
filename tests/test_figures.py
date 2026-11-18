@@ -644,24 +644,29 @@ def test_make_fig2_writes_pdf_with_expected_naming(tmp_figure_folder):
 
 
 def test_make_fig2_bottom_row_has_three_panels_without_pair_callouts(tmp_figure_folder):
-    """Bottom row = two half-violins + the similarity-adjusted dash plot (G);
-    no pair callouts there (they live in the tutorial row)."""
+    """Bottom row: ridges (E), LOESS offline / online (F), similarity-adjusted
+    dash plot (G) with two reweighting insets; no pair callouts there."""
     import plotting.figures as v4
     import matplotlib.pyplot as plt
 
     plotter = v4.Plotter(
         figure_folder=str(tmp_figure_folder), date_prefix="20260513",
-        n_bootstrap=50,
+        n_bootstrap=50, countries=v4.TWO_COUNTRIES,
     )
     fig = plotter.build_fig2()
-    assert len(fig.axes) == 7
-    assert fig.axes[-1].get_title() == "Semantic similarity held fixed"
+    titles = [ax.get_title() for ax in fig.axes]
+    insets = [c.get_title() for c in fig.axes[-1].child_axes]
+    assert insets == ["Surveys", "Social media"]
+    for t in ("Pair correlations", "Semantic similarity held fixed"):
+        assert t in titles, titles
+    assert titles.count("Offline (Surveys)") == 2 and titles.count("Online (Social Media)") == 2   # A/B + F
     for ax in fig.axes[4:]:
         annotations = [t for t in ax.texts if "×" in t.get_text()]
         assert annotations == [], (
             f"bottom panel must have no pair callouts; got {[t.get_text() for t in annotations]}"
         )
     plt.close(fig)
+
 
 
 def test_word_overlap_rows_identical_words_match_at_top():
@@ -876,58 +881,6 @@ def test_make_fig3_writes_pdf_with_expected_naming(tmp_figure_folder):
     assert out_path.name == "20260513_main_results_fig3.pdf"
 
 
-def test_make_fig3_row1_all_panels_are_3d(tmp_figure_folder):
-    """Every Row-1 panel uses the same 3D coordinate system."""
-    import plotting.figures as v4
-    import matplotlib.pyplot as plt
-
-    plotter = v4.Plotter(
-        figure_folder=str(tmp_figure_folder), date_prefix="20260513",
-    )
-    fig = plotter.build_fig3()
-    for ax in fig.axes[:3]:
-        assert ax.name == "3d", f"Row 1 panel should be 3D, got {ax.name}"
-    plt.close(fig)
-
-
-def test_make_fig3_row1_plate_panel_draws_supporting_plane(tmp_figure_folder):
-    """The 'plate' panel must overlay a translucent plane (a Poly3DCollection)."""
-    import plotting.figures as v4
-    import matplotlib.pyplot as plt
-    from mpl_toolkits.mplot3d.art3d import Poly3DCollection
-
-    plotter = v4.Plotter(
-        figure_folder=str(tmp_figure_folder), date_prefix="20260513",
-    )
-    fig = plotter.build_fig3()
-    plate_ax = fig.axes[1]  # second toy panel is the plate
-    poly3d = [c for c in plate_ax.collections if isinstance(c, Poly3DCollection)]
-    assert poly3d, "plate panel must draw a 3D plane (Poly3DCollection)"
-    plt.close(fig)
-
-
-def test_make_fig3_row1_line_panel_draws_axis_segment(tmp_figure_folder):
-    """The 'line' panel must overlay a 3D segment showing the supporting line."""
-    import plotting.figures as v4
-    import matplotlib.pyplot as plt
-
-    plotter = v4.Plotter(
-        figure_folder=str(tmp_figure_folder), date_prefix="20260513",
-    )
-    fig = plotter.build_fig3()
-    line_ax = fig.axes[2]  # third toy panel is the line
-    # Among the Line3D objects, at least one should span the full x-range
-    # at constant y=z=0.
-    bound = plotter._TOY_AXIS_BOUND
-    long_segments = [
-        line for line in line_ax.get_lines()
-        if len(line.get_xdata()) == 2
-        and abs(line.get_xdata()[1] - line.get_xdata()[0]) >= 1.5 * bound
-    ]
-    assert long_segments, "line panel must include a long supporting segment"
-    plt.close(fig)
-
-
 def test_make_fig3_toy_pr_values_match_intent(tmp_figure_folder):
     """Toy clouds should produce PR ≈ 3, ≈2, ≈1 across the row."""
     import plotting.figures as v4
@@ -1110,22 +1063,37 @@ def test_word_overlap_panel_falls_back_to_live_compute_when_cache_missing(
 
 
 def test_fig2_non_pedagogical_omits_word_overlap_row(tmp_figure_folder):
-    """Robustness Fig 2 (pedagogical=False) has 4 axes and no word-overlap panel."""
+    """Robustness Fig 2 (pedagogical=False): ridges, two LOESS axes, adjusted
+    means (+ two insets); no word-overlap panel."""
     import plotting.figures as v4
     import matplotlib.pyplot as plt
 
     plotter = v4.Plotter(
         figure_folder=str(tmp_figure_folder), date_prefix="20260513",
-        n_bootstrap=50, pedagogical=False,
+        n_bootstrap=50, pedagogical=False, countries=v4.TWO_COUNTRIES,
     )
     fig = plotter.build_fig2()
-    assert len(fig.axes) == 3, (
-        f"non-pedagogical Fig 2 should have 3 axes (2 violin + adjusted means), got {len(fig.axes)}"
-    )
-    # No 'Low similarity' / 'High similarity' headers from the word-overlap panel.
+    assert [ax.get_title() for ax in fig.axes] == [
+        "Pair correlations", "Offline (Surveys)", "Online (Social Media)", "Semantic similarity held fixed",
+    ]
+    assert [c.get_title() for c in fig.axes[-1].child_axes] == ["Surveys", "Social media"]
     all_text = " ".join(t.get_text() for ax in fig.axes for t in ax.texts)
     assert "Low similarity" not in all_text and "High similarity" not in all_text
     plt.close(fig)
+
+
+def test_fig2_loess_spans_figure_restores_span(tmp_figure_folder):
+    """SI figure: Fig 2F at four LOESS spans, surveys and platforms; the
+    plotter's span is restored afterwards."""
+    import plotting.figures as v4
+
+    plotter = v4.Plotter(figure_folder=str(tmp_figure_folder), date_prefix="20260513",
+                         n_bootstrap=20, countries=v4.TWO_COUNTRIES)
+    path = Path(plotter.make_fig2_loess_spans(task_name="main"))
+    assert path.name == "20260513_main_results_fig2_loess_spans.pdf" and path.stat().st_size > 0
+    assert plotter.loess_frac == 0.4
+    assert 0.4 in v4.Plotter.LOESS_SPANS
+
 
 
 
@@ -1165,17 +1133,24 @@ def test_semantic_weights_reproduce_the_adjusted_means(tmp_figure_folder):
     assert v4.task_names("main") == ["main", "supp_semantic"]
 
 def test_main_fig3_shows_pr_only_and_si_figure_adds_erank(tmp_figure_folder):
-    """Main Fig 3: three toy clouds + one PR panel (no eRank). The SI figure
-    make_fig3_erank has PR (a) and eRank (b); the main task lists it."""
+    """Main Fig 3: four 2D toy panels (axes at right angles / leaning
+    together), semantic PR (B) and opinion PR (C) on one y-range, no eRank.
+    The SI figure make_fig3_erank has PR (a) and eRank (b)."""
     import plotting.figures as v4
     import matplotlib.pyplot as plt
 
-    plotter = v4.Plotter(figure_folder=str(tmp_figure_folder), date_prefix="20260513")
+    plotter = v4.Plotter(figure_folder=str(tmp_figure_folder), date_prefix="20260513",
+                         countries=v4.TWO_COUNTRIES)
     fig = plotter.build_fig3()
-    flat = [ax for ax in fig.axes if ax.name != "3d"]
-    assert len(flat) == 1
-    assert flat[0].get_title() == "Participation ratio"
-    assert all(ax.get_title() != "Exponential rank" for ax in fig.axes)
+    assert all(ax.name != "3d" for ax in fig.axes)
+    titles = [ax.get_title() for ax in fig.axes]
+    assert titles[:4] == ["Unbundled", "Bundled opinions", "Opinions in meaning space",
+                          "Their scores on the two topics"]
+    assert titles[4:] == ["Topic meanings (semantic PR)", "Opinions (opinion PR)"]
+    assert fig.axes[4].get_ylim() == fig.axes[5].get_ylim()
+    assert "Exponential rank" not in titles
+    notes = " ".join(t.get_text() for ax in fig.axes[:4] for t in ax.texts)
+    assert "semantic PR 2.00" in notes and "semantic PR 1.20" in notes
     plt.close(fig)
 
     path = Path(plotter.make_fig3_erank(task_name="main"))
@@ -1183,7 +1158,8 @@ def test_main_fig3_shows_pr_only_and_si_figure_adds_erank(tmp_figure_folder):
     fig = plotter._build_fig3_pair()
     assert [ax.get_title() for ax in fig.axes] == ["Participation ratio", "Exponential rank"]
     plt.close(fig)
-    assert v4._task_by_name("main")["figures"] == [2, 3, "3_erank"]
+    assert v4._task_by_name("main")["figures"] == [2, "2_loess_spans", 3, "3_erank"]
+
 
 
 def test_fig3_non_pedagogical_keeps_only_pr_erank(tmp_figure_folder):
